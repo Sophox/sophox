@@ -110,7 +110,7 @@ class RdfHandler(osmium.SimpleHandler):
                     statements.append('osmm:isClosed "' + ('true' if obj.is_closed() else 'false') + '"^^xsd:boolean')
                     if self.addWayLoc:
                         wkb = wkbfab.create_linestring(obj)
-                        point = wkb.loads(wkb, hex=True).representative_point()
+                        point = loads(wkb, hex=True).representative_point()
                         addLocation(point, statements)
                 elif type == 'n':
                     wkb = wkbfab.create_point(obj)
@@ -272,7 +272,7 @@ if __name__ == '__main__':
 
     repserv = ReplicationServer(osmUpdatesUrl)
 
-    addLoc = False
+    addWayLoc = True
     pbfFile = None
     seqid = None
     outputDir = None
@@ -297,12 +297,20 @@ if __name__ == '__main__':
             seqid = repserv.timestamp_to_sequence(start_date)
 
     while True:
-        with RdfHandler(seqid, outputDir, addLoc) as ttlFile:
+        with RdfHandler(seqid, outputDir, addWayLoc) as ttlFile:
             if pbfFile:
-                ttlFile.apply_file(pbfFile,
-                                   locations=addLoc,
-                                   idx='dense_mmap_array,' + pbfFile + '.nodecache'
-                                   )
+                usePersistedCache = False
+                idx = None
+                if addWayLoc:
+                    # if file is under 10GB, use sparse mode
+                    if os.path.getsize(pbfFile) < 10 * 1024 * 1024 * 1024:
+                        idx = 'sparse_mem_array'
+                    elif not usePersistedCache:
+                        idx = 'dense_mmap_array'
+                    else:
+                        idx = 'dense_file_array,' + pbfFile + '.nodecache'
+
+                ttlFile.apply_file(pbfFile, locations=addWayLoc, idx=idx)
                 break
             else:
                 if not seqid:
