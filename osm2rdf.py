@@ -45,6 +45,7 @@ prefixes = [
     'prefix osmm: <https://www.openstreetmap.org/meta/>',
     'prefix wd: <http://www.wikidata.org/entity/>',
     'prefix geo: <http://www.opengis.net/ont/geosparql#>',
+    'prefix rootosm: <https://www.openstreetmap.org>',
 
     # 'prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>',
     # 'prefix xsd: <http://www.w3.org/2001/XMLSchema#>',
@@ -229,7 +230,6 @@ SELECT ?ver WHERE { rootosm: schema:version ?ver . }
 
     def get_updatever_sparql(self, ver):
         sparql = '''
-prefix rootosm: <https://www.openstreetmap.org>
 DELETE {{ rootosm: schema:version ?v . }} WHERE {{ rootosm: schema:version ?v . }};
 INSERT {{ rootosm: schema:version {0} . }} WHERE {{}};
 '''.format(ver)
