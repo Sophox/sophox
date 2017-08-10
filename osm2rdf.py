@@ -262,6 +262,7 @@ INSERT {{ rootosm: schema:version {0} . }} WHERE {{}};
         filename = os.path.join(self.path, 'osm-{0:06}.ttl.gz'.format(self.file_counter))
 
         # TODO switch to 'xt'
+        print('Saving ' + filename)
         self.output = gzip.open(filename, 'wt', compresslevel=5)
         self.file_counter += 1
 
