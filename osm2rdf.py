@@ -262,7 +262,7 @@ INSERT {{ rootosm: schema:version {0} . }} WHERE {{}};
         filename = os.path.join(self.path, 'osm-{0:06}.ttl.gz'.format(self.file_counter))
 
         # TODO switch to 'xt'
-        print('Saving ' + filename)
+        print('Exporting to {0}'.format(filename))
         self.output = gzip.open(filename, 'wt', compresslevel=5)
         self.file_counter += 1
 
@@ -328,6 +328,7 @@ if __name__ == '__main__':
     if paramCount == 3:
         pbfFile = sys.argv[1]
         outputDir = sys.argv[2]
+        print('Getting start date from {0}'.format(pbfFile))
         start_date = replication.newest_change_from_file(pbfFile)
         if start_date is None:
             raise ValueError("Cannot determine timestamp from the given pbf file")
