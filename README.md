@@ -14,3 +14,13 @@ Follow [Standalone installation steps](https://www.mediawiki.org/wiki/Wikidata_q
 * Download latest planet PBF file [from a mirror!](https://wiki.openstreetmap.org/wiki/Planet.osm)
 * Parse it with `osm2rdf planet.pbf outputdir`
 * From `service/`, run ```./loadRestAPI.sh -d `pwd`/../outputdir -h http://localhost:9998``` 
+
+
+# Notes
+yuri@tileserv:/mnt/tiles/wikidata/service-0.2.4$ ./runBlazegraph.sh
+yuri@tileserv:/mnt/tiles/wikidata/service-0.2.4$ ./runUpdate.sh
+yuri@tileserv:/mnt/tiles/openmaptilestileserver-gl-light planet_z0_z14.mbtiles 
+yuri@tileserv:/mnt/tiles/osm2rdf$ python3 osm2rdf.py 
+yuri@tileserv:/mnt/tiles/wikidata/service-0.2.5-SNAPSHOT$ ./runBlazegraph.sh -p 9998
+yuri@tileserv:/mnt/tiles/wikidata/service-0.2.5-SNAPSHOT$ ./runUpdate.sh 
+yuri@tileserv:/mnt/tiles/osm2rdf$ python3 osm2rdf.py /mnt/backup/planet-latest.osm.pbf  output                                                                               
