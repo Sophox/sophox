@@ -6,6 +6,7 @@ import json
 import osmium
 import re
 import sys
+import traceback
 from urllib.parse import quote
 import os
 import gzip
@@ -50,6 +51,13 @@ def addLocation(point, statements):
     if point.has_z:
         spoint += ' ' + str(point.z)
     statements.append('osmm:loc "Point(' + spoint + ')"^^geo:wktLiteral')
+
+def addError(statements, tag, fallbackMessage):
+    try:
+        e = traceback.format_exc()
+        statements.append(tag + ' ' + json.dumps(e, ensure_ascii=False))
+    except:
+        statements.append(tag + ' ' + fallbackMessage)
 
 
 class RdfHandler(osmium.SimpleHandler):
@@ -109,13 +117,20 @@ class RdfHandler(osmium.SimpleHandler):
                 elif type == 'w':
                     statements.append('osmm:isClosed "' + ('true' if obj.is_closed() else 'false') + '"^^xsd:boolean')
                     if self.addWayLoc:
-                        wkb = wkbfab.create_linestring(obj)
-                        point = loads(wkb, hex=True).representative_point()
-                        addLocation(point, statements)
+                        try:
+                            wkb = wkbfab.create_linestring(obj)
+                            point = loads(wkb, hex=True).representative_point()
+                            addLocation(point, statements)
+                        except:
+                            addError(statements, 'osmm:loc:error', "Unable to parse location data")
+
                 elif type == 'n':
-                    wkb = wkbfab.create_point(obj)
-                    point = loads(wkb, hex=True)
-                    addLocation(point, statements)
+                    try:
+                        wkb = wkbfab.create_point(obj)
+                        point = loads(wkb, hex=True)
+                        addLocation(point, statements)
+                    except:
+                        addError(statements, 'osmm:loc:error', "Unable to parse location data")
 
                 statements.append('osmm:version "' + str(obj.version) + '"^^<http://www.w3.org/2001/XMLSchema#integer>')
 
