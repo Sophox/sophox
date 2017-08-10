@@ -102,73 +102,43 @@ class RdfHandler(osmium.SimpleHandler):
         self.deleteIds = []
         self.addWayLoc = addWayLoc
 
-    def writeRdf(self, type, obj):
-        statements = None
-        hasMembers = type == 'r' and obj.members
-
-        if not obj.deleted and (hasMembers or obj.tags):
-            statements = []
-
-            for tag in obj.tags:
-                key = tag.k
-                val = None
-                if key == 'created_by' or not reSimpleLocalName.match(key):
-                    continue
-                if 'wikidata' in key:
-                    if reWikidataValue.match(tag.v):
-                        val = 'wd:' + tag.v
-                elif 'wikipedia' in key:
-                    match = reWikipediaValue.match(tag.v)
-                    if match:
-                        # For some reason, sitelinks stored in Wikidata WDQS have spaces instead of '_'
-                        # https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Sitelinks
-                        val = '<https://' + match.group(1) + '.wikipedia.org/wiki/' + \
-                              quote(match.group(2).replace(' ', '_'), safe='~') + '>'
-
-                if val is None:
-                    val = json.dumps(tag.v, ensure_ascii=False)
-
-                statements.append('osmt:' + key + ' ' + val)
-
-            if statements or hasMembers:
-                statements.append('osmm:type "' + type + '"')
-                if hasMembers:
-                    for mbr in obj.members:
-                        # ref role type
-                        ref = types[mbr.type] + str(mbr.ref)
-                        role = 'osmm:has'
-                        if mbr.role != '':
-                            if reRoleValue.match(mbr.role):
-                                role += ':' + mbr.role
-                            else:
-                                role += ':_'  # for unknown roles, use "osmm:has:_"
-
-                        statements.append(role + ' ' + ref)
-                elif type == 'w':
-                    statements.append('osmm:isClosed "' + ('true' if obj.is_closed() else 'false') + '"^^xsd:boolean')
-                    if self.addWayLoc:
-                        try:
-                            wkb = wkbfab.create_linestring(obj)
-                            point = loads(wkb, hex=True).representative_point()
-                            addLocation(point, statements)
-                        except:
-                            addError(statements, 'osmm:loc:error', "Unable to parse location data")
-
-                elif type == 'n':
-                    try:
-                        wkb = wkbfab.create_point(obj)
-                        point = loads(wkb, hex=True)
-                        addLocation(point, statements)
-                    except:
-                        addError(statements, 'osmm:loc:error', "Unable to parse location data")
-
-                statements.append('osmm:version "' + str(obj.version) + '"^^<http://www.w3.org/2001/XMLSchema#integer>')
+    def finalizeObject(self, obj, statements, type):
+        if not obj.deleted and statements:
+            statements.append('osmm:type "' + type + '"')
+            statements.append('osmm:version "' + str(obj.version) + '"^^<http://www.w3.org/2001/XMLSchema#integer>')
 
         if self.path:
             if statements:
                 self.writeToFile(obj.id, type, statements)
         else:
             self.recordItem(obj.id, type, statements)
+
+    def parseTags(self, obj):
+        if not obj.tags or obj.deleted:
+            return None
+
+        statements = []
+
+        for tag in obj.tags:
+            key = tag.k
+            val = None
+            if key == 'created_by' or not reSimpleLocalName.match(key):
+                continue
+            if 'wikidata' in key:
+                if reWikidataValue.match(tag.v):
+                    val = 'wd:' + tag.v
+            elif 'wikipedia' in key:
+                match = reWikipediaValue.match(tag.v)
+                if match:
+                    # For some reason, sitelinks stored in Wikidata WDQS have spaces instead of '_'
+                    # https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Sitelinks
+                    val = '<https://' + match.group(1) + '.wikipedia.org/wiki/' + \
+                          quote(match.group(2).replace(' ', '_'), safe='~') + '>'
+            if val is None:
+                val = json.dumps(tag.v, ensure_ascii=False)
+            statements.append('osmt:' + key + ' ' + val)
+
+        return statements
 
     def writeToFile(self, id, type, statements):
         if self.length is None or self.length > 512*1024*1024:
@@ -235,14 +205,46 @@ INSERT {{ rootosm: schema:version {0} . }} WHERE {{}};
 '''.format(ver)
         return sparql
 
-    def node(self, n):
-        self.writeRdf('n', n)
+    def node(self, obj):
+        statements = self.parseTags(obj)
+        if statements:
+            try:
+                wkb = wkbfab.create_point(obj)
+                point = loads(wkb, hex=True)
+                addLocation(point, statements)
+            except:
+                addError(statements, 'osmm:loc:error', "Unable to parse location data")
+        self.finalizeObject(obj, statements, 'n')
 
-    def way(self, w):
-        self.writeRdf('w', w)
+    def way(self, obj):
+        statements = self.parseTags(obj)
+        if statements:
+            statements.append('osmm:isClosed "' + ('true' if obj.is_closed() else 'false') + '"^^xsd:boolean')
+            if self.addWayLoc:
+                try:
+                    wkb = wkbfab.create_linestring(obj)
+                    point = loads(wkb, hex=True).representative_point()
+                    addLocation(point, statements)
+                except:
+                    addError(statements, 'osmm:loc:error', "Unable to parse location data")
+        self.finalizeObject(obj, statements, 'w')
 
-    def relation(self, r):
-        self.writeRdf('r', r)
+    def relation(self, obj):
+        statements = self.parseTags(obj)
+        if obj.members:
+            statements = statements if statements else []
+            for mbr in obj.members:
+                # ref role type
+                ref = types[mbr.type] + str(mbr.ref)
+                role = 'osmm:has'
+                if mbr.role != '':
+                    if reRoleValue.match(mbr.role):
+                        role += ':' + mbr.role
+                    else:
+                        role += ':_'  # for unknown roles, use "osmm:has:_"
+                statements.append(role + ' ' + ref)
+
+        self.finalizeObject(obj, statements, 'r')
 
     def __enter__(self):
         return self
