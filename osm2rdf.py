@@ -36,15 +36,15 @@ types = {
     'w': 'osmway:',
     'r': 'osmrel:',
 }
-
 prefixes = [
+    'prefix wd: <http://www.wikidata.org/entity/>',
+    'prefix geo: <http://www.opengis.net/ont/geosparql#>',
+
     'prefix osmnode: <https://www.openstreetmap.org/node/>',
     'prefix osmway: <https://www.openstreetmap.org/way/>',
     'prefix osmrel: <https://www.openstreetmap.org/relation/>',
     'prefix osmt: <https://wiki.openstreetmap.org/wiki/Key:>',
     'prefix osmm: <https://www.openstreetmap.org/meta/>',
-    'prefix wd: <http://www.wikidata.org/entity/>',
-    'prefix geo: <http://www.opengis.net/ont/geosparql#>',
     'prefix rootosm: <https://www.openstreetmap.org>',
 
     # 'prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>',
@@ -75,6 +75,7 @@ prefixes = [
     # 'prefix geo: <http://www.opengis.net/ont/geosparql#>',
     # 'prefix prov: <http://www.w3.org/ns/prov#>',
 ]
+
 
 def addLocation(point, statements):
     spoint = str(point.x) + ' ' + str(point.y)
@@ -193,17 +194,13 @@ SELECT ?ver WHERE { rootosm: schema:version ?ver . }
         return int(r.json()['results']['bindings'][0]['ver']['value'])
 
     def setOsmSchemaVer(self, ver):
-        sparql = self.get_updatever_sparql(ver)
-        r = requests.post(blazegraphUrl, data={'update': sparql})
-        if not r.ok:
-            raise Exception(r.text)
-
-    def get_updatever_sparql(self, ver):
         sparql = '''
 DELETE {{ rootosm: schema:version ?v . }} WHERE {{ rootosm: schema:version ?v . }};
 INSERT {{ rootosm: schema:version {0} . }} WHERE {{}};
 '''.format(ver)
-        return sparql
+        r = requests.post(blazegraphUrl, data={'update': sparql})
+        if not r.ok:
+            raise Exception(r.text)
 
     def node(self, obj):
         statements = self.parseTags(obj)
@@ -256,10 +253,10 @@ INSERT {{ rootosm: schema:version {0} . }} WHERE {{}};
         if not self.path:
             self.uploadToBlazegraph()
         else:
-            self.close_output()
+            self.close_file_output()
 
     def create_output_file(self):
-        self.close_output()
+        self.close_file_output()
         os.makedirs(self.path, exist_ok=True)
         filename = os.path.join(self.path, 'osm-{0:06}.ttl.gz'.format(self.file_counter))
 
@@ -268,9 +265,9 @@ INSERT {{ rootosm: schema:version {0} . }} WHERE {{}};
         self.output = gzip.open(filename, 'wt', compresslevel=5)
         self.file_counter += 1
 
-    def close_output(self):
+    def close_file_output(self):
         if self.output:
-            self.output.write('\n' + self.get_updatever_sparql(self.seqid))
+            self.output.write('\nrootosm: schema:version {0} .'.format(self.seqid))
             self.output.close()
             self.output = None
 
