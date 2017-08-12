@@ -41,7 +41,7 @@ prefixes = [
     'prefix geo: <http://www.opengis.net/ont/geosparql#>',
     'prefix schema: <http://schema.org/>',
 
-    'prefix rootosm: <https://www.openstreetmap.org>',
+    'prefix osmroot: <https://www.openstreetmap.org>',
     'prefix osmnode: <https://www.openstreetmap.org/node/>',
     'prefix osmway: <https://www.openstreetmap.org/way/>',
     'prefix osmrel: <https://www.openstreetmap.org/relation/>',
@@ -191,8 +191,8 @@ WHERE {{
 
     def getOsmSchemaVer(self):
         sparql = '''
-prefix rootosm: <https://www.openstreetmap.org>
-SELECT ?ver WHERE { rootosm: schema:version ?ver . }
+prefix osmroot: <https://www.openstreetmap.org>
+SELECT ?ver WHERE { osmroot: schema:version ?ver . }
 '''
         r = requests.get(blazegraphUrl,
                          {'query': sparql},
@@ -203,8 +203,8 @@ SELECT ?ver WHERE { rootosm: schema:version ?ver . }
 
     def setOsmSchemaVer(self, ver):
         sparql = '''
-DELETE {{ rootosm: schema:version ?v . }} WHERE {{ rootosm: schema:version ?v . }};
-INSERT {{ rootosm: schema:version {0} . }} WHERE {{}};
+DELETE {{ osmroot: schema:version ?v . }} WHERE {{ osmroot: schema:version ?v . }};
+INSERT {{ osmroot: schema:version {0} . }} WHERE {{}};
 '''.format(ver)
         r = requests.post(blazegraphUrl, data={'update': sparql})
         if not r.ok:
@@ -275,7 +275,7 @@ INSERT {{ rootosm: schema:version {0} . }} WHERE {{}};
 
     def close_file_output(self):
         if self.output:
-            self.output.write('\nrootosm: schema:version {0} .'.format(self.seqid))
+            self.output.write('\nosmroot: schema:version {0} .'.format(self.seqid))
             self.output.close()
             self.output = None
 
