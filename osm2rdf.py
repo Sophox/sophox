@@ -123,8 +123,14 @@ class RdfHandler(osmium.SimpleHandler):
         for tag in obj.tags:
             key = tag.k
             val = None
-            if key == 'created_by' or not reSimpleLocalName.match(key):
+            if key == 'created_by':
                 continue
+
+            if not reSimpleLocalName.match(key):
+                # Record any unusual tag name in a "osmm:badkey" statement
+                statements.append('osmm:badkey ' + json.dumps(key, ensure_ascii=False))
+                continue
+
             if 'wikidata' in key:
                 if reWikidataValue.match(tag.v):
                     val = 'wd:' + tag.v
@@ -134,7 +140,8 @@ class RdfHandler(osmium.SimpleHandler):
                     # For some reason, sitelinks stored in Wikidata WDQS have spaces instead of '_'
                     # https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Sitelinks
                     val = '<https://' + match.group(1) + '.wikipedia.org/wiki/' + \
-                          quote(match.group(2).replace(' ', '_'), safe='~') + '>'
+                          quote(match.group(2).replace(' ', '_'), safe=';@$!*(),/~:') + '>'
+
             if val is None:
                 val = json.dumps(tag.v, ensure_ascii=False)
             statements.append('osmt:' + key + ' ' + val)
