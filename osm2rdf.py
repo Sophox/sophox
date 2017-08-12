@@ -39,13 +39,14 @@ types = {
 prefixes = [
     'prefix wd: <http://www.wikidata.org/entity/>',
     'prefix geo: <http://www.opengis.net/ont/geosparql#>',
+    'prefix schema: <http://schema.org/>',
 
+    'prefix rootosm: <https://www.openstreetmap.org>',
     'prefix osmnode: <https://www.openstreetmap.org/node/>',
     'prefix osmway: <https://www.openstreetmap.org/way/>',
     'prefix osmrel: <https://www.openstreetmap.org/relation/>',
     'prefix osmt: <https://wiki.openstreetmap.org/wiki/Key:>',
     'prefix osmm: <https://www.openstreetmap.org/meta/>',
-    'prefix rootosm: <https://www.openstreetmap.org>',
 
     # 'prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>',
     # 'prefix xsd: <http://www.w3.org/2001/XMLSchema#>',
