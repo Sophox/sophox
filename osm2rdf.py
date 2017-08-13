@@ -104,6 +104,17 @@ class RdfHandler(osmium.SimpleHandler):
         self.deleteIds = []
         self.addWayLoc = addWayLoc
 
+        self.last_stats = ''
+        self.added_nodes = 0
+        self.added_rels = 0
+        self.added_ways = 0
+        self.skipped_nodes = 0
+        self.skipped_rels = 0
+        self.skipped_ways = 0
+        self.deleted_nodes = 0
+        self.deleted_rels = 0
+        self.deleted_ways = 0
+
     def finalizeObject(self, obj, statements, type):
         if not obj.deleted and statements:
             statements.append('osmm:type "' + type + '"')
@@ -219,6 +230,12 @@ INSERT {{ osmroot: schema:version {0} . }} WHERE {{}};
                 addLocation(point, statements)
             except:
                 addError(statements, 'osmm:loc:error', "Unable to parse location data")
+            self.added_nodes += 1
+        elif obj.deleted:
+            self.deleted_nodes += 1
+        else:
+            self.skipped_nodes += 1
+
         self.finalizeObject(obj, statements, 'n')
 
     def way(self, obj):
@@ -232,6 +249,11 @@ INSERT {{ osmroot: schema:version {0} . }} WHERE {{}};
                     addLocation(point, statements)
                 except:
                     addError(statements, 'osmm:loc:error', "Unable to parse location data")
+            self.added_ways += 1
+        elif obj.deleted:
+            self.deleted_ways += 1
+        else:
+            self.skipped_ways += 1
         self.finalizeObject(obj, statements, 'w')
 
     def relation(self, obj):
@@ -248,6 +270,11 @@ INSERT {{ osmroot: schema:version {0} . }} WHERE {{}};
                     else:
                         role += ':_'  # for unknown roles, use "osmm:has:_"
                 statements.append(role + ' ' + ref)
+            self.added_rels += 1
+        elif obj.deleted:
+            self.deleted_rels += 1
+        else:
+            self.skipped_rels += 1
 
         self.finalizeObject(obj, statements, 'r')
 
@@ -278,6 +305,20 @@ INSERT {{ osmroot: schema:version {0} . }} WHERE {{}};
             self.output.write('\nosmroot: schema:version {0} .'.format(self.seqid))
             self.output.close()
             self.output = None
+            print('{0} {1}'.format(dt.datetime.now(), self.formatStats()))
+
+    def formatStats(self):
+        res = 'Added: {0}n {1}w {2}r;  Skipped: {3}n {4}w {5}r;  Deleted: {6}n {7}w {8}r'.format(
+            self.added_nodes, self.added_ways, self.added_rels,
+            self.skipped_nodes, self.skipped_ways, self.skipped_rels,
+            self.deleted_nodes, self.deleted_ways, self.deleted_rels,
+        )
+        if self.last_stats == res:
+            res = ''
+        else:
+            self.last_stats = res
+        return res
+
 
 def getLastOsmSequence():
     query = '''SELECT ?date ?version WHERE {
@@ -350,7 +391,7 @@ if __name__ == '__main__':
             seqid = repserv.timestamp_to_sequence(start_date)
 
     while True:
-        with RdfHandler(seqid, outputDir, addWayLoc) as ttlFile:
+        with RdfHandler(seqid, outputDir, addWayLoc) as handler:
             if pbfFile:
                 usePersistedCache = False
                 idx = None
@@ -363,17 +404,17 @@ if __name__ == '__main__':
                     else:
                         idx = 'dense_file_array,' + pbfFile + '.nodecache'
 
-                ttlFile.apply_file(pbfFile, locations=addWayLoc, idx=idx)
+                handler.apply_file(pbfFile, locations=addWayLoc, idx=idx)
                 break
             else:
                 if not seqid:
-                    seqid = ttlFile.getOsmSchemaVer()
+                    seqid = handler.getOsmSchemaVer()
                 if not lastTime:
                     lastTime = dt.datetime.now()
                     lastSeqid = seqid
                     print('{0} Initial sequence id: {1}'.format(lastTime, seqid))
 
-                seqid = repserv.apply_diffs(ttlFile, seqid, 50*1024)
+                seqid = repserv.apply_diffs(handler, seqid, 50*1024)
                 if seqid is None or seqid == lastSeqid:
                     lastTime = dt.datetime.now()
                     print('{0} Sequence {1} is not available, sleeping'.format(lastTime, lastSeqid))
@@ -381,13 +422,14 @@ if __name__ == '__main__':
                         isUpToDate = True
                     time.sleep(60)
                 else:
-                    ttlFile.setOsmSchemaVer(seqid)
+                    handler.setOsmSchemaVer(seqid)
                     now = dt.datetime.now()
                     sleep = isUpToDate and (seqid - lastSeqid) == 1
-                    print('{0} Processed up to {1}, {2:.2f}/s{3}'.format(
+                    print('{0} Processed up to {1}, {2:.2f}/s{3} {4}'.format(
                         now, seqid,
                         (seqid-lastSeqid)/(now-lastTime).total_seconds(),
-                        ', waiting 60s' if sleep else ''))
+                        ', waiting 60s' if sleep else '',
+                        handler.formatStats()))
                     if sleep:
                         time.sleep(60)
                 lastTime = dt.datetime.now()
