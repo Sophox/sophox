@@ -14,7 +14,7 @@ Follow [Standalone installation steps](https://www.mediawiki.org/wiki/Wikidata_q
 "osmrel": "https://www.openstreetmap.org/relation/",
 "osmt": "https://wiki.openstreetmap.org/wiki/Key:",
 "osmm": "https://www.openstreetmap.org/meta/",
-"rootosm": "https://www.openstreetmap.org",
+"osmroot": "https://www.openstreetmap.org",
 ```
 
 * Add this to `service/prefixes.conf` file
@@ -24,7 +24,7 @@ PREFIX osmway: <https://www.openstreetmap.org/way/>
 PREFIX osmrel: <https://www.openstreetmap.org/relation/>
 PREFIX osmt: <https://wiki.openstreetmap.org/wiki/Key:>
 PREFIX osmm: <https://www.openstreetmap.org/meta/>
-PREFIX rootosm: <https://www.openstreetmap.org>
+PREFIX osmroot: <https://www.openstreetmap.org>
 ```
 
 * From `service/`, run `./runBlazegraph.sh`
