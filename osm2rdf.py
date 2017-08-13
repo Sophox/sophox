@@ -214,6 +214,7 @@ SELECT ?ver WHERE { osmroot: schema:version ?ver . }
 
     def setOsmSchemaVer(self, ver):
         sparql = '''
+prefix osmroot: <https://www.openstreetmap.org>
 DELETE {{ osmroot: schema:version ?v . }} WHERE {{ osmroot: schema:version ?v . }};
 INSERT {{ osmroot: schema:version {0} . }} WHERE {{}};
 '''.format(ver)
