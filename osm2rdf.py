@@ -1,424 +1,138 @@
 # Copyright Yuri Astrakhan <YuriAstrakhan@gmail.com>
+# Some ideas were taken from https://github.com/waymarkedtrails/osgende/blob/master/tools/osgende-import
 
 import argparse
 import datetime as dt
-import json
-import osmium
-import re
-import sys
-import traceback
-from urllib.parse import quote
+import logging
 import os
-import gzip
-import requests
+import time
+
+from RdfFileHandler import RdfFileHandler
+from RdfUpdateHandler import RdfUpdateHandler
 from osmium import replication
 from osmium.replication.server import ReplicationServer
-import time
-import shapely.speedups
-if shapely.speedups.available:
-    shapely.speedups.enable()
-from shapely.wkb import loads
 
-wkbfab = osmium.geom.WKBFactory()
+class Osm2rdf(object):
 
-# May contain letters, numbers anywhere, and -:_ symbols anywhere except first and last position
-reSimpleLocalName = re.compile(r'^[0-9a-zA-Z_]([-:0-9a-zA-Z_]*[0-9a-zA-Z_])?$')
-reWikidataKey = re.compile(r'(.:)?wikidata$')
-reWikidataValue = re.compile(r'^Q[1-9][0-9]*$')
-reWikipediaValue = re.compile(r'^([-a-z]+):(.+)$')
-reRoleValue = reSimpleLocalName
+    def __init__(self):
 
-blazegraphUrl = 'http://localhost:9999/bigdata/sparql'
-osmUpdatesUrl = 'http://planet.openstreetmap.org/replication/minute'
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s %(levelname)s %(message)s')
 
-types = {
-    'n': 'osmnode:',
-    'w': 'osmway:',
-    'r': 'osmrel:',
-}
-prefixes = [
-    'prefix wd: <http://www.wikidata.org/entity/>',
-    'prefix geo: <http://www.opengis.net/ont/geosparql#>',
-    'prefix schema: <http://schema.org/>',
+        # create the top-level parser
+        parser = argparse.ArgumentParser(
+            description='Imports and updates OSM data in an RDF database',
+            usage = 'python3 %(prog)s [global_arguments] <command> [command_specific_arguments]'
+            )
 
-    'prefix osmroot: <https://www.openstreetmap.org>',
-    'prefix osmnode: <https://www.openstreetmap.org/node/>',
-    'prefix osmway: <https://www.openstreetmap.org/way/>',
-    'prefix osmrel: <https://www.openstreetmap.org/relation/>',
-    'prefix osmt: <https://wiki.openstreetmap.org/wiki/Key:>',
-    'prefix osmm: <https://www.openstreetmap.org/meta/>',
+        parser.add_argument('--skip-way-geo', action='store_false', dest='addWayLoc',
+                            help='Calculate way centroids (osmm:loc). Use with --nodes-file during "parse" if it is needed later with "update". If not used, ')
+        parser.add_argument('-c', '--nodes-file', action='store', dest='cacheFile',
+                            default=None, help='File to store node cache.')
+        parser.add_argument('--cache-strategy', action='store', dest='cacheType', choices=['sparse', 'dense'],
+                            default='dense', help='Which node strategy to use (default: %(default)s)')
+        parser.add_argument('-v', action='store_true', dest='verbose', default=False,
+                            help='Enable verbose output.')
+        parser.add_argument('--update-url', action='store', dest='osmUpdatesUrl',
+                            default='http://planet.openstreetmap.org/replication/minute',
+                            help='Source of the minute data. Default: %(default)s')
 
-    # 'prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>',
-    # 'prefix xsd: <http://www.w3.org/2001/XMLSchema#>',
-    # 'prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>',
-    # 'prefix owl: <http://www.w3.org/2002/07/owl#>',
-    # 'prefix wikibase: <http://wikiba.se/ontology#>',
-    # 'prefix wdata: <https://www.wikidata.org/wiki/Special:EntityData/>',
-    # 'prefix wd: <http://www.wikidata.org/entity/>',
-    # 'prefix wds: <http://www.wikidata.org/entity/statement/>',
-    # 'prefix wdref: <http://www.wikidata.org/reference/>',
-    # 'prefix wdv: <http://www.wikidata.org/value/>',
-    # 'prefix wdt: <http://www.wikidata.org/prop/direct/>',
-    # 'prefix p: <http://www.wikidata.org/prop/>',
-    # 'prefix ps: <http://www.wikidata.org/prop/statement/>',
-    # 'prefix psv: <http://www.wikidata.org/prop/statement/value/>',
-    # 'prefix psn: <http://www.wikidata.org/prop/statement/value-normalized/>',
-    # 'prefix pq: <http://www.wikidata.org/prop/qualifier/>',
-    # 'prefix pqv: <http://www.wikidata.org/prop/qualifier/value/>',
-    # 'prefix pqn: <http://www.wikidata.org/prop/qualifier/value-normalized/>',
-    # 'prefix pr: <http://www.wikidata.org/prop/reference/>',
-    # 'prefix prv: <http://www.wikidata.org/prop/reference/value/>',
-    # 'prefix prn: <http://www.wikidata.org/prop/reference/value-normalized/>',
-    # 'prefix wdno: <http://www.wikidata.org/prop/novalue/>',
-    # 'prefix skos: <http://www.w3.org/2004/02/skos/core#>',
-    # 'prefix schema: <http://schema.org/>',
-    # 'prefix cc: <http://creativecommons.org/ns#>',
-    # 'prefix geo: <http://www.opengis.net/ont/geosparql#>',
-    # 'prefix prov: <http://www.w3.org/ns/prov#>',
-]
+        subparsers = parser.add_subparsers(help='command', title='Commands', dest='command')
 
+        parser_init = subparsers.add_parser('parse', help='Parses a PBF file into multiple .ttl.gz (Turtle files)')
+        parser_init.add_argument('input_file', help='OSM input PBF file')
+        parser_init.add_argument('output_dir', help='Output directory')
+        parser_init.add_argument('--no-seqid', dest='getSeqId', action='store_false', help='Do not output sequence ID')
+        parser_init.add_argument('--file-size', dest='maxFileSize', action='store', type=int, default=512,
+                                 help='Maximum size of the output file in uncompressed MB. (default: %(default)s)')
 
-def addLocation(point, statements):
-    spoint = str(point.x) + ' ' + str(point.y)
-    if point.has_z:
-        spoint += ' ' + str(point.z)
-    statements.append('osmm:loc "Point(' + spoint + ')"^^geo:wktLiteral')
+        parser_update = subparsers.add_parser('update', help='Update RDF database from OSM minute update files')
+        parser_update.add_argument('--host', action='store', dest='blazegraphUrl',
+                                   default='http://localhost:9999/bigdata/sparql',
+                                   help='Host URL to upload data. Default: %(default)s')
+        parser_update.add_argument('-S', action='store', dest='change_size', default=50*1024,
+                                   type=int, help='Maxium size in kB for changes to download at once (default: %(default)s)')
 
-def addError(statements, tag, fallbackMessage):
-    try:
-        e = traceback.format_exc()
-        statements.append(tag + ' ' + json.dumps(e, ensure_ascii=False))
-    except:
-        statements.append(tag + ' ' + fallbackMessage)
+        opts = parser.parse_args()
 
+        if not opts.command:
+            self.parse_fail(parser, 'Missing command parameter')
 
-class RdfHandler(osmium.SimpleHandler):
-    def __init__(self, seqid, path, addWayLoc):
-        osmium.SimpleHandler.__init__(self)
-        self.seqid = seqid
-        self.path = path
-        self.length = None
-        self.output = None
-        self.file_counter = 0
-        self.insertStatements = []
-        self.deleteIds = []
-        self.addWayLoc = addWayLoc
+        if opts.command == 'update' and opts.addWayLoc and not opts.cacheFile:
+            self.parse_fail(parser, 'Node cache file must be specified when updating with way centroids')
 
-        self.last_stats = ''
-        self.added_nodes = 0
-        self.added_rels = 0
-        self.added_ways = 0
-        self.skipped_nodes = 0
-        self.skipped_rels = 0
-        self.skipped_ways = 0
-        self.deleted_nodes = 0
-        self.deleted_rels = 0
-        self.deleted_ways = 0
+        if opts.command == 'update' and opts.cacheFile and not os.path.isfile(opts.cacheFile):
+            self.parse_fail(parser, 'Node cache file does not exist. Was it specified during the "parse" phase?')
 
-    def finalizeObject(self, obj, statements, type):
-        if not obj.deleted and statements:
-            statements.append('osmm:type "' + type + '"')
-            statements.append('osmm:version "' + str(obj.version) + '"^^<http://www.w3.org/2001/XMLSchema#integer>')
+        self.options = opts
+        getattr(self, opts.command)()
 
-        if self.path:
-            if statements:
-                self.writeToFile(obj.id, type, statements)
-        else:
-            self.recordItem(obj.id, type, statements)
+    def parse_fail(self, parser, info):
+        print(info)
+        parser.print_help()
+        exit(1)
 
-    def parseTags(self, obj):
-        if not obj.tags or obj.deleted:
-            return None
-
-        statements = []
-
-        for tag in obj.tags:
-            key = tag.k
-            val = None
-            if key == 'created_by':
-                continue
-
-            if not reSimpleLocalName.match(key):
-                # Record any unusual tag name in a "osmm:badkey" statement
-                statements.append('osmm:badkey ' + json.dumps(key, ensure_ascii=False))
-                continue
-
-            if 'wikidata' in key:
-                if reWikidataValue.match(tag.v):
-                    val = 'wd:' + tag.v
-            elif 'wikipedia' in key:
-                match = reWikipediaValue.match(tag.v)
-                if match:
-                    # For some reason, sitelinks stored in Wikidata WDQS have spaces instead of '_'
-                    # https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Sitelinks
-                    val = '<https://' + match.group(1) + '.wikipedia.org/wiki/' + \
-                          quote(match.group(2).replace(' ', '_'), safe=';@$!*(),/~:') + '>'
-
-            if val is None:
-                val = json.dumps(tag.v, ensure_ascii=False)
-            statements.append('osmt:' + key + ' ' + val)
-
-        return statements
-
-    def writeToFile(self, id, type, statements):
-        if self.length is None or self.length > 512*1024*1024:
-            self.create_output_file()
-            header = '\n'.join(['@' + p + ' .' for p in prefixes]) + '\n\n'
-            self.output.write(header)
-            self.length = len(header)
-
-        text = types[type] + str(id) + '\n' + ';\n'.join(statements) + '.\n\n'
-        self.output.write(text)
-        self.length += len(text)
-
-    def recordItem(self, id, type, statements):
-        entityPrefix = types[type]
-        self.deleteIds.append(entityPrefix + str(id))
-        if statements:
-            self.insertStatements.extend([entityPrefix + str(id) + ' ' + s + '.' for s in statements])
-
-        if len(self.deleteIds) > 1300 or len(self.insertStatements) > 2000:
-            self.uploadToBlazegraph()
-
-    def uploadToBlazegraph(self):
-        if not self.deleteIds and not self.insertStatements:
-            return
-
-        sparql = '\n'.join(prefixes) + '\n\n'
-        sparql += '''
-DELETE {{ ?s ?p ?o . }}
-WHERE {{
-  VALUES ?s {{ {0} }}
-  ?s ?p ?o .
-}};'''.format(' '.join(self.deleteIds))
-
-        if self.insertStatements:
-            sparql += 'INSERT { ' + '\n'.join(self.insertStatements) + ' } WHERE {};\n'
-        r = requests.post(blazegraphUrl, data={'update': sparql})
-        if not r.ok:
-            raise Exception(r.text)
-        self.deleteIds = []
-        self.insertStatements = []
-
-    def getOsmSchemaVer(self):
-        sparql = '''
-prefix osmroot: <https://www.openstreetmap.org>
-SELECT ?ver WHERE { osmroot: schema:version ?ver . }
-'''
-        r = requests.get(blazegraphUrl,
-                         {'query': sparql},
-                         headers={'Accept': 'application/sparql-results+json'})
-        if not r.ok:
-            raise Exception(r.text)
-        return int(r.json()['results']['bindings'][0]['ver']['value'])
-
-    def setOsmSchemaVer(self, ver):
-        sparql = '''
-prefix osmroot: <https://www.openstreetmap.org>
-DELETE {{ osmroot: schema:version ?v . }} WHERE {{ osmroot: schema:version ?v . }};
-INSERT {{ osmroot: schema:version {0} . }} WHERE {{}};
-'''.format(ver)
-        r = requests.post(blazegraphUrl, data={'update': sparql})
-        if not r.ok:
-            raise Exception(r.text)
-
-    def node(self, obj):
-        statements = self.parseTags(obj)
-        if statements:
-            try:
-                wkb = wkbfab.create_point(obj)
-                point = loads(wkb, hex=True)
-                addLocation(point, statements)
-            except:
-                addError(statements, 'osmm:loc:error', "Unable to parse location data")
-            self.added_nodes += 1
-        elif obj.deleted:
-            self.deleted_nodes += 1
-        else:
-            self.skipped_nodes += 1
-
-        self.finalizeObject(obj, statements, 'n')
-
-    def way(self, obj):
-        statements = self.parseTags(obj)
-        if statements:
-            statements.append('osmm:isClosed "' + ('true' if obj.is_closed() else 'false') + '"^^xsd:boolean')
-            if self.addWayLoc:
-                try:
-                    wkb = wkbfab.create_linestring(obj)
-                    point = loads(wkb, hex=True).representative_point()
-                    addLocation(point, statements)
-                except:
-                    addError(statements, 'osmm:loc:error', "Unable to parse location data")
-            self.added_ways += 1
-        elif obj.deleted:
-            self.deleted_ways += 1
-        else:
-            self.skipped_ways += 1
-        self.finalizeObject(obj, statements, 'w')
-
-    def relation(self, obj):
-        statements = self.parseTags(obj)
-        if obj.members:
-            statements = statements if statements else []
-            for mbr in obj.members:
-                # ref role type
-                ref = types[mbr.type] + str(mbr.ref)
-                role = 'osmm:has'
-                if mbr.role != '':
-                    if reRoleValue.match(mbr.role):
-                        role += ':' + mbr.role
-                    else:
-                        role += ':_'  # for unknown roles, use "osmm:has:_"
-                statements.append(role + ' ' + ref)
-            self.added_rels += 1
-        elif obj.deleted:
-            self.deleted_rels += 1
-        else:
-            self.skipped_rels += 1
-
-        self.finalizeObject(obj, statements, 'r')
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-
-    def close(self):
-        if not self.path:
-            self.uploadToBlazegraph()
-        else:
-            self.close_file_output()
-
-    def create_output_file(self):
-        self.close_file_output()
-        os.makedirs(self.path, exist_ok=True)
-        filename = os.path.join(self.path, 'osm-{0:06}.ttl.gz'.format(self.file_counter))
-
-        # TODO switch to 'xt'
-        print('{0} Exporting to {1}'.format(dt.datetime.now(), filename))
-        self.output = gzip.open(filename, 'wt', compresslevel=5)
-        self.file_counter += 1
-
-    def close_file_output(self):
-        if self.output:
-            self.output.write('\nosmroot: schema:version {0} .'.format(self.seqid))
-            self.output.close()
-            self.output = None
-            print('{0} {1}'.format(dt.datetime.now(), self.formatStats()))
-
-    def formatStats(self):
-        res = 'Added: {0}n {1}w {2}r;  Skipped: {3}n {4}w {5}r;  Deleted: {6}n {7}w {8}r'.format(
-            self.added_nodes, self.added_ways, self.added_rels,
-            self.skipped_nodes, self.skipped_ways, self.skipped_rels,
-            self.deleted_nodes, self.deleted_ways, self.deleted_rels,
-        )
-        if self.last_stats == res:
-            res = ''
-        else:
-            self.last_stats = res
-        return res
-
-
-def getLastOsmSequence():
-    query = '''SELECT ?date ?version WHERE {
-  <http://www.openstreetmap.org> schema:dateModified ?date .
-  <http://www.openstreetmap.org> schema:version ?ver .
-}'''
-
-
-if __name__ == '__main__':
-
-    # import logging
-    # logging.basicConfig(level=logging.INFO,
-    #                     format='%(asctime)s %(levelname)s %(message)s')
-
-    # # fun with command line options
-    # parser = argparse.ArgumentParser(description=__doc__,
-    #                                  formatter_class=argparse.RawDescriptionHelpFormatter,
-    #                                  usage='%(prog)s [options] <osm file>')
-    # parser.add_argument('-d', action='store', dest='database', default='osmosis',
-    #                     help='name of database')
-    # parser.add_argument('-r', action='store', dest='replication', default=None,
-    #                     help='URL to replication service')
-    # parser.add_argument('-S', action='store', dest='change_size', default=50*1024,
-    #                     type=int,
-    #                     help='Maxium size in kB for changes to download at once')
-    # parser.add_argument('-c', action='store_true', dest='createdb', default=False,
-    #                     help='Create a new database and set up the tables')
-    # parser.add_argument('-i', action='store_true', dest='createindices', default=False,
-    #                     help='Create primary keys and their indices')
-    # parser.add_argument('-v', action='store_true', dest='verbose', default=False,
-    #                     help='Enable verbose output.')
-    # parser.add_argument('inputfile', nargs='?', default="-",
-    #                     help='OSM input file')
-    #
-    # options = parser.parse_args()
-    #
-
-    paramCount = len(sys.argv)
-    if paramCount != 3 and paramCount != 1 and paramCount != 2:
-        print('Usage:   python3 ' + __file__ + '                      -- realtime update from OSM')
-        print('         python3 ' + __file__ + ' date                 -- realtime update from OSM with a start date')
-        print('         python3 ' + __file__ + ' inputfile outputdir  -- convert planet file to turtle files')
-        exit(-1)
-
-    repserv = ReplicationServer(osmUpdatesUrl)
-
-    addWayLoc = True
-    pbfFile = None
-    seqid = None
-    outputDir = None
-    lastSeqid = None
-    lastTime = None
-    isUpToDate = False
-
-    if paramCount == 3:
-        pbfFile = sys.argv[1]
-        outputDir = sys.argv[2]
-        print('{0} Getting start date from {1}'.format(dt.datetime.now(), pbfFile))
-        start_date = replication.newest_change_from_file(pbfFile)
-        if start_date is None:
-            raise ValueError("Cannot determine timestamp from the given pbf file")
-        print('{0} Start date {1} for file {2}'.format(dt.datetime.now(), start_date, pbfFile))
-        start_date -= dt.timedelta(minutes=60)
-        seqid = repserv.timestamp_to_sequence(start_date)
-        print('{0} Sequence id {1} for file {2}'.format(dt.datetime.now(), seqid, pbfFile))
-    else:
-        if paramCount == 2:
-            start_date = dt.datetime.strptime(sys.argv[1], '%y%m%d').replace(tzinfo=dt.timezone.utc)
-            start_date -= dt.timedelta(days=1)
-            seqid = repserv.timestamp_to_sequence(start_date)
-
-    while True:
-        with RdfHandler(seqid, outputDir, addWayLoc) as handler:
-            if pbfFile:
-                usePersistedCache = False
-                idx = None
-                if addWayLoc:
-                    # if file is under 10GB, use sparse mode
-                    if os.path.getsize(pbfFile) < 10 * 1024 * 1024 * 1024:
-                        idx = 'sparse_mem_array'
-                    elif not usePersistedCache:
-                        idx = 'dense_mmap_array'
-                    else:
-                        idx = 'dense_file_array,' + pbfFile + '.nodecache'
-
-                handler.apply_file(pbfFile, locations=addWayLoc, idx=idx)
-                break
+    def get_index_string(self):
+        if self.options.addWayLoc:
+            if self.options.cacheType == 'sparse':
+                if self.options.cacheFile:
+                    return 'sparse_file_array,' + self.options.cacheFile
+                else:
+                    return 'sparse_mem_array'
             else:
+                if self.options.cacheFile:
+                    return 'dense_file_array,' + self.options.cacheFile
+                else:
+                    return 'dense_mmap_array'
+        return None
+
+
+    def parse(self):
+        input_file = self.options.input_file
+        if self.options.getSeqId:
+            repserv = ReplicationServer(self.options.osmUpdatesUrl)
+            logging.info('Getting start date from {0}'.format(input_file))
+            start_date = replication.newest_change_from_file(input_file)
+            if start_date is None:
+                raise ValueError("Cannot determine timestamp from the given pbf file")
+            logging.info('Start date={0}, shifting back and getting sequence ID'.format(start_date))
+            start_date -= dt.timedelta(minutes=60)
+            seqid = repserv.timestamp_to_sequence(start_date)
+            logging.info('Sequence ID={0}'.format(seqid, input_file))
+        else:
+            logging.info('Sequence ID is not calculated, and will not be stored in the output files')
+            seqid = None
+
+        with RdfFileHandler(seqid, self.options) as handler:
+            handler.apply_file(input_file, locations=self.options.addWayLoc, idx=self.get_index_string())
+
+        logging.info('done')
+
+    def update(self):
+        seqid = None
+        lastSeqid = None
+        lastTime = None
+        isUpToDate = False
+
+        # start_date = dt.datetime.strptime(sys.argv[1], '%y%m%d').replace(tzinfo=dt.timezone.utc)
+        # start_date -= dt.timedelta(days=1)
+        # seqid = repserv.timestamp_to_sequence(start_date)
+
+        repserv = ReplicationServer(self.options.osmUpdatesUrl)
+
+        while True:
+            with RdfUpdateHandler(self.options) as handler:
                 if not seqid:
                     seqid = handler.getOsmSchemaVer()
                 if not lastTime:
                     lastTime = dt.datetime.now()
                     lastSeqid = seqid
-                    print('{0} Initial sequence id: {1}'.format(lastTime, seqid))
+                    logging.info('Initial sequence id: {0}'.format(lastTime, seqid))
 
                 seqid = repserv.apply_diffs(handler, seqid, 50*1024)
                 if seqid is None or seqid == lastSeqid:
                     lastTime = dt.datetime.now()
-                    print('{0} Sequence {1} is not available, sleeping'.format(lastTime, lastSeqid))
+                    logging.info('Sequence {0} is not available, sleeping'.format(lastTime, lastSeqid))
                     if seqid == lastSeqid:
                         isUpToDate = True
                     time.sleep(60)
@@ -426,7 +140,7 @@ if __name__ == '__main__':
                     handler.setOsmSchemaVer(seqid)
                     now = dt.datetime.now()
                     sleep = isUpToDate and (seqid - lastSeqid) == 1
-                    print('{0} Processed up to {1}, {2:.2f}/s{3} {4}'.format(
+                    logging.info('Processed up to {0}, {2:.2f}/s{3} {4}'.format(
                         now, seqid,
                         (seqid-lastSeqid)/(now-lastTime).total_seconds(),
                         ', waiting 60s' if sleep else '',
@@ -435,3 +149,8 @@ if __name__ == '__main__':
                         time.sleep(60)
                 lastTime = dt.datetime.now()
                 lastSeqid = seqid
+
+
+if __name__ == '__main__':
+    Osm2rdf()
+
