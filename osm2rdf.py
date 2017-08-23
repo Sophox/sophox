@@ -127,10 +127,9 @@ class Osm2rdf(object):
                     handler.set_osm_schema_ver(seqid)
                     now = datetime.utcnow()
                     sleep = cought_up and (seqid - last_seqid) == 1
-                    logger.info('Processed up to {0}, {2:.2f}/s{3} {4}'.format(
-                        now, seqid,
+                    logger.info('Processed up to #{0} @{1}, {2:.2f}/s {3}'.format(
+                        seqid, now,
                         (seqid - last_seqid) / (now - last_time).total_seconds(),
-                        ', waiting 60s' if sleep else '',
                         handler.format_stats()))
                     if sleep:
                         time.sleep(60)
