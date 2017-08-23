@@ -64,11 +64,15 @@ class Osm2rdf(object):
         if not opts.command:
             self.parse_fail(parser, 'Missing command parameter')
 
-        if opts.command == 'update' and opts.addWayLoc and not opts.cacheFile:
-            self.parse_fail(parser, 'Node cache file must be specified when updating with way centroids')
+        if opts.command == 'update':
+            if opts.addWayLoc:
+                self.parse_fail(parser, 'Updating osmm:loc is not yet implemented, use --skip-way-geo parameter right after osm2rdf.py')
 
-        if opts.command == 'update' and opts.cacheFile and not os.path.isfile(opts.cacheFile):
-            self.parse_fail(parser, 'Node cache file does not exist. Was it specified during the "parse" phase?')
+            if opts.addWayLoc and not opts.cacheFile:
+                self.parse_fail(parser, 'Node cache file must be specified when updating with way centroids')
+
+            if opts.cacheFile and not os.path.isfile(opts.cacheFile):
+                self.parse_fail(parser, 'Node cache file does not exist. Was it specified during the "parse" phase?')
 
         self.options = opts
         getattr(self, opts.command)()

@@ -33,19 +33,28 @@ class RdfUpdateHandler(RdfHandler):
             return
 
         sparql = '\n'.join(self.prefixes) + '\n\n'
+
+        if not self.options.addWayLoc:
+            # For updates, delete everything except the osmm:loc tag
+            sparql += '''
+DELETE {{ ?s ?p ?o . }}
+WHERE {{
+  VALUES ?s {{ {0} }}
+  ?s ?p ?o .
+  FILTER ( ?p != osmm:loc )
+}};'''.format(' '.join(self.updatedIds))
+
+        else:
+            # Process updates and deletes the same
+            self.deleteIds += self.updatedIds
+
+        # Remove all staetments with these subjects
         sparql += '''
 DELETE {{ ?s ?p ?o . }}
 WHERE {{
   VALUES ?s {{ {0} }}
   ?s ?p ?o .
 }};'''.format(' '.join(self.deleteIds))
-
-        sparql += '''
-DELETE {{ ?s ?p ?o . }}
-WHERE {{
-  VALUES ?s {{ {0} }}
-  ?s ?p ?o .
-}};'''.format(' '.join(self.updatedIds))
 
         if self.insertStatements:
             sparql += 'INSERT { ' + '\n'.join(self.insertStatements) + ' } WHERE {};\n'
@@ -58,11 +67,10 @@ WHERE {{
     def get_osm_schema_ver(self, repserv):
         sparql = '''
 PREFIX osmroot: <https://www.openstreetmap.org>
-SELECT ?dummy ?ver ?mod ?yyy WHERE {
+SELECT ?dummy ?ver ?mod WHERE {
  BIND( "42" as ?dummy )
  OPTIONAL { osmroot: schema:version ?ver . }
  OPTIONAL { osmroot: schema:dateModified ?mod . }
- OPTIONAL { <http://www.wikidata.org> schema:dateModified ?yyy . }
 }
 '''
         r = requests.get(self.options.rdf_url,

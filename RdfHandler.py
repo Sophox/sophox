@@ -231,4 +231,5 @@ class RdfHandler(osmium.SimpleHandler):
 
     @staticmethod
     def format_date(datetime):
+        # https://phabricator.wikimedia.org/T173974
         return '"' + datetime.isoformat().replace('+00:00', 'Z') + '"^^xsd:dateTime'
