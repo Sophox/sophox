@@ -1,5 +1,10 @@
 import requests
+import logging
+import datetime as dt
+from datetime import datetime
 from RdfHandler import RdfHandler
+
+logger = logging.getLogger('osm2rdf')
 
 
 class RdfUpdateHandler(RdfHandler):
@@ -8,18 +13,17 @@ class RdfUpdateHandler(RdfHandler):
         self.deleteIds = []
         self.insertStatements = []
 
+    def finalize_object(self, obj, statements, obj_type):
+        super(RdfUpdateHandler, self).finalize_object(obj, statements, obj_type)
 
-    def finalizeObject(self, obj, statements, type):
-        super(RdfUpdateHandler, self).finalizeObject(obj, statements, type)
-
-        entityPrefix = self.types[type]
-        self.deleteIds.append(entityPrefix + str(id))
+        id = obj.id
+        entity_prefix = self.types[obj_type]
+        self.deleteIds.append(entity_prefix + str(id))
         if statements:
-            self.insertStatements.extend([entityPrefix + str(id) + ' ' + s + '.' for s in statements])
+            self.insertStatements.extend([entity_prefix + str(id) + ' ' + s + '.' for s in statements])
 
         if len(self.deleteIds) > 1300 or len(self.insertStatements) > 2000:
             self.close()
-
 
     def close(self):
         if not self.deleteIds and not self.insertStatements:
@@ -35,32 +39,62 @@ WHERE {{
 
         if self.insertStatements:
             sparql += 'INSERT { ' + '\n'.join(self.insertStatements) + ' } WHERE {};\n'
-        r = requests.post(self.options.blazegraphUrl, data={'update': sparql})
+        r = requests.post(self.options.rdf_url, data={'update': sparql})
         if not r.ok:
             raise Exception(r.text)
         self.deleteIds = []
         self.insertStatements = []
 
-
-    def getOsmSchemaVer(self):
+    def get_osm_schema_ver(self, repserv):
         sparql = '''
-prefix osmroot: <https://www.openstreetmap.org>
-SELECT ?ver WHERE { osmroot: schema:version ?ver . }
+PREFIX osmroot: <https://www.openstreetmap.org>
+SELECT ?dummy ?ver ?mod ?yyy WHERE {
+ BIND( "42" as ?dummy )
+ OPTIONAL { osmroot: schema:version ?ver . }
+ OPTIONAL { osmroot: schema:dateModified ?mod . }
+ OPTIONAL { <http://www.wikidata.org> schema:dateModified ?yyy . }
+}
 '''
-        r = requests.get(self.options.blazegraphUrl,
+        r = requests.get(self.options.rdf_url,
                          {'query': sparql},
                          headers={'Accept': 'application/sparql-results+json'})
         if not r.ok:
             raise Exception(r.text)
-        return int(r.json()['results']['bindings'][0]['ver']['value'])
+        result = r.json()['results']['bindings'][0]
+        if result['dummy']['value'] != '42':
+            raise Exception('Failed to get a dummy value from RDF DB')
 
+        try:
+            return int(result['ver']['value'])
+        except KeyError:
+            pass
 
-    def setOsmSchemaVer(self, ver):
+        try:
+            mod_date = datetime.strptime(result['mod']['value'], "%Y-%m-%dT%H:%M:%S.%fZ")\
+                .replace(tzinfo=dt.timezone.utc)
+        except KeyError:
+            logger.error('Neither schema:version nor schema:dateModified are set for <https://www.openstreetmap.org>')
+            return None
+
+        logger.info('schema:dateModified={0}, shifting back and getting sequence ID'.format(mod_date))
+
+        mod_date -= dt.timedelta(minutes=60)
+        return repserv.timestamp_to_sequence(mod_date)
+
+    def set_osm_schema_ver(self, ver):
+        if self.last_timestamp.year < 2000: # Something majorly wrong
+            raise Exception('last_timestamp was not updated')
+
         sparql = '''
-prefix osmroot: <https://www.openstreetmap.org>
+PREFIX osmroot: <https://www.openstreetmap.org>
 DELETE {{ osmroot: schema:version ?v . }} WHERE {{ osmroot: schema:version ?v . }};
-INSERT {{ osmroot: schema:version {0} . }} WHERE {{}};
-'''.format(ver)
-        r = requests.post(self.options.blazegraphUrl, data={'update': sparql})
+DELETE {{ osmroot: schema:dateModified ?m . }} WHERE {{ osmroot: schema:dateModified ?m . }};
+INSERT {{
+  osmroot: schema:version {0} .
+  osmroot: schema:dateModified "{1}"^^xsd:dateTime .
+}} WHERE {{}};
+'''.format(ver, self.last_timestamp.isoformat())
+
+        r = requests.post(self.options.rdf_url, data={'update': sparql})
         if not r.ok:
             raise Exception(r.text)
