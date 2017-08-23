@@ -113,7 +113,7 @@ class RdfHandler(osmium.SimpleHandler):
             statements.append('osmm:type "' + obj_type + '"')
             statements.append('osmm:version "' + str(obj.version) + '"^^xsd:integer')
             statements.append('osmm:user ' + json.dumps(obj.user, ensure_ascii=False))
-            statements.append('osmm:timestamp "' + timestamp.isoformat() + '"^^xsd:dateTime')
+            statements.append('osmm:timestamp ' + self.format_date(timestamp))
             statements.append('osmm:changeset "' + str(obj.changeset) + '"^^xsd:integer')
 
     @staticmethod
@@ -228,3 +228,7 @@ class RdfHandler(osmium.SimpleHandler):
         else:
             self.last_stats = res
         return res
+
+    @staticmethod
+    def format_date(datetime):
+        return '"' + datetime.isoformat().replace('+00:00', 'Z') + '"^^xsd:dateTime'

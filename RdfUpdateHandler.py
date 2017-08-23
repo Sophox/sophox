@@ -11,18 +11,21 @@ class RdfUpdateHandler(RdfHandler):
     def __init__(self, options):
         super(RdfUpdateHandler, self).__init__(options)
         self.deleteIds = []
+        self.updatedIds = []
         self.insertStatements = []
 
     def finalize_object(self, obj, statements, obj_type):
         super(RdfUpdateHandler, self).finalize_object(obj, statements, obj_type)
 
-        id = obj.id
-        entity_prefix = self.types[obj_type]
-        self.deleteIds.append(entity_prefix + str(id))
+        prefixed_id = self.types[obj_type] + str(obj.id)
+        if obj.deleted:
+            self.deleteIds.append(prefixed_id)
+        else:
+            self.deleteIds.append(prefixed_id)
         if statements:
-            self.insertStatements.extend([entity_prefix + str(id) + ' ' + s + '.' for s in statements])
+            self.insertStatements.extend([prefixed_id + ' ' + s + '.' for s in statements])
 
-        if len(self.deleteIds) > 1300 or len(self.insertStatements) > 2000:
+        if len(self.deleteIds) > 1000 or len(self.updatedIds) > 1000 or len(self.insertStatements) > 2000:
             self.close()
 
     def close(self):
@@ -36,6 +39,13 @@ WHERE {{
   VALUES ?s {{ {0} }}
   ?s ?p ?o .
 }};'''.format(' '.join(self.deleteIds))
+
+        sparql += '''
+DELETE {{ ?s ?p ?o . }}
+WHERE {{
+  VALUES ?s {{ {0} }}
+  ?s ?p ?o .
+}};'''.format(' '.join(self.updatedIds))
 
         if self.insertStatements:
             sparql += 'INSERT { ' + '\n'.join(self.insertStatements) + ' } WHERE {};\n'
@@ -91,9 +101,9 @@ DELETE {{ osmroot: schema:version ?v . }} WHERE {{ osmroot: schema:version ?v . 
 DELETE {{ osmroot: schema:dateModified ?m . }} WHERE {{ osmroot: schema:dateModified ?m . }};
 INSERT {{
   osmroot: schema:version {0} .
-  osmroot: schema:dateModified "{1}"^^xsd:dateTime .
+  osmroot: schema:dateModified {1} .
 }} WHERE {{}};
-'''.format(ver, self.last_timestamp.isoformat())
+'''.format(ver, self.format_date(self.last_timestamp))
 
         r = requests.post(self.options.rdf_url, data={'update': sparql})
         if not r.ok:

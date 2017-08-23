@@ -41,7 +41,7 @@ class RdfFileHandler(RdfHandler):
         if self.output:
             if self.last_timestamp.year > 2000: # Not min-year
                 self.output.write(
-                    '\nosmroot: schema:dateModified "{0}"^^xsd:dateTime .' .format(self.last_timestamp.isoformat()))
+                    '\nosmroot: schema:dateModified {0} .' .format(self.format_date(self.last_timestamp)))
             self.output.close()
             self.output = None
             logger.info('{0}'.format(self.format_stats()))
