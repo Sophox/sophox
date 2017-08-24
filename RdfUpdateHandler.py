@@ -141,6 +141,8 @@ INSERT {{
             sleep = True
             if state is None:
                 state = repserv.get_state_info()
+                if state is not None and seqid + 2 < state.sequence:
+                    log.info('Replication server has data up to #{0}'.format(state.sequence))
 
             if state is not None and seqid <= state.sequence:
                 try:
@@ -164,8 +166,8 @@ INSERT {{
                     sleep = False
 
             seconds_since_last = (datetime.utcnow() - last_time).total_seconds()
-            if seconds_since_last > 120:
-                log.info('Processed up to #{0} out of #{1}, {2:.2f}/s {3}'.format(
+            if seconds_since_last > 60:
+                log.info('Processed up to #{0} out of #{1}, {2:.2f}/s, {3}'.format(
                     seqid - 1, (state.sequence if state else '???'),
                     (seqid - last_seqid - 1) / seconds_since_last,
                     self.format_stats()))
