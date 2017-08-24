@@ -11,8 +11,6 @@ from shapely.wkb import loads
 if shapely.speedups.available:
     shapely.speedups.enable()
 
-wkbfab = osmium.geom.WKBFactory()
-
 # May contain letters, numbers anywhere, and -:_ symbols anywhere except first and last position
 reSimpleLocalName = re.compile(r'^[0-9a-zA-Z_]([-:0-9a-zA-Z_]*[0-9a-zA-Z_])?$')
 reWikidataKey = re.compile(r'(.:)?wikidata$')
@@ -21,32 +19,11 @@ reWikipediaValue = re.compile(r'^([-a-z]+):(.+)$')
 reRoleValue = reSimpleLocalName
 
 
-def add_location(point, statements):
-    spoint = str(point.x) + ' ' + str(point.y)
-    if point.has_z:
-        spoint += ' ' + str(point.z)
-    statements.append('osmm:loc "Point(' + spoint + ')"^^geo:wktLiteral')
-
-
-def add_error(statements, tag, fallback_message):
-    try:
-        e = traceback.format_exc()
-        statements.append(tag + ' ' + json.dumps(e, ensure_ascii=False))
-    except:
-        statements.append(tag + ' ' + fallback_message)
-
-
-def get_last_osm_sequence():
-    query = '''SELECT ?date ?version WHERE {
-  <http://www.openstreetmap.org> schema:dateModified ?date .
-  <http://www.openstreetmap.org> schema:version ?ver .
-}'''
-
-
 class RdfHandler(osmium.SimpleHandler):
     def __init__(self, options):
         osmium.SimpleHandler.__init__(self)
         self.options = options
+        self.wkbfab = osmium.geom.WKBFactory()
 
         self.last_timestamp = datetime.fromtimestamp(0, timezone.utc)
         self.last_stats = ''
@@ -154,12 +131,7 @@ class RdfHandler(osmium.SimpleHandler):
     def node(self, obj):
         statements = self.parse_tags(obj)
         if statements:
-            try:
-                wkb = wkbfab.create_point(obj)
-                point = loads(wkb, hex=True)
-                add_location(point, statements)
-            except:
-                add_error(statements, 'osmm:loc:error', "Unable to parse location data")
+            self.parse_point(obj, statements)
             self.added_nodes += 1
         elif obj.deleted:
             self.deleted_nodes += 1
@@ -174,11 +146,14 @@ class RdfHandler(osmium.SimpleHandler):
             statements.append('osmm:isClosed "' + ('true' if obj.is_closed() else 'false') + '"^^xsd:boolean')
             if self.options.addWayLoc:
                 try:
-                    wkb = wkbfab.create_linestring(obj)
+                    wkb = self.wkbfab.create_linestring(obj)
                     point = loads(wkb, hex=True).representative_point()
-                    add_location(point, statements)
+                    self.add_location(point, statements)
                 except:
-                    add_error(statements, 'osmm:loc:error', "Unable to parse location data")
+                    if len(obj.nodes) == 1:
+                        self.parse_point(obj, statements)
+                    else:
+                        self.add_error(statements, 'osmm:loc:error', "Unable to parse location data")
             self.added_ways += 1
         elif obj.deleted:
             self.deleted_ways += 1
@@ -212,9 +187,9 @@ class RdfHandler(osmium.SimpleHandler):
         return self
 
     def __exit__(self, exc_type, exc_value, tb):
-        self.close()
+        self.flush()
 
-    def close(self):
+    def flush(self):
         pass
 
     def format_stats(self):
@@ -233,3 +208,40 @@ class RdfHandler(osmium.SimpleHandler):
     def format_date(datetime):
         # https://phabricator.wikimedia.org/T173974
         return '"' + datetime.isoformat().replace('+00:00', 'Z') + '"^^xsd:dateTime'
+
+    def get_index_string(self):
+        if self.options.addWayLoc:
+            if self.options.cacheType == 'sparse':
+                if self.options.cacheFile:
+                    return 'sparse_file_array,' + self.options.cacheFile
+                else:
+                    return 'sparse_mem_array'
+            else:
+                if self.options.cacheFile:
+                    return 'dense_file_array,' + self.options.cacheFile
+                else:
+                    return 'dense_mmap_array'
+        return None
+
+    def parse_point(self, obj, statements):
+        try:
+            wkb = self.wkbfab.create_point(obj)
+            point = loads(wkb, hex=True)
+            self.add_location(point, statements)
+        except:
+            self.add_error(statements, 'osmm:loc:error', "Unable to parse location data")
+
+    @staticmethod
+    def add_location(point, statements):
+        spoint = str(point.x) + ' ' + str(point.y)
+        if point.has_z:
+            spoint += ' ' + str(point.z)
+        statements.append('osmm:loc "Point(' + spoint + ')"^^geo:wktLiteral')
+
+    @staticmethod
+    def add_error(statements, tag, fallback_message):
+        try:
+            e = traceback.format_exc()
+            statements.append(tag + ' ' + json.dumps(e, ensure_ascii=False))
+        except:
+            statements.append(tag + ' ' + fallback_message)

@@ -3,7 +3,7 @@ import logging
 import os
 from RdfHandler import RdfHandler
 
-logger = logging.getLogger('osm2rdf')
+log = logging.getLogger('osm2rdf')
 
 class RdfFileHandler(RdfHandler):
     def __init__(self, options):
@@ -28,20 +28,26 @@ class RdfFileHandler(RdfHandler):
             self.length += len(text)
 
     def create_output_file(self):
-        self.close()
+        self.flush()
         os.makedirs(self.options.output_dir, exist_ok=True)
         filename = os.path.join(self.options.output_dir, 'osm-{0:06}.ttl.gz'.format(self.file_counter))
 
         # TODO switch to 'xt'
-        logger.info('Exporting to {0}'.format(filename))
+        log.info('Exporting to {0}'.format(filename))
         self.output = gzip.open(filename, 'wt', compresslevel=5)
         self.file_counter += 1
 
-    def close(self):
+    def flush(self):
         if self.output:
             if self.last_timestamp.year > 2000: # Not min-year
                 self.output.write(
                     '\nosmroot: schema:dateModified {0} .' .format(self.format_date(self.last_timestamp)))
-            self.output.close()
+            self.output.flush()
             self.output = None
-            logger.info('{0}'.format(self.format_stats()))
+            log.info('{0}'.format(self.format_stats()))
+
+    def run(self, input_file):
+        if self.options.addWayLoc:
+            self.apply_file(input_file, locations=True, idx=self.get_index_string())
+        else:
+            self.apply_file(input_file)
