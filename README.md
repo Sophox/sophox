@@ -32,7 +32,7 @@ PREFIX osmroot: <https://www.openstreetmap.org>
 * From `service/`, run `./runUpdate.sh` to catch up to Wikidata's current state
 
 * Download latest planet PBF file [from a mirror!](https://wiki.openstreetmap.org/wiki/Planet.osm)
-* Parse it with `osm2rdf -c nodes.cache parse planet.pbf outputdir`
+* Parse it with `python3 .../osm2rdf.py -c nodes.cache -s dense parse planet-latest.osm.pbf osm-planet`
 * From `service/`, run ```./loadRestAPI.sh -d `pwd`/../outputdir -h http://localhost:9998```
 
 

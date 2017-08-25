@@ -1,9 +1,9 @@
-import json
 import re
 import traceback
 from urllib.parse import quote
 from datetime import datetime, timezone
 
+import osmutils
 import osmium
 import shapely.speedups
 from shapely.wkb import loads
@@ -16,7 +16,6 @@ reSimpleLocalName = re.compile(r'^[0-9a-zA-Z_]([-:0-9a-zA-Z_]*[0-9a-zA-Z_])?$')
 reWikidataKey = re.compile(r'(.:)?wikidata$')
 reWikidataValue = re.compile(r'^Q[1-9][0-9]*$')
 reWikipediaValue = re.compile(r'^([-a-z]+):(.+)$')
-reRoleValue = reSimpleLocalName
 
 
 class RdfHandler(osmium.SimpleHandler):
@@ -55,30 +54,6 @@ class RdfHandler(osmium.SimpleHandler):
             'prefix osmrel: <https://www.openstreetmap.org/relation/>',
             'prefix osmt: <https://wiki.openstreetmap.org/wiki/Key:>',
             'prefix osmm: <https://www.openstreetmap.org/meta/>',
-
-            # 'prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>',
-            # 'prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>',
-            # 'prefix owl: <http://www.w3.org/2002/07/owl#>',
-            # 'prefix wikibase: <http://wikiba.se/ontology#>',
-            # 'prefix wdata: <https://www.wikidata.org/wiki/Special:EntityData/>',
-            # 'prefix wds: <http://www.wikidata.org/entity/statement/>',
-            # 'prefix wdref: <http://www.wikidata.org/reference/>',
-            # 'prefix wdv: <http://www.wikidata.org/value/>',
-            # 'prefix wdt: <http://www.wikidata.org/prop/direct/>',
-            # 'prefix p: <http://www.wikidata.org/prop/>',
-            # 'prefix ps: <http://www.wikidata.org/prop/statement/>',
-            # 'prefix psv: <http://www.wikidata.org/prop/statement/value/>',
-            # 'prefix psn: <http://www.wikidata.org/prop/statement/value-normalized/>',
-            # 'prefix pq: <http://www.wikidata.org/prop/qualifier/>',
-            # 'prefix pqv: <http://www.wikidata.org/prop/qualifier/value/>',
-            # 'prefix pqn: <http://www.wikidata.org/prop/qualifier/value-normalized/>',
-            # 'prefix pr: <http://www.wikidata.org/prop/reference/>',
-            # 'prefix prv: <http://www.wikidata.org/prop/reference/value/>',
-            # 'prefix prn: <http://www.wikidata.org/prop/reference/value-normalized/>',
-            # 'prefix wdno: <http://www.wikidata.org/prop/novalue/>',
-            # 'prefix skos: <http://www.w3.org/2004/02/skos/core#>',
-            # 'prefix cc: <http://creativecommons.org/ns#>',
-            # 'prefix prov: <http://www.w3.org/ns/prov#>',
         ]
 
     def finalize_object(self, obj, statements, obj_type):
@@ -89,8 +64,8 @@ class RdfHandler(osmium.SimpleHandler):
 
             statements.append('osmm:type "' + obj_type + '"')
             statements.append('osmm:version "' + str(obj.version) + '"^^xsd:integer')
-            statements.append('osmm:user ' + json.dumps(obj.user, ensure_ascii=False))
-            statements.append('osmm:timestamp ' + self.format_date(timestamp))
+            statements.append('osmm:user ' + osmutils.stringify(obj.user))
+            statements.append('osmm:timestamp ' + osmutils.format_date(timestamp))
             statements.append('osmm:changeset "' + str(obj.changeset) + '"^^xsd:integer')
 
     @staticmethod
@@ -108,7 +83,7 @@ class RdfHandler(osmium.SimpleHandler):
 
             if not reSimpleLocalName.match(key):
                 # Record any unusual tag name in a "osmm:badkey" statement
-                statements.append('osmm:badkey ' + json.dumps(key, ensure_ascii=False))
+                statements.append('osmm:badkey ' + osmutils.stringify(key))
                 continue
 
             if 'wikidata' in key:
@@ -123,7 +98,7 @@ class RdfHandler(osmium.SimpleHandler):
                           quote(match.group(2).replace(' ', '_'), safe=';@$!*(),/~:') + '>'
 
             if val is None:
-                val = json.dumps(tag.v, ensure_ascii=False)
+                val = osmutils.stringify(tag.v)
             statements.append('osmt:' + key + ' ' + val)
 
         return statements
@@ -166,15 +141,16 @@ class RdfHandler(osmium.SimpleHandler):
         if obj.members:
             statements = statements if statements else []
             for mbr in obj.members:
-                # ref role type
+
+                # Produce two statements - one to find all members of a relation,
+                # and another to find the role of that relation
+                #     osmrel:123  osmm:has    osmway:456
+                #     osmrel:123  osmway:456  "inner"
+
                 ref = self.types[mbr.type] + str(mbr.ref)
-                role = 'osmm:has'
-                if mbr.role != '':
-                    if reRoleValue.match(mbr.role):
-                        role += ':' + mbr.role
-                    else:
-                        role += ':_'  # for unknown roles, use "osmm:has:_"
-                statements.append(role + ' ' + ref)
+                statements.append('osmm:has ' + ref)
+                statements.append(ref + ' ' + osmutils.stringify(mbr.role))
+
             self.added_rels += 1
         elif obj.deleted:
             self.deleted_rels += 1
@@ -242,6 +218,6 @@ class RdfHandler(osmium.SimpleHandler):
     def add_error(statements, tag, fallback_message):
         try:
             e = traceback.format_exc()
-            statements.append(tag + ' ' + json.dumps(e, ensure_ascii=False))
+            statements.append(tag + ' ' + osmutils.stringify(e))
         except:
             statements.append(tag + ' ' + fallback_message)
