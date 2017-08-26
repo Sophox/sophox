@@ -40,8 +40,8 @@ class Osm2rdf(object):
         parser_init = subparsers.add_parser('parse', help='Parses a PBF file into multiple .ttl.gz (Turtle files)')
         parser_init.add_argument('input_file', help='OSM input PBF file')
         parser_init.add_argument('output_dir', help='Output directory')
-        parser_init.add_argument('--file-size', dest='maxFileSize', action='store', type=int, default=512,
-                                 help='Maximum size of the output file in uncompressed MB. (default: %(default)s)')
+        parser_init.add_argument('--max-statements', dest='maxStatementsPerFile', action='store', type=int, default=20000,
+                                 help='Maximum number of statements, in thousands, per output file. (default: %(default)s)')
 
         parser_update = subparsers.add_parser('update', help='Update RDF database from OSM minute update files')
         parser_update.add_argument('--seqid', action='store', dest='seqid',

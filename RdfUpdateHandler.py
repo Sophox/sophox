@@ -3,6 +3,8 @@ import requests
 import logging
 import datetime as dt
 from datetime import datetime
+
+import osmutils
 from RdfHandler import RdfHandler
 from osmium.replication.server import ReplicationServer
 
@@ -24,7 +26,7 @@ class RdfUpdateHandler(RdfHandler):
         else:
             self.deleteIds.append(prefixed_id)
         if statements:
-            self.insertStatements.extend([prefixed_id + ' ' + s + '.' for s in statements])
+            self.insertStatements.extend([prefixed_id + ' ' + s + '.' for s in osmutils.statementToStr(statements)])
 
         if len(self.deleteIds) > 1000 or len(self.updatedIds) > 1000 or len(self.insertStatements) > 2000:
             self.flush()

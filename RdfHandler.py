@@ -1,22 +1,13 @@
-import re
 import traceback
-from urllib.parse import quote
 from datetime import datetime, timezone
 
-import osmutils
+from osmutils import Bool, Date, Geo, Int, Str, Ref, Tag
 import osmium
 import shapely.speedups
 from shapely.wkb import loads
 
 if shapely.speedups.available:
     shapely.speedups.enable()
-
-# May contain letters, numbers anywhere, and -:_ symbols anywhere except first and last position
-reSimpleLocalName = re.compile(r'^[0-9a-zA-Z_]([-:0-9a-zA-Z_]*[0-9a-zA-Z_])?$')
-reWikidataKey = re.compile(r'(.:)?wikidata$')
-reWikidataValue = re.compile(r'^Q[1-9][0-9]*$')
-reWikipediaValue = re.compile(r'^([-a-z]+):(.+)$')
-
 
 class RdfHandler(osmium.SimpleHandler):
     def __init__(self, options):
@@ -62,11 +53,11 @@ class RdfHandler(osmium.SimpleHandler):
             if timestamp > self.last_timestamp:
                 self.last_timestamp = timestamp
 
-            statements.append('osmm:type "' + obj_type + '"')
-            statements.append('osmm:version "' + str(obj.version) + '"^^xsd:integer')
-            statements.append('osmm:user ' + osmutils.stringify(obj.user))
-            statements.append('osmm:timestamp ' + osmutils.format_date(timestamp))
-            statements.append('osmm:changeset "' + str(obj.changeset) + '"^^xsd:integer')
+            statements.append((Str, 'osmm:type', obj_type))
+            statements.append((Int, 'osmm:version', obj.version))
+            statements.append((Str, 'osmm:user', obj.user))
+            statements.append((Date, 'osmm:timestamp', timestamp))
+            statements.append((Int, 'osmm:changeset', obj.changeset))
 
     @staticmethod
     def parse_tags(obj):
@@ -76,30 +67,9 @@ class RdfHandler(osmium.SimpleHandler):
         statements = []
 
         for tag in obj.tags:
-            key = tag.k
-            val = None
-            if key == 'created_by':
+            if tag.k == 'created_by':
                 continue
-
-            if not reSimpleLocalName.match(key):
-                # Record any unusual tag name in a "osmm:badkey" statement
-                statements.append('osmm:badkey ' + osmutils.stringify(key))
-                continue
-
-            if 'wikidata' in key:
-                if reWikidataValue.match(tag.v):
-                    val = 'wd:' + tag.v
-            elif 'wikipedia' in key:
-                match = reWikipediaValue.match(tag.v)
-                if match:
-                    # For some reason, sitelinks stored in Wikidata WDQS have spaces instead of '_'
-                    # https://www.mediawiki.org/wiki/Wikibase/Indexing/RDF_Dump_Format#Sitelinks
-                    val = '<https://' + match.group(1) + '.wikipedia.org/wiki/' + \
-                          quote(match.group(2).replace(' ', '_'), safe=';@$!*(),/~:') + '>'
-
-            if val is None:
-                val = osmutils.stringify(tag.v)
-            statements.append('osmt:' + key + ' ' + val)
+            statements.append((Tag, tag.k, tag.v))
 
         return statements
 
@@ -118,7 +88,7 @@ class RdfHandler(osmium.SimpleHandler):
     def way(self, obj):
         statements = self.parse_tags(obj)
         if statements:
-            statements.append('osmm:isClosed "' + ('true' if obj.is_closed() else 'false') + '"^^xsd:boolean')
+            statements.append((Bool, 'osmm:isClosed', obj.is_closed()))
             if self.options.addWayLoc:
                 try:
                     wkb = self.wkbfab.create_linestring(obj)
@@ -148,8 +118,8 @@ class RdfHandler(osmium.SimpleHandler):
                 #     osmrel:123  osmway:456  "inner"
 
                 ref = self.types[mbr.type] + str(mbr.ref)
-                statements.append('osmm:has ' + ref)
-                statements.append(ref + ' ' + osmutils.stringify(mbr.role))
+                statements.append((Ref, 'osmm:has', ref))
+                statements.append((Str, ref, mbr.role))
 
             self.added_rels += 1
         elif obj.deleted:
@@ -180,11 +150,6 @@ class RdfHandler(osmium.SimpleHandler):
             self.last_stats = res
         return res
 
-    @staticmethod
-    def format_date(datetime):
-        # https://phabricator.wikimedia.org/T173974
-        return '"' + datetime.isoformat().replace('+00:00', 'Z') + '"^^xsd:dateTime'
-
     def get_index_string(self):
         if self.options.addWayLoc:
             if self.options.cacheType == 'sparse':
@@ -212,12 +177,12 @@ class RdfHandler(osmium.SimpleHandler):
         spoint = str(point.x) + ' ' + str(point.y)
         if point.has_z:
             spoint += ' ' + str(point.z)
-        statements.append('osmm:loc "Point(' + spoint + ')"^^geo:wktLiteral')
+        statements.append((Geo, 'osmm:loc', spoint))
 
     @staticmethod
     def add_error(statements, tag, fallback_message):
         try:
             e = traceback.format_exc()
-            statements.append(tag + ' ' + osmutils.stringify(e))
+            statements.append((Str, tag, e))
         except:
-            statements.append(tag + ' ' + fallback_message)
+            statements.append((Str, tag, fallback_message))

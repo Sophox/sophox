@@ -27,8 +27,10 @@ def write_file(workerId, options, fileId, data, last_timestamp):
     output = gzip.open(filename, 'wt', compresslevel=5)
 
     output.write(options.file_header)
-    for line in data:
-        output.write(line)
+    for item in data:
+        typ, id, statements = item
+        text = typ + str(id) + '\n' + ';\n'.join(osmutils.toStrings(statements)) + '.\n\n'
+        output.write(text)
 
     if last_timestamp.year > 2000:  # Not min-year
         output.write(
@@ -45,12 +47,12 @@ class RdfFileHandler(RdfHandler):
         self.job_counter = 0
         self.length = None
         self.output = None
-        self.maxFileSize = self.options.maxFileSize * 1024 * 1024
+        self.maxStatementCount = self.options.maxStatementsPerFile * 1000
         self.pending = []
-        self.pendingSize = 0
+        self.pendingStatements = 0
         self.options.file_header = '\n'.join(['@' + p + ' .' for p in self.prefixes]) + '\n\n'
 
-        worker_count = 2
+        worker_count = 4
 
         self.queue = JoinableQueue(worker_count*2)
 
@@ -64,22 +66,21 @@ class RdfFileHandler(RdfHandler):
         super(RdfFileHandler, self).finalize_object(obj, statements, obj_type)
 
         if statements:
-            text = self.types[obj_type] + str(obj.id) + '\n' + ';\n'.join(statements) + '.\n\n'
-            self.pending.append(text)
-            self.pendingSize += len(text)
+            self.pending.append((self.types[obj_type], obj.id, statements))
+            self.pendingStatements += 2 + len(statements)
 
-            if self.pendingSize > self.maxFileSize:
+            if self.pendingStatements > self.maxStatementCount:
                 self.flush()
 
     def flush(self):
-        if self.pendingSize == 0:
+        if self.pendingStatements == 0:
             return
 
         self.queue.put((self.job_counter, self.pending, self.last_timestamp))
 
         self.job_counter += 1
         self.pending = []
-        self.pendingSize = 0
+        self.pendingStatements = 0
 
     def run(self, input_file):
         if self.options.addWayLoc:
