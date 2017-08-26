@@ -169,12 +169,10 @@ INSERT {{
 
             seconds_since_last = (datetime.utcnow() - last_time).total_seconds()
             if seconds_since_last > 60:
-                log.info('Processed {4} diffs, now at #{0}, last #{1}, {2:.2f}/s, {3}'.format(
-                    seqid - 1,
-                    (state.sequence if state else '???'),
-                    (seqid - last_seqid - 1) / seconds_since_last,
-                    self.format_stats(),
-                    seqid - last_seqid - 1))
+                log.info('Processed {0}, todo {1};  {2}'.format(
+                    seqid - last_seqid - 1,
+                    (state.sequence - seqid + 1 if state else '???'),
+                    self.format_stats()))
                 last_seqid = seqid - 1
                 last_time = datetime.utcnow()
 
