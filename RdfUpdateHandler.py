@@ -113,7 +113,7 @@ INSERT {{
   osmroot: schema:version {0} .
   osmroot: schema:dateModified {1} .
 }} WHERE {{}};
-'''.format(ver, self.format_date(self.last_timestamp))
+'''.format(ver, osmutils.format_date(self.last_timestamp))
 
         self.update_rdf(sparql)
 
