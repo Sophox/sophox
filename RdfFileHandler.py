@@ -1,7 +1,7 @@
 import gzip
 import logging
 import os
-from multiprocessing import Process, JoinableQueue
+from multiprocessing import Process, Queue
 from RdfHandler import RdfHandler
 import osmutils
 
@@ -9,13 +9,13 @@ log = logging.getLogger('osm2rdf')
 
 
 def writerThread(id, queue, options):
-    fileId = True
-    while fileId is not None:
+    while True:
         fileId, data, last_timestamp = queue.get()
-        if fileId is not None:
-            write_file(id, options, fileId, data, last_timestamp)
-        queue.task_done()
-    log.debug('Wrk #{0} complete'.format(id))
+        if fileId is None:
+            log.debug('Wrk #{0} complete'.format(id))
+            return
+
+        write_file(id, options, fileId, data, last_timestamp)
 
 
 def write_file(workerId, options, fileId, data, last_timestamp):
@@ -54,7 +54,7 @@ class RdfFileHandler(RdfHandler):
 
         worker_count = 4
 
-        self.queue = JoinableQueue(worker_count*2)
+        self.queue = Queue(worker_count*2)
 
         self.writers = []
         for id in range(worker_count):
@@ -94,6 +94,5 @@ class RdfFileHandler(RdfHandler):
         for p in self.writers:
             self.queue.put((None, None, None))
         self.queue.close()
-        self.queue.join()
         for p in self.writers:
             p.join()

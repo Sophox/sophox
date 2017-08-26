@@ -26,7 +26,7 @@ class RdfUpdateHandler(RdfHandler):
         else:
             self.deleteIds.append(prefixed_id)
         if statements:
-            self.insertStatements.extend([prefixed_id + ' ' + s + '.' for s in osmutils.statementToStr(statements)])
+            self.insertStatements.extend([prefixed_id + ' ' + s + '.' for s in osmutils.toStrings(statements)])
 
         if len(self.deleteIds) > 1000 or len(self.updatedIds) > 1000 or len(self.insertStatements) > 2000:
             self.flush()
@@ -169,10 +169,12 @@ INSERT {{
 
             seconds_since_last = (datetime.utcnow() - last_time).total_seconds()
             if seconds_since_last > 60:
-                log.info('Processed up to #{0} out of #{1}, {2:.2f}/s, {3}'.format(
-                    seqid - 1, (state.sequence if state else '???'),
+                log.info('Processed {4} diffs, now at #{0}, last #{1}, {2:.2f}/s, {3}'.format(
+                    seqid - 1,
+                    (state.sequence if state else '???'),
                     (seqid - last_seqid - 1) / seconds_since_last,
-                    self.format_stats()))
+                    self.format_stats(),
+                    seqid - last_seqid - 1))
                 last_seqid = seqid - 1
                 last_time = datetime.utcnow()
 
