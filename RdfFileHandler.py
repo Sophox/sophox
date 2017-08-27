@@ -10,20 +10,20 @@ log = logging.getLogger('osm2rdf')
 
 def writerThread(id, queue, options):
     while True:
-        fileId, data, last_timestamp = queue.get()
+        fileId, data, last_timestamp, statsStr = queue.get()
         if fileId is None:
             log.debug('Wrk #{0} complete'.format(id))
             return
 
-        write_file(id, options, fileId, data, last_timestamp)
+        write_file(id, options, fileId, data, last_timestamp, statsStr)
 
 
-def write_file(workerId, options, fileId, data, last_timestamp):
+def write_file(workerId, options, fileId, data, last_timestamp, statsStr):
     os.makedirs(options.output_dir, exist_ok=True)
     filename = os.path.join(options.output_dir, 'osm-{0:06}.ttl.gz'.format(fileId))
 
     # TODO switch to 'xt'
-    log.info('Wrk #{0}: {1} started'.format(workerId, filename))
+    log.info('Wrk #{0}: {1} started, {2}'.format(workerId, filename, statsStr))
     output = gzip.open(filename, 'wt', compresslevel=5)
 
     output.write(options.file_header)
@@ -74,7 +74,8 @@ class RdfFileHandler(RdfHandler):
         if self.pendingStatements == 0:
             return
 
-        self.queue.put((self.job_counter, self.pending, self.last_timestamp))
+        statsStr = self.format_stats()
+        self.queue.put((self.job_counter, self.pending, self.last_timestamp, statsStr))
 
         self.job_counter += 1
         self.pending = []
@@ -90,7 +91,7 @@ class RdfFileHandler(RdfHandler):
 
         # Send stop signal to each worker, and wait for all to stop
         for p in self.writers:
-            self.queue.put((None, None, None))
+            self.queue.put((None, None, None, None))
         self.queue.close()
         for p in self.writers:
             p.join()

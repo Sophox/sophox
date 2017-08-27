@@ -25,6 +25,7 @@ class RdfHandler(osmium.SimpleHandler):
         self.deleted_nodes = 0
         self.deleted_rels = 0
         self.deleted_ways = 0
+        self.new_statements = 0
 
         self.types = {
             'n': 'osmnode:',
@@ -58,6 +59,8 @@ class RdfHandler(osmium.SimpleHandler):
             statements.append((Str, 'osmm:user', obj.user))
             statements.append((Date, 'osmm:timestamp', timestamp))
             statements.append((Int, 'osmm:changeset', obj.changeset))
+
+            self.new_statements += len(statements)
 
     @staticmethod
     # @profile
@@ -146,11 +149,15 @@ class RdfHandler(osmium.SimpleHandler):
         pass
 
     def format_stats(self):
-        res = 'Added: {0}n {1}w {2}r;  Skipped: {3}n {4}w {5}r;  Deleted: {6}n {7}w {8}r'.format(
+        res = 'Statements: {6};  Added: {0}n {1}w {2}r;  Skipped: {3}n {4}w {5}r'.format(
             self.added_nodes, self.added_ways, self.added_rels,
             self.skipped_nodes, self.skipped_ways, self.skipped_rels,
-            self.deleted_nodes, self.deleted_ways, self.deleted_rels,
-        )
+            self.new_statements)
+
+        if self.deleted_nodes or self.deleted_ways or self.deleted_rels:
+            res += ';  Deleted: {0}n {1}w {2}r'.format(
+                 self.deleted_nodes, self.deleted_ways, self.deleted_rels)
+
         if self.last_stats == res:
             res = ''
         else:
