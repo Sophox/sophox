@@ -42,6 +42,8 @@ class Osm2rdf(object):
         parser_init.add_argument('output_dir', help='Output directory')
         parser_init.add_argument('--max-statements', dest='maxStatementsPerFile', action='store', type=int, default=20000,
                                  help='Maximum number of statements, in thousands, per output file. (default: %(default)s)')
+        parser_init.add_argument('--workers', action='store', dest='worker_count', default=4, type=int,
+                                 help='Number of worker threads to run (default: %(default)s)')
 
         parser_update = subparsers.add_parser('update', help='Update RDF database from OSM minute update files')
         parser_update.add_argument('--seqid', action='store', dest='seqid',
@@ -53,8 +55,7 @@ class Osm2rdf(object):
         parser_update.add_argument('--host', action='store', dest='rdf_url',
                                    default='http://localhost:9999/bigdata/sparql',
                                    help='Host URL to upload data. Default: %(default)s')
-        parser_update.add_argument('--max-download', action='store', dest='change_size', default=5 * 1024,
-                                   type=int,
+        parser_update.add_argument('--max-download', action='store', dest='change_size', default=5 * 1024, type=int,
                                    help='Maxium size in kB for changes to download at once (default: %(default)s)')
         parser_update.add_argument('-n', '--dry-run', action='store_true', dest='dry_run', default=False,
                                    help='Do not modify RDF database.')

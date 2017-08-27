@@ -2,6 +2,14 @@ import re
 from urllib.parse import quote
 import json
 
+import shapely.speedups
+import sys
+from shapely.wkb import loads
+
+if shapely.speedups.available:
+    shapely.speedups.enable()
+
+
 # May contain letters, numbers anywhere, and -:_ symbols anywhere except first and last position
 reSimpleLocalName = re.compile(r'^[0-9a-zA-Z_]([-:0-9a-zA-Z_]*[0-9a-zA-Z_])?$')
 reWikidataKey = re.compile(r'(.:)?wikidata$')
@@ -39,21 +47,49 @@ def tagToStr(k, v):
         return 'osmt:' + k + ' ' + val
 
 
+def loc_err():
+    try:
+        error = sys.exc_info()[1]
+        return (Str, 'osmm:loc:error', str(error) + ' (' + type(error).__name__ + ')')
+    except:
+        return (Str, 'osmm:loc:error', 'Unable to parse location data')
+
+def wayToStr(k, v):
+    try:
+        return formatPoint(k, loads(v, hex=True).representative_point())
+    except:
+        return tupleToStr(loc_err())
+
+
+def pointToStr(k, v):
+    try:
+        return formatPoint(k, loads(v, hex=True))
+    except:
+        return tupleToStr(loc_err())
+
+
+def formatPoint(tag, point):
+    result = tag + ' "Point(' + str(point.x) + ' ' + str(point.y)
+    if point.has_z:
+        result += ' ' + str(point.z)
+    result += ')"^^geo:wktLiteral'
+    return result
+
+
 Bool = 0
 Date = 1
-Geo = 2
-Int = 3
-Ref = 4
-Str = 5
-Tag = 6
+Int = 2
+Ref = 3
+Str = 4
+Tag = 5
+Way = 6
+Point = 7
 
 statementToStr = [
     # Bool
     lambda k, v: k + ' "' + ('true' if v else 'false') + '"^^xsd:boolean',
     # Date
     lambda k, v: k + ' ' + format_date(v),
-    # Geo
-    lambda k, v: k + ' "Point(' + v + ')"^^geo:wktLiteral',
     # Int
     lambda k, v: k + ' "' + str(v) + '"^^xsd:integer',
     # Ref
@@ -62,8 +98,16 @@ statementToStr = [
     lambda k, v: k + ' ' + stringify(v),
     # Tag
     tagToStr,
+    # Way
+    wayToStr,
+    # Point
+    pointToStr,
 ]
 
 
 def toStrings(statements):
-    return [statementToStr[s[0]](s[1], s[2]) for s in statements]
+    return [tupleToStr(s) for s in statements]
+
+
+def tupleToStr(s):
+    return statementToStr[s[0]](s[1], s[2])

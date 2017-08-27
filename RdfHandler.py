@@ -1,13 +1,12 @@
-import traceback
 from datetime import datetime, timezone
 
-from osmutils import Bool, Date, Geo, Int, Str, Ref, Tag
+from osmutils import Bool, Date, Int, Str, Ref, Tag, Way, Point, loc_err
 import osmium
-import shapely.speedups
-from shapely.wkb import loads
 
-if shapely.speedups.available:
-    shapely.speedups.enable()
+
+# def profile(func):
+#     return func
+
 
 class RdfHandler(osmium.SimpleHandler):
     def __init__(self, options):
@@ -47,8 +46,9 @@ class RdfHandler(osmium.SimpleHandler):
             'prefix osmm: <https://www.openstreetmap.org/meta/>',
         ]
 
+    # @profile
     def finalize_object(self, obj, statements, obj_type):
-        if not obj.deleted and statements:
+        if statements and not obj.deleted:
             timestamp = obj.timestamp
             if timestamp > self.last_timestamp:
                 self.last_timestamp = timestamp
@@ -60,6 +60,7 @@ class RdfHandler(osmium.SimpleHandler):
             statements.append((Int, 'osmm:changeset', obj.changeset))
 
     @staticmethod
+    # @profile
     def parse_tags(obj):
         if not obj.tags or obj.deleted:
             return None
@@ -73,10 +74,15 @@ class RdfHandler(osmium.SimpleHandler):
 
         return statements
 
+    # @profile
     def node(self, obj):
         statements = self.parse_tags(obj)
         if statements:
-            self.parse_point(obj, statements)
+            try:
+                geometry = self.wkbfab.create_point(obj)
+                statements.append((Point, 'osmm:loc', geometry))
+            except:
+                statements.append(loc_err())
             self.added_nodes += 1
         elif obj.deleted:
             self.deleted_nodes += 1
@@ -85,20 +91,17 @@ class RdfHandler(osmium.SimpleHandler):
 
         self.finalize_object(obj, statements, 'n')
 
+    # @profile
     def way(self, obj):
         statements = self.parse_tags(obj)
         if statements:
             statements.append((Bool, 'osmm:isClosed', obj.is_closed()))
             if self.options.addWayLoc:
                 try:
-                    wkb = self.wkbfab.create_linestring(obj)
-                    point = loads(wkb, hex=True).representative_point()
-                    self.add_location(point, statements)
+                    geometry = self.wkbfab.create_linestring(obj)
+                    statements.append((Way, 'osmm:loc', geometry))
                 except:
-                    if len(obj.nodes) == 1:
-                        self.parse_point(obj, statements)
-                    else:
-                        self.add_error(statements, 'osmm:loc:error', "Unable to parse location data")
+                    statements.append(loc_err())
             self.added_ways += 1
         elif obj.deleted:
             self.deleted_ways += 1
@@ -106,6 +109,7 @@ class RdfHandler(osmium.SimpleHandler):
             self.skipped_ways += 1
         self.finalize_object(obj, statements, 'w')
 
+    # @profile
     def relation(self, obj):
         statements = self.parse_tags(obj)
         if obj.members:
@@ -163,26 +167,3 @@ class RdfHandler(osmium.SimpleHandler):
                 else:
                     return 'dense_mmap_array'
         return None
-
-    def parse_point(self, obj, statements):
-        try:
-            wkb = self.wkbfab.create_point(obj)
-            point = loads(wkb, hex=True)
-            self.add_location(point, statements)
-        except:
-            self.add_error(statements, 'osmm:loc:error', "Unable to parse location data")
-
-    @staticmethod
-    def add_location(point, statements):
-        spoint = str(point.x) + ' ' + str(point.y)
-        if point.has_z:
-            spoint += ' ' + str(point.z)
-        statements.append((Geo, 'osmm:loc', spoint))
-
-    @staticmethod
-    def add_error(statements, tag, fallback_message):
-        try:
-            e = traceback.format_exc()
-            statements.append((Str, tag, e))
-        except:
-            statements.append((Str, tag, fallback_message))

@@ -52,12 +52,10 @@ class RdfFileHandler(RdfHandler):
         self.pendingStatements = 0
         self.options.file_header = '\n'.join(['@' + p + ' .' for p in self.prefixes]) + '\n\n'
 
-        worker_count = 4
-
-        self.queue = Queue(worker_count*2)
+        self.queue = Queue(options.worker_count * 2)
 
         self.writers = []
-        for id in range(worker_count):
+        for id in range(options.worker_count):
             process = Process(target=writerThread, args=(id, self.queue, self.options))
             self.writers.append(process)
             process.start()
