@@ -62,15 +62,17 @@ class RdfHandler(osmium.SimpleHandler):
     @staticmethod
     # @profile
     def parse_tags(obj):
-        if not obj.tags or obj.deleted:
+        tags = obj.tags
+        if not tags or obj.deleted:
             return None
 
         statements = []
 
-        for tag in obj.tags:
-            if tag.k == 'created_by':
+        for tag in tags:
+            key = tag.k
+            if key == 'created_by':
                 continue
-            statements.append((Tag, tag.k, tag.v))
+            statements.append((Tag, key, tag.v))
 
         return statements
 
@@ -112,9 +114,10 @@ class RdfHandler(osmium.SimpleHandler):
     # @profile
     def relation(self, obj):
         statements = self.parse_tags(obj)
-        if obj.members:
+        members = obj.members
+        if members:
             statements = statements if statements else []
-            for mbr in obj.members:
+            for mbr in members:
 
                 # Produce two statements - one to find all members of a relation,
                 # and another to find the role of that relation
