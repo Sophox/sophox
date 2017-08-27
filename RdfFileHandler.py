@@ -23,7 +23,7 @@ def write_file(workerId, options, fileId, data, last_timestamp):
     filename = os.path.join(options.output_dir, 'osm-{0:06}.ttl.gz'.format(fileId))
 
     # TODO switch to 'xt'
-    log.info('Wrk #{0}: Exporting to {1}'.format(workerId, filename))
+    log.info('Wrk #{0}: {1} started'.format(workerId, filename))
     output = gzip.open(filename, 'wt', compresslevel=5)
 
     output.write(options.file_header)
