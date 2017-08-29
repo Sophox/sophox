@@ -31,7 +31,7 @@ class RdfUpdateHandler(RdfHandler):
         if len(self.deleteIds) > 1000 or len(self.updatedIds) > 1000 or len(self.insertStatements) > 2000:
             self.flush()
 
-    def flush(self):
+    def flush(self, seqid=0):
         if not self.deleteIds and not self.insertStatements:
             return
 
@@ -61,6 +61,10 @@ WHERE {{
 
         if self.insertStatements:
             sparql += 'INSERT { ' + '\n'.join(self.insertStatements) + ' } WHERE {};\n'
+
+        if seqid > 0:
+            sparql += self.set_osm_schema_ver(seqid)
+
         self.update_rdf(sparql)
         self.deleteIds = []
         self.insertStatements = []
@@ -112,7 +116,7 @@ SELECT ?dummy ?ver ?mod WHERE {
         if self.last_timestamp.year < 2000:  # Something majorly wrong
             raise Exception('last_timestamp was not updated')
 
-        sparql = '''
+        return '''
 PREFIX osmroot: <https://www.openstreetmap.org>
 DELETE {{ osmroot: schema:version ?v . }} WHERE {{ osmroot: schema:version ?v . }};
 DELETE {{ osmroot: schema:dateModified ?m . }} WHERE {{ osmroot: schema:dateModified ?m . }};
@@ -122,11 +126,9 @@ INSERT {{
 }} WHERE {{}};
 '''.format(ver, osmutils.format_date(self.last_timestamp))
 
-        self.update_rdf(sparql)
-
     def update_rdf(self, sparql):
         if not self.options.dry_run:
-            r = requests.post(self.options.rdf_url, data={'update': sparql}, headers={'Connection':'close'})
+            r = requests.post(self.options.rdf_url, data={'update': sparql})
             if not r.ok:
                 raise Exception(r.text)
 
@@ -168,8 +170,7 @@ INSERT {{
                     else:
                         self.apply_buffer(diffdata, repserv.diff_type)
 
-                    self.flush()
-                    self.set_osm_schema_ver(seqid)
+                    self.flush(seqid)
 
                     seqid += 1
                     sleep = False
