@@ -90,11 +90,18 @@ SELECT ?dummy ?ver ?mod WHERE {
             pass
 
         try:
-            mod_date = datetime.strptime(result['mod']['value'], "%Y-%m-%dT%H:%M:%S.%fZ") \
-                .replace(tzinfo=dt.timezone.utc)
+            ts = result['mod']['value']
         except KeyError:
             log.error('Neither schema:version nor schema:dateModified are set for <https://www.openstreetmap.org>')
             return None
+
+        # Try with and without the fraction of a second part
+        try:
+            mod_date = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            mod_date = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+        mod_date = mod_date.replace(tzinfo=dt.timezone.utc)
 
         log.info('schema:dateModified={0}, shifting back and getting sequence ID'.format(mod_date))
 
@@ -119,7 +126,7 @@ INSERT {{
 
     def update_rdf(self, sparql):
         if not self.options.dry_run:
-            r = requests.post(self.options.rdf_url, data={'update': sparql})
+            r = requests.post(self.options.rdf_url, data={'update': sparql}, headers={'Connection':'close'})
             if not r.ok:
                 raise Exception(r.text)
 
