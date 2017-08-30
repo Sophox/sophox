@@ -66,7 +66,7 @@ WHERE {{
         if seqid > 0:
             sparql += self.set_osm_schema_ver(seqid)
 
-        self.rdf_server.update_rdf(sparql)
+        self.rdf_server.run('update', sparql)
         self.deleteIds = []
         self.insertStatements = []
 
@@ -80,7 +80,7 @@ SELECT ?dummy ?ver ?mod WHERE {
 }
 '''
 
-        result = self.rdf_server.query_rdf(sparql)[0]
+        result = self.rdf_server.run('query', sparql)[0]
 
         if result['dummy']['value'] != '42':
             raise Exception('Failed to get a dummy value from RDF DB')

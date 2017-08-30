@@ -59,7 +59,7 @@ SELECT ?rel WHERE {
   ?rel osmm:type 'r' .
   FILTER NOT EXISTS { ?rel osmm:loc ?relLoc . }
 } LIMIT 100000'''
-        result = self.rdf_server.query_rdf(query)
+        result = self.rdf_server.run('query', query)
         relIds = ['osmrel:' + i['rel']['value'][len('https://www.openstreetmap.org/relation/'):] for i in result]
         relIds = [i for i in relIds if i not in self.skipped]
 
@@ -77,11 +77,12 @@ SELECT ?rel WHERE {
         if len(insertStatements) > 0:
             sparql = '\n'.join(osmutils.prefixes) + '\n\n'
             sparql += 'INSERT {{ {0} }} WHERE {{}};\n'.format('\n'.join(insertStatements))
-            self.rdf_server.update_rdf(sparql)
+            self.rdf_server.run('update', sparql)
             self.log.info('Updated {0} relations'.format(len(insertStatements)))
 
 
     def get_relation_members(self, relIds):
+
         query = '''# Get relation member's locations
 SELECT
   ?rel ?loc
@@ -90,7 +91,8 @@ WHERE {{
   ?rel osmm:has ?member .
   OPTIONAL {{ ?member osmm:loc ?loc . }}
 }}'''.format(' '.join(relIds))
-        result = self.rdf_server.query_rdf(query)
+
+        result = self.rdf_server.run('query', query)
 
         return [(
             'osmrel:' + i['rel']['value'][len('https://www.openstreetmap.org/relation/'):],
