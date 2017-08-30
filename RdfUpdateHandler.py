@@ -1,5 +1,4 @@
 import time
-import requests
 import logging
 import datetime as dt
 from datetime import datetime
@@ -7,6 +6,7 @@ from datetime import datetime
 import osmutils
 from RdfHandler import RdfHandler
 from osmium.replication.server import ReplicationServer
+from sparql import Sparql
 
 log = logging.getLogger('osm2rdf')
 
@@ -16,11 +16,12 @@ class RdfUpdateHandler(RdfHandler):
         self.deleteIds = []
         self.updatedIds = []
         self.insertStatements = []
+        self.rdf_server = Sparql(self.options.rdf_url, self.options.dry_run)
 
     def finalize_object(self, obj, statements, obj_type):
         super(RdfUpdateHandler, self).finalize_object(obj, statements, obj_type)
 
-        prefixed_id = self.types[obj_type] + str(obj.id)
+        prefixed_id = osmutils.types[obj_type] + str(obj.id)
         if obj.deleted:
             self.deleteIds.append(prefixed_id)
         else:
@@ -35,7 +36,7 @@ class RdfUpdateHandler(RdfHandler):
         if not self.deleteIds and not self.insertStatements:
             return
 
-        sparql = '\n'.join(self.prefixes) + '\n\n'
+        sparql = '\n'.join(osmutils.prefixes) + '\n\n'
 
         if not self.options.addWayLoc:
             # For updates, delete everything except the osmm:loc tag
@@ -60,12 +61,12 @@ WHERE {{
 }};'''.format(' '.join(self.deleteIds))
 
         if self.insertStatements:
-            sparql += 'INSERT { ' + '\n'.join(self.insertStatements) + ' } WHERE {};\n'
+            sparql += 'INSERT {{ {0} }} WHERE {{}};\n'.format('\n'.join(self.insertStatements))
 
         if seqid > 0:
             sparql += self.set_osm_schema_ver(seqid)
 
-        self.update_rdf(sparql)
+        self.rdf_server.update_rdf(sparql)
         self.deleteIds = []
         self.insertStatements = []
 
@@ -79,12 +80,8 @@ SELECT ?dummy ?ver ?mod WHERE {
 }
 '''
 
-        r = requests.get(self.options.rdf_url,
-                         {'query': sparql},
-                         headers={'Accept': 'application/sparql-results+json'})
-        if not r.ok:
-            raise Exception(r.text)
-        result = r.json()['results']['bindings'][0]
+        result = self.rdf_server.query_rdf(sparql)[0]
+
         if result['dummy']['value'] != '42':
             raise Exception('Failed to get a dummy value from RDF DB')
 
@@ -125,12 +122,6 @@ INSERT {{
   osmroot: schema:dateModified {1} .
 }} WHERE {{}};
 '''.format(ver, osmutils.format_date(self.last_timestamp))
-
-    def update_rdf(self, sparql):
-        if not self.options.dry_run:
-            r = requests.post(self.options.rdf_url, data={'update': sparql})
-            if not r.ok:
-                raise Exception(r.text)
 
     def run(self):
         repserv = ReplicationServer(self.options.osm_updater_url)
@@ -185,7 +176,7 @@ INSERT {{
                 last_time = datetime.utcnow()
 
             if state is not None and seqid > state.sequence:
-                state = None # Refresh state
+                state = None  # Refresh state
 
             if sleep:
                 time.sleep(60)

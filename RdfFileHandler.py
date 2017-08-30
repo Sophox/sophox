@@ -50,7 +50,7 @@ class RdfFileHandler(RdfHandler):
         self.maxStatementCount = self.options.maxStatementsPerFile * 1000
         self.pending = []
         self.pendingStatements = 0
-        self.options.file_header = '\n'.join(['@' + p + ' .' for p in self.prefixes]) + '\n\n'
+        self.options.file_header = '\n'.join(['@' + p + ' .' for p in osmutils.prefixes]) + '\n\n'
 
         self.queue = Queue(options.worker_count * 2)
 
@@ -64,7 +64,7 @@ class RdfFileHandler(RdfHandler):
         super(RdfFileHandler, self).finalize_object(obj, statements, obj_type)
 
         if statements:
-            self.pending.append((self.types[obj_type], obj.id, statements))
+            self.pending.append((osmutils.types[obj_type], obj.id, statements))
             self.pendingStatements += 2 + len(statements)
 
             if self.pendingStatements > self.maxStatementCount:

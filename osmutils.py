@@ -111,3 +111,23 @@ def toStrings(statements):
 
 def tupleToStr(s):
     return statementToStr[s[0]](s[1], s[2])
+
+types = {
+    'n': 'osmnode:',
+    'w': 'osmway:',
+    'r': 'osmrel:',
+}
+
+prefixes = [
+    'prefix wd: <http://www.wikidata.org/entity/>',
+    'prefix xsd: <http://www.w3.org/2001/XMLSchema#>',
+    'prefix geo: <http://www.opengis.net/ont/geosparql#>',
+    'prefix schema: <http://schema.org/>',
+
+    'prefix osmroot: <https://www.openstreetmap.org>',
+    'prefix osmnode: <https://www.openstreetmap.org/node/>',
+    'prefix osmway: <https://www.openstreetmap.org/way/>',
+    'prefix osmrel: <https://www.openstreetmap.org/relation/>',
+    'prefix osmt: <https://wiki.openstreetmap.org/wiki/Key:>',
+    'prefix osmm: <https://www.openstreetmap.org/meta/>',
+]

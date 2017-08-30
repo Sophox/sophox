@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from osmutils import Bool, Date, Int, Str, Ref, Tag, Way, Point, loc_err
+from osmutils import Bool, Date, Int, Str, Ref, Tag, Way, Point, loc_err, types
 import osmium
 
 
@@ -26,26 +26,6 @@ class RdfHandler(osmium.SimpleHandler):
         self.deleted_rels = 0
         self.deleted_ways = 0
         self.new_statements = 0
-
-        self.types = {
-            'n': 'osmnode:',
-            'w': 'osmway:',
-            'r': 'osmrel:',
-        }
-
-        self.prefixes = [
-            'prefix wd: <http://www.wikidata.org/entity/>',
-            'prefix xsd: <http://www.w3.org/2001/XMLSchema#>',
-            'prefix geo: <http://www.opengis.net/ont/geosparql#>',
-            'prefix schema: <http://schema.org/>',
-
-            'prefix osmroot: <https://www.openstreetmap.org>',
-            'prefix osmnode: <https://www.openstreetmap.org/node/>',
-            'prefix osmway: <https://www.openstreetmap.org/way/>',
-            'prefix osmrel: <https://www.openstreetmap.org/relation/>',
-            'prefix osmt: <https://wiki.openstreetmap.org/wiki/Key:>',
-            'prefix osmm: <https://www.openstreetmap.org/meta/>',
-        ]
 
     # @profile
     def finalize_object(self, obj, statements, obj_type):
@@ -127,7 +107,7 @@ class RdfHandler(osmium.SimpleHandler):
                 #     osmrel:123  osmm:has    osmway:456
                 #     osmrel:123  osmway:456  "inner"
 
-                ref = self.types[mbr.type] + str(mbr.ref)
+                ref = types[mbr.type] + str(mbr.ref)
                 statements.append((Ref, 'osmm:has', ref))
                 statements.append((Str, ref, mbr.role))
 
