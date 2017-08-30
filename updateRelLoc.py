@@ -62,28 +62,33 @@ SELECT ?rel WHERE {
         result = self.rdf_server.run('query', query)
         self.skipped = ['osmrel:' + i['rel']['value'][len('https://www.openstreetmap.org/relation/'):] for i in result]
 
+        skipMemberTypes = {'https://www.openstreetmap.org/nod', 'https://www.openstreetmap.org/way'}
         while True:
             relIds = self.skipped
             self.skipped = []
             count = len(relIds)
             self.log.info('** Processing {0} relations'.format(count))
-            self.run_list(relIds)
+            self.run_list(relIds, skipMemberTypes)
             if len(self.skipped) >= count:
-                self.log.info('** {0} out of {1} relations left, exiting'.format(len(self.skipped), count))
-                break
+                if len(skipMemberTypes) == 2:
+                    skipMemberTypes.add('https://www.openstreetmap.org/rel')
+                    self.log.info('** {0} out of {1} relations left, switching to rel mode'.format(len(self.skipped), count))
+                else:
+                    self.log.info('** {0} out of {1} relations left, exiting'.format(len(self.skipped), count))
+                    break
             else:
                 self.log.info('** Processed {0} out of {1} relations'.format(count - len(self.skipped), count))
 
 
-    def run_list(self, relIds):
+    def run_list(self, relIds, skipMemberTypes):
         for chunk in chunks(relIds, 2000):
-            self.fixRelations(chunk)
+            self.fixRelations(chunk, skipMemberTypes)
 
-    def fixRelations(self, relIds):
+    def fixRelations(self, relIds, skipMemberTypes):
         pairs = self.get_relation_members(relIds)
 
         insertStatements = []
-        for group in self.groupByValues(pairs):
+        for group in self.groupByValues(pairs, skipMemberTypes):
             insertStatements.append(self.processSingleRel(*group))
 
         if len(insertStatements) > 0:
@@ -97,7 +102,7 @@ SELECT ?rel WHERE {
 
         query = '''# Get relation member's locations
 SELECT
-  ?rel ?loc
+  ?rel ?member ?loc
 WHERE {{
   VALUES ?rel {{ {0} }}
   ?rel osmm:has ?member .
@@ -108,6 +113,7 @@ WHERE {{
 
         return [(
             'osmrel:' + i['rel']['value'][len('https://www.openstreetmap.org/relation/'):],
+            i['member']['value'],
             i['loc']['value'] if 'loc' in i else ''
         ) for i in result]
 
@@ -116,7 +122,7 @@ WHERE {{
         return relId + ' ' + osmutils.formatPoint('osmm:loc', points.centroid) + '.'
 
 
-    def groupByValues(self, tupples):
+    def groupByValues(self, tupples, skipMemberTypes):
         """Yield a tuple (id, [list of ids])"""
         vals = None
         lastId = None
@@ -124,18 +130,25 @@ WHERE {{
         for v in sorted(tupples):
             if lastId != v[0]:
                 if lastId is not None and not skip:
-                    yield (lastId, vals)
+                    if not vals:
+                        self.skipped.append(lastId)
+                    else:
+                        yield (lastId, vals)
                 skip = False
                 vals = []
                 lastId = v[0]
             if not skip:
-                if v[1] == '':
-                    skip = True
-                    self.skipped.append(v[0])
+                if v[2] == '':
+                    if v[1][:len('https://www.openstreetmap.org/way')] not in skipMemberTypes:
+                        skip = True
+                        self.skipped.append(v[0])
                 else:
-                    vals.append(v[1])
+                    vals.append(v[2])
         if lastId is not None and not skip:
-            yield (lastId, vals)
+            if not vals:
+                self.skipped.append(lastId)
+            else:
+                yield (lastId, vals)
 
 # https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
 def chunks(l, n):
