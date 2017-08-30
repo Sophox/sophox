@@ -66,13 +66,13 @@ SELECT ?rel WHERE {
             relIds = self.skipped
             self.skipped = []
             count = len(relIds)
-            self.log.info('** Processing {0} relations', count)
+            self.log.info('** Processing {0} relations'.format(count))
             self.run_list(relIds)
             if len(self.skipped) >= count:
-                self.log.info('** {0} out of {1} relations left, exiting', len(self.skipped), count)
+                self.log.info('** {0} out of {1} relations left, exiting'.format(len(self.skipped), count))
                 break
             else:
-                self.log.info('** Processed {0} out of {1} relations', count - len(self.skipped), count)
+                self.log.info('** Processed {0} out of {1} relations'.format(count - len(self.skipped), count))
 
 
     def run_list(self, relIds):
@@ -125,6 +125,7 @@ WHERE {{
             if lastId != v[0]:
                 if lastId is not None and not skip:
                     yield (lastId, vals)
+                skip = False
                 vals = []
                 lastId = v[0]
             if not skip:
