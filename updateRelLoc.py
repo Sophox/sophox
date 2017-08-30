@@ -44,7 +44,7 @@ class UpdateRelLoc(object):
 
         self.options = opts
         self.rdf_server = Sparql(opts.rdf_url, opts.dry_run)
-        self.skipped = set()
+        self.skipped = []
 
         self.run()
         # self.fixRelations(['osmrel:13', 'osmrel:3344', 'osmrel:2938' ])
@@ -58,14 +58,26 @@ class UpdateRelLoc(object):
 SELECT ?rel WHERE {
   ?rel osmm:type 'r' .
   FILTER NOT EXISTS { ?rel osmm:loc ?relLoc . }
-} LIMIT 100000'''
+}'''   # LIMIT 100000
         result = self.rdf_server.run('query', query)
-        relIds = ['osmrel:' + i['rel']['value'][len('https://www.openstreetmap.org/relation/'):] for i in result]
-        relIds = [i for i in relIds if i not in self.skipped]
+        self.skipped = ['osmrel:' + i['rel']['value'][len('https://www.openstreetmap.org/relation/'):] for i in result]
 
+        while True:
+            relIds = self.skipped
+            self.skipped = []
+            count = len(relIds)
+            self.log.info('** Processing {0} relations', count)
+            self.run_list(relIds)
+            if len(self.skipped) >= count:
+                self.log.info('** {0} out of {1} relations left, exiting', len(self.skipped), count)
+                break
+            else:
+                self.log.info('** Processed {0} out of {1} relations', count - len(self.skipped), count)
+
+
+    def run_list(self, relIds):
         for chunk in chunks(relIds, 2000):
             self.fixRelations(chunk)
-
 
     def fixRelations(self, relIds):
         pairs = self.get_relation_members(relIds)
@@ -118,7 +130,7 @@ WHERE {{
             if not skip:
                 if v[1] == '':
                     skip = True
-                    self.skipped.add(v[0])
+                    self.skipped.append(v[0])
                 else:
                     vals.append(v[1])
         if lastId is not None and not skip:
