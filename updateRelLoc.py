@@ -10,6 +10,7 @@ from shapely.wkt import loads
 
 import osmutils
 from sparql import Sparql
+import osmium
 
 if shapely.speedups.available:
     shapely.speedups.enable()
@@ -34,6 +35,10 @@ class UpdateRelLoc(object):
         parser.add_argument('--host', action='store', dest='rdf_url',
                             default='http://localhost:9999/bigdata/sparql',
                             help='Host URL to upload data. Default: %(default)s')
+        parser.add_argument('-s', '--cache-strategy', action='store', dest='cacheType', choices=['sparse', 'dense'],
+                            default='dense', help='Which node strategy to use (default: %(default)s)')
+        parser.add_argument('-c', '--nodes-file', action='store', dest='cacheFile',
+                            default=None, help='File to store node cache.')
         parser.add_argument('--ids', action='store', dest='ids_file',
                             default='ids.txt',
                             help='File to store skipped ids. Default: %(default)s')
@@ -45,6 +50,15 @@ class UpdateRelLoc(object):
         self.options = opts
         self.rdf_server = Sparql(opts.rdf_url, opts.dry_run)
         self.skipped = []
+
+        if self.options.cacheFile:
+            if self.options.cacheType == 'sparse':
+                idx = 'sparse_file_array,' + self.options.cacheFile
+            else:
+                idx = 'dense_file_array,' + self.options.cacheFile
+            self.nodeCache = osmium.index.create_map(idx)
+        else:
+            self.nodeCache = None
 
         self.run()
         # self.fixRelations(['osmrel:13', 'osmrel:3344', 'osmrel:2938' ])
@@ -58,37 +72,32 @@ class UpdateRelLoc(object):
 SELECT ?rel WHERE {
   ?rel osmm:type 'r' .
   FILTER NOT EXISTS { ?rel osmm:loc ?relLoc . }
-}'''   # LIMIT 100000
+} limit 100'''   # LIMIT 100000
         result = self.rdf_server.run('query', query)
         self.skipped = ['osmrel:' + i['rel']['value'][len('https://www.openstreetmap.org/relation/'):] for i in result]
 
-        skipMemberTypes = {'https://www.openstreetmap.org/nod', 'https://www.openstreetmap.org/way'}
         while True:
             relIds = self.skipped
             self.skipped = []
             count = len(relIds)
             self.log.info('** Processing {0} relations'.format(count))
-            self.run_list(relIds, skipMemberTypes)
+            self.run_list(relIds)
             if len(self.skipped) >= count:
-                if len(skipMemberTypes) == 2:
-                    skipMemberTypes.add('https://www.openstreetmap.org/rel')
-                    self.log.info('** {0} out of {1} relations left, switching to rel mode'.format(len(self.skipped), count))
-                else:
-                    self.log.info('** {0} out of {1} relations left, exiting'.format(len(self.skipped), count))
-                    break
+                self.log.info('** {0} out of {1} relations left, exiting'.format(len(self.skipped), count))
+                break
             else:
                 self.log.info('** Processed {0} out of {1} relations'.format(count - len(self.skipped), count))
 
 
-    def run_list(self, relIds, skipMemberTypes):
+    def run_list(self, relIds):
         for chunk in chunks(relIds, 2000):
-            self.fixRelations(chunk, skipMemberTypes)
+            self.fixRelations(chunk)
 
-    def fixRelations(self, relIds, skipMemberTypes):
+    def fixRelations(self, relIds):
         pairs = self.get_relation_members(relIds)
 
         insertStatements = []
-        for group in self.groupByValues(pairs, skipMemberTypes):
+        for group in self.groupByValues(pairs):
             insertStatements.append(self.processSingleRel(*group))
 
         if len(insertStatements) > 0:
@@ -122,33 +131,42 @@ WHERE {{
         return relId + ' ' + osmutils.formatPoint('osmm:loc', points.centroid) + '.'
 
 
-    def groupByValues(self, tupples, skipMemberTypes):
+    def groupByValues(self, tupples):
         """Yield a tuple (id, [list of ids])"""
-        vals = None
+        points = None
         lastId = None
         skip = False
-        for v in sorted(tupples):
-            if lastId != v[0]:
+        for id,  ref, value in sorted(tupples):
+            if lastId != id:
                 if lastId is not None and not skip:
-                    if not vals:
+                    if not points:
                         self.skipped.append(lastId)
                     else:
-                        yield (lastId, vals)
+                        yield (lastId, points)
                 skip = False
-                vals = []
-                lastId = v[0]
+                points = []
+                lastId = id
             if not skip:
-                if v[2] == '':
-                    if v[1][:len('https://www.openstreetmap.org/way')] not in skipMemberTypes:
+                if value == '':
+                    if ref.startswith('https://www.openstreetmap.org/node/'):
+                        if self.nodeCache:
+                            nodeId = ref[len('https://www.openstreetmap.org/node/'):]
+                            point = self.nodeCache.get(int(nodeId))
+                            points.append('Point({0} {1})'.format(point.lon, point.lat))
+                    elif ref.startswith('https://www.openstreetmap.org/way/'):
+                        pass # not much we can do about missing way's location
+                    elif ref.startswith('https://www.openstreetmap.org/relation/'):
                         skip = True
-                        self.skipped.append(v[0])
+                        self.skipped.append(id)
+                    else:
+                        raise ValueError('Unknown ref ' + ref)
                 else:
-                    vals.append(v[2])
+                    points.append(value)
         if lastId is not None and not skip:
-            if not vals:
+            if not points:
                 self.skipped.append(lastId)
             else:
-                yield (lastId, vals)
+                yield (lastId, points)
 
 # https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
 def chunks(l, n):

@@ -44,7 +44,7 @@ def write_file(workerId, options, fileId, data, last_timestamp, statsStr):
 class RdfFileHandler(RdfHandler):
     def __init__(self, options):
         super(RdfFileHandler, self).__init__(options)
-        self.job_counter = 0
+        self.job_counter = 1
         self.length = None
         self.output = None
         self.maxStatementCount = self.options.maxStatementsPerFile * 1000
