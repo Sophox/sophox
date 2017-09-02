@@ -16,8 +16,6 @@ class RdfHandler(osmium.SimpleHandler):
         self.added_rels = 0
         self.added_ways = 0
         self.skipped_nodes = 0
-        self.skipped_rels = 0
-        self.skipped_ways = 0
         self.deleted_nodes = 0
         self.deleted_rels = 0
         self.deleted_ways = 0
@@ -118,10 +116,8 @@ class RdfHandler(osmium.SimpleHandler):
         pass
 
     def format_stats(self):
-        res = 'Statements: {6};  Added: {0}n {1}w {2}r;  Skipped: {3}n {4}w {5}r'.format(
-            self.added_nodes, self.added_ways, self.added_rels,
-            self.skipped_nodes, self.skipped_ways, self.skipped_rels,
-            self.new_statements)
+        res = 'Statements: {0};  Added: {1}n {2}w {3}r;  Skipped: {4}n'.format(
+            self.new_statements, self.added_nodes, self.added_ways, self.added_rels, self.skipped_nodes)
 
         if self.deleted_nodes or self.deleted_ways or self.deleted_rels:
             res += ';  Deleted: {0}n {1}w {2}r'.format(

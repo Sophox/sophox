@@ -8,11 +8,10 @@ Follow [Standalone installation steps](https://www.mediawiki.org/wiki/Wikidata_q
 * Download [latest-all.ttl.gz](https://dumps.wikimedia.org/wikidatawiki/entities/) into `data`
 * Parse the wd data from the `service` dir:  `./munge.sh -f ../data/latest-all.ttl.gz -d ../split`
 * Download latest planet PBF file [from a mirror!](https://wiki.openstreetmap.org/wiki/Planet.osm)
-* Parse it with `python3 .../osm2rdf.py -c nodes.cache -s dense parse planet-latest.osm.pbf osm-planet`
+* Parse it with `python3 .../osm2rdf.py -c nodes.cache -s dense parse planet-latest.osm.pbf ../split`
 
 * From `service/`, run `./runBlazegraph.sh`
 * From `service/`, run ```./loadRestAPI.sh -d `pwd`/../split -h http://localhost:9998```
-* From `service/`, run ```./loadRestAPI.sh -d `pwd`/../outputdir -h http://localhost:9998```
 * From `service/`, run `./runUpdate.sh` to catch up to Wikidata's current state
 
 
@@ -33,7 +32,7 @@ monitor tail:
 ls /var/log/nginx/access.log* \
     | grep -v .gz$ \
     | xargs tail -n1000 \
-    | grep --line-buffered -v 'wikidata.org%3E%20schema:dateModified' \
+    | grep --line-buffered -v '%3E%20schema:dateModified' \
     | grep --line-buffered 'query=' \
     | gawk -F' ' '{ print $1 " " $4 "\n" gensub(/^\/bigdata\/namespace\/wdq\/sparql\?query=/, "", "g", $7) }' \
     | while read; do echo -e ${REPLY//%/\\x}; done
