@@ -39,9 +39,6 @@ class UpdateRelLoc(object):
                             default='dense', help='Which node strategy to use (default: %(default)s)')
         parser.add_argument('-c', '--nodes-file', action='store', dest='cacheFile',
                             default=None, help='File to store node cache.')
-        parser.add_argument('--ids', action='store', dest='ids_file',
-                            default='ids.txt',
-                            help='File to store skipped ids. Default: %(default)s')
         parser.add_argument('-n', '--dry-run', action='store_true', dest='dry_run', default=False,
                             help='Do not modify RDF database.')
 
@@ -60,19 +57,13 @@ class UpdateRelLoc(object):
         else:
             self.nodeCache = None
 
-        self.run()
-        # self.fixRelations(['osmrel:13', 'osmrel:3344', 'osmrel:2938' ])
-        # self.processSingleRel(*('osmrel:13', ['Point(-1.1729935 52.7200423)', 'Point(-1.1755875 52.7180761)']))
-
-        self.log.info('done')
-
 
     def run(self):
         query = '''# Get relations without osmm:loc
 SELECT ?rel WHERE {
   ?rel osmm:type 'r' .
   FILTER NOT EXISTS { ?rel osmm:loc ?relLoc . }
-} limit 100'''   # LIMIT 100000
+}'''   # LIMIT 100000
         result = self.rdf_server.run('query', query)
         self.skipped = ['osmrel:' + i['rel']['value'][len('https://www.openstreetmap.org/relation/'):] for i in result]
 
@@ -83,14 +74,16 @@ SELECT ?rel WHERE {
             self.log.info('** Processing {0} relations'.format(count))
             self.run_list(relIds)
             if len(self.skipped) >= count:
-                self.log.info('** {0} out of {1} relations left, exiting'.format(len(self.skipped), count))
+                self.log.info('** Unable to process {0} relations, exiting'.format(len(self.skipped), count))
                 break
             else:
                 self.log.info('** Processed {0} out of {1} relations'.format(count - len(self.skipped), count))
 
+        self.log.info('done')
+
 
     def run_list(self, relIds):
-        for chunk in chunks(relIds, 2000):
+        for chunk in osmutils.chunks(relIds, 2000):
             self.fixRelations(chunk)
 
     def fixRelations(self, relIds):
@@ -151,8 +144,11 @@ WHERE {{
                     if ref.startswith('https://www.openstreetmap.org/node/'):
                         if self.nodeCache:
                             nodeId = ref[len('https://www.openstreetmap.org/node/'):]
-                            point = self.nodeCache.get(int(nodeId))
-                            points.append('Point({0} {1})'.format(point.lon, point.lat))
+                            try:
+                                point = self.nodeCache.get(int(nodeId))
+                                points.append('Point({0} {1})'.format(point.lon, point.lat))
+                            except osmium._osmium.NotFoundError:
+                                pass
                     elif ref.startswith('https://www.openstreetmap.org/way/'):
                         pass # not much we can do about missing way's location
                     elif ref.startswith('https://www.openstreetmap.org/relation/'):
@@ -168,11 +164,7 @@ WHERE {{
             else:
                 yield (lastId, points)
 
-# https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
-def chunks(l, n):
-    """Yield successive n-sized chunks from l."""
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
-
 if __name__ == '__main__':
-    UpdateRelLoc()
+    UpdateRelLoc().run()
+    # UpdateRelLoc().fixRelations(['osmrel:13', 'osmrel:3344', 'osmrel:2938' ])
+    # UpdateRelLoc().processSingleRel(*('osmrel:13', ['Point(-1.1729935 52.7200423)', 'Point(-1.1755875 52.7180761)']))

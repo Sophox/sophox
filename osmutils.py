@@ -2,9 +2,17 @@ import re
 from urllib.parse import quote
 import json
 
+import datetime as dt
+from datetime import datetime
 import shapely.speedups
 import sys
 from shapely.wkb import loads
+
+
+UTC_DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+UTC_DATE_FORMAT2 = '%Y-%m-%dT%H:%M:%S.%fZ'
+XSD_DATE_TIME = '"{0:%Y-%m-%dT%H:%M:%S}Z"^^xsd:dateTime'
+
 
 if shapely.speedups.available:
     shapely.speedups.enable()
@@ -19,11 +27,38 @@ reWikipediaValue = re.compile(r'^([-a-z]+):(.+)$')
 
 def format_date(datetime):
     # https://phabricator.wikimedia.org/T173974
-    return '"' + datetime.isoformat().replace('+00:00', 'Z') + '"^^xsd:dateTime'
+    # 2015-05-01T01:00:00Z
+    return XSD_DATE_TIME.format(datetime)
+
+
+def parse_date(timestamp):
+    # Try with and without the fraction of a second part
+    try:
+        result = datetime.strptime(timestamp, UTC_DATE_FORMAT)
+    except ValueError:
+        result = datetime.strptime(timestamp, UTC_DATE_FORMAT2)
+
+    return result.replace(tzinfo=dt.timezone.utc)
 
 
 def stringify(val):
     return json.dumps(val, ensure_ascii=False)
+
+
+def chunks(values, max_count):
+    """Yield successive n-sized chunks from l."""
+    if hasattr(values, "__getitem__"):
+        for index in range(0, len(values), max_count):
+            yield values[index:index + max_count]
+    else:
+        result = []
+        for v in values:
+            result.append(v)
+            if len(result) >= max_count:
+                yield result
+                result.clear()
+        if len(result) > 0:
+            yield result
 
 
 def tagToStr(k, v):
@@ -38,13 +73,16 @@ def tagToStr(k, v):
     elif 'wikipedia' in k:
         match = reWikipediaValue.match(v)
         if match:
-            val = '<https://' + match.group(1) + '.wikipedia.org/wiki/' + \
-                  quote(match.group(2).replace(' ', '_'), safe=';@$!*(),/~:') + '>'
+            val = make_wiki_url(match.group(1), '.wikipedia.org/wiki/', match.group(2))
 
     if val is None:
         return 'osmt:' + k + ' ' + stringify(v)
     else:
         return 'osmt:' + k + ' ' + val
+
+
+def make_wiki_url(lang, site, title):
+    return '<https://' + lang + site + quote(title.replace(' ', '_'), safe=';@$!*(),/~:') + '>'
 
 
 def loc_err():

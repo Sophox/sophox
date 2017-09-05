@@ -96,13 +96,7 @@ SELECT ?dummy ?ver ?mod WHERE {
             log.error('Neither schema:version nor schema:dateModified are set for <https://www.openstreetmap.org>')
             return None
 
-        # Try with and without the fraction of a second part
-        try:
-            mod_date = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
-        except ValueError:
-            mod_date = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S.%fZ")
-
-        mod_date = mod_date.replace(tzinfo=dt.timezone.utc)
+        mod_date = osmutils.parse_date(ts)
 
         log.info('schema:dateModified={0}, shifting back and getting sequence ID'.format(mod_date))
 
