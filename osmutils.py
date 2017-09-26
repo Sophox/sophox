@@ -22,6 +22,7 @@ if shapely.speedups.available:
 reSimpleLocalName = re.compile(r'^[0-9a-zA-Z_]([-:0-9a-zA-Z_]*[0-9a-zA-Z_])?$')
 reWikidataKey = re.compile(r'(.:)?wikidata$')
 reWikidataValue = re.compile(r'^Q[1-9][0-9]*$')
+reWikidataMultiValue = re.compile(r'^Q[1-9][0-9]*(;Q[1-9][0-9]*)+$')
 reWikipediaValue = re.compile(r'^([-a-z]+):(.+)$')
 
 
@@ -61,28 +62,31 @@ def chunks(values, max_count):
             yield result
 
 
-def tagToStr(k, v):
+def tagToStr(key, value):
     val = None
-    if not reSimpleLocalName.match(k):
+    if not reSimpleLocalName.match(key):
         # Record any unusual tag name in a "osmm:badkey" statement
-        return 'osmm:badkey ' + stringify(k)
+        return 'osmm:badkey ' + stringify(key)
 
-    if 'wikidata' in k:
-        if reWikidataValue.match(v):
-            val = 'wd:' + v
-    elif 'wikipedia' in k:
-        match = reWikipediaValue.match(v)
+    if 'wikidata' in key:
+        if reWikidataValue.match(value):
+            val = 'wd:' + value
+        elif reWikidataMultiValue.match(value):
+            val = ','.join(['wd:' + v for v in value.split(';')])
+    elif 'wikipedia' in key:
+        match = reWikipediaValue.match(value)
         if match:
             val = make_wiki_url(match.group(1), '.wikipedia.org/wiki/', match.group(2))
 
     if val is None:
-        return 'osmt:' + k + ' ' + stringify(v)
+        return 'osmt:' + key + ' ' + stringify(value)
     else:
-        return 'osmt:' + k + ' ' + val
+        return 'osmt:' + key + ' ' + val
 
 
 def make_wiki_url(lang, site, title):
-    return '<https://' + lang + site + quote(title.replace(' ', '_'), safe=';@$!*(),/~:') + '>'
+    # The "#" is also safe - used for anchoring
+    return '<https://' + lang + site + quote(title.replace(' ', '_'), safe=';@$!*(),/~:#') + '>'
 
 
 def loc_err():

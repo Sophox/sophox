@@ -64,12 +64,13 @@ class UpdatePageViewStats(object):
             ver = self.get_pv_schema_ver()
             if ver is None:
                 # Calculate last valid file
-                ver = datetime.utcnow() - dt.timedelta(minutes=30)
+                ver = datetime.utcnow() + dt.timedelta(minutes=50)
                 ver = datetime(ver.year, ver.month, ver.day, ver.hour, tzinfo=dt.timezone.utc)
             self.log.info('Processing {0} from {1}'.format(('backwards' if backwards else 'forward'), ver))
             stats, timestamp = await self.process_files(ver, backwards)
             backwards = False
             if timestamp is not None and len(stats) > 0:
+                self.log.info('Updating {0} stats'.format(len(stats)))
                 self.save_stats(stats, timestamp)
             self.log.info('Pausing...')
             time.sleep(1000)
@@ -145,25 +146,25 @@ INSERT {{ pvstat: schema:dateModified {1} . }} WHERE {{}};
 
         if len(parts) == 1:
             site = '.wikipedia.org/wiki/'
-        elif parts[1] == 'b':
-            site = '.wikibooks.org/wiki/'
-        elif parts[1] == 'd':
-            site = '.wiktionary.org/wiki/'
-        elif parts[1] == 'n':
-            site = '.wikinews.org/wiki/'
-        elif parts[1] == 'q':
-            site = '.wikiquote.org/wiki/'
-        elif parts[1] == 's':
-            site = '.wikisource.org/wiki/'
-        elif parts[1] == 'v':
-            site = '.wikiversity.org/wiki/'
-        elif parts[1] == 'voy':
-            site = '.wikivoyage.org/wiki/'
+        # elif parts[1] == 'b':
+        #     site = '.wikibooks.org/wiki/'
+        # elif parts[1] == 'd':
+        #     site = '.wiktionary.org/wiki/'
+        # elif parts[1] == 'n':
+        #     site = '.wikinews.org/wiki/'
+        # elif parts[1] == 'q':
+        #     site = '.wikiquote.org/wiki/'
+        # elif parts[1] == 's':
+        #     site = '.wikisource.org/wiki/'
+        # elif parts[1] == 'v':
+        #     site = '.wikiversity.org/wiki/'
+        # elif parts[1] == 'voy':
+        #     site = '.wikivoyage.org/wiki/'
         else:
             return None
 
         if not reWikiLanguage.match(parts[0]):
-            if parts[0] != 'test2':
+            if parts[0] != 'test2': # This is the only number-containing prefix so far
                 self.log.error('Skipping unexpected language prefix "{0}"'.format(parts[0]))
             return None
 
