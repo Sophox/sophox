@@ -77,6 +77,9 @@ def tagToStr(key, value):
         match = reWikipediaValue.match(value)
         if match:
             val = make_wiki_url(match.group(1), '.wikipedia.org/wiki/', match.group(2))
+    # elif 'website' in key or 'url' in key:
+    # TODO: possibly convert all urls into the sparql <IRI> ?
+    #     pass
 
     if val is None:
         return 'osmt:' + key + ' ' + stringify(value)

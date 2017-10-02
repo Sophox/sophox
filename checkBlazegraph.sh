@@ -23,9 +23,11 @@ close_app_sub() {
     if [ -z "$APP_PID" ]; then return 0; else return "$APP_PID"; fi
 }
 
-close_app() {
-    /usr/bin/jstack -l $APP_PID>>/mnt/tiles/wikidata/wikidata-query-gui/build2/crashthreads.txt 2>>/mnt/tiles/wikidata/wikidata-query-gui/build2/crashthreads.err.txt
+record_stack() {
+  /usr/bin/jstack -l $APP_PID>>/mnt/tiles/wikidata/wikidata-query-gui/build2/crashthreads.txt 2>>/mnt/tiles/wikidata/wikidata-query-gui/build2/crashthreads.err.txt
+}
 
+close_app() {
     close_app_sub "-SIGINT" "60"
     close_app_sub "-KILL" "60"
     return $?
@@ -45,5 +47,4 @@ then
   exit 1
 fi
 
-( ! run_test >/dev/null 2>&1 ) && sleep 10 && ( ! run_test >/dev/null 2>&1 ) && (close_app; exec /mnt/tiles/wikidata/service3/runBlazegraph.sh &)
-
+( ! run_test >/dev/null 2>&1 ) && sleep 10 && ( ! run_test >/dev/null 2>&1 ) && (record_stack; close_app; exec /mnt/tiles/wikidata/service3/runBlazegraph.sh &)
