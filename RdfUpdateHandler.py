@@ -14,22 +14,23 @@ class RdfUpdateHandler(RdfHandler):
     def __init__(self, options):
         super(RdfUpdateHandler, self).__init__(options)
         self.deleteIds = []
-        self.updatedIds = []
         self.insertStatements = []
+        self.pendingCounter = 0
         self.rdf_server = Sparql(self.options.rdf_url, self.options.dry_run)
 
     def finalize_object(self, obj, statements, obj_type):
         super(RdfUpdateHandler, self).finalize_object(obj, statements, obj_type)
 
         prefixed_id = osmutils.types[obj_type] + str(obj.id)
-        if obj.deleted:
-            self.deleteIds.append(prefixed_id)
-        else:
-            self.deleteIds.append(prefixed_id)
+
+        self.deleteIds.append(prefixed_id)
+        self.pendingCounter += 1
+
         if statements:
+            self.pendingCounter += len(statements)
             self.insertStatements.extend([prefixed_id + ' ' + s + '.' for s in osmutils.toStrings(statements)])
 
-        if len(self.deleteIds) > 1000 or len(self.updatedIds) > 1000 or len(self.insertStatements) > 2000:
+        if self.pendingCounter > 2000:
             self.flush()
 
     def flush(self, seqid=0):
@@ -37,20 +38,6 @@ class RdfUpdateHandler(RdfHandler):
             return
 
         sparql = '\n'.join(osmutils.prefixes) + '\n\n'
-
-        if not self.options.addWayLoc:
-            # For updates, delete everything except the osmm:loc tag
-            sparql += '''
-DELETE {{ ?s ?p ?o . }}
-WHERE {{
-  VALUES ?s {{ {0} }}
-  ?s ?p ?o .
-  FILTER ( ?p != osmm:loc )
-}};'''.format(' '.join(self.updatedIds))
-
-        else:
-            # Process updates and deletes the same
-            self.deleteIds += self.updatedIds
 
         # Remove all staetments with these subjects
         sparql += '''
@@ -69,6 +56,7 @@ WHERE {{
         self.rdf_server.run('update', sparql)
         self.deleteIds = []
         self.insertStatements = []
+        self.pendingCounter = 0
 
     def get_osm_schema_ver(self, repserv):
         sparql = '''
