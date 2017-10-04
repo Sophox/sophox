@@ -119,7 +119,7 @@ class RdfHandler(osmium.SimpleHandler):
         oldValueName = valueName + '_old'
         val = getattr(self, valueName)
         oldVal = getattr(self, oldValueName, 0)
-        result = '{0}({1:+})'.format(val, val - oldVal)
+        result = '{0:+}={1}'.format(val - oldVal, val)
         setattr(self, oldValueName, val)
         return result
 
