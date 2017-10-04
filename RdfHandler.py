@@ -115,13 +115,23 @@ class RdfHandler(osmium.SimpleHandler):
     def flush(self):
         pass
 
+    def format_old_value(self, valueName):
+        oldValueName = valueName + '_old'
+        val = getattr(self, valueName)
+        oldVal = getattr(self, oldValueName, 0)
+        result = '{0}({1:+})'.format(val, val - oldVal)
+        setattr(self, oldValueName, val)
+        return result
+
     def format_stats(self):
+        fmt = lambda val: self.format_old_value(val)
+
         res = 'Statements: {0};  Added: {1}n {2}w {3}r;  Skipped: {4}n'.format(
-            self.new_statements, self.added_nodes, self.added_ways, self.added_rels, self.skipped_nodes)
+            fmt('new_statements'), fmt('added_nodes'), fmt('added_ways'), fmt('added_rels'), fmt('skipped_nodes'))
 
         if self.deleted_nodes or self.deleted_ways or self.deleted_rels:
             res += ';  Deleted: {0}n {1}w {2}r'.format(
-                 self.deleted_nodes, self.deleted_ways, self.deleted_rels)
+                fmt('deleted_nodes'), fmt('deleted_ways'), fmt('deleted_rels'))
 
         if self.last_stats == res:
             res = ''
