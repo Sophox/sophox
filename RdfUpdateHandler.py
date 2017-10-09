@@ -99,7 +99,6 @@ SELECT ?dummy ?ver ?mod WHERE {
             raise Exception('last_timestamp was not updated')
 
         return '''
-PREFIX osmroot: <https://www.openstreetmap.org>
 DELETE {{ osmroot: schema:version ?v . }} WHERE {{ osmroot: schema:version ?v . }};
 DELETE {{ osmroot: schema:dateModified ?m . }} WHERE {{ osmroot: schema:dateModified ?m . }};
 INSERT {{
