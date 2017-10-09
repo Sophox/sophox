@@ -34,18 +34,16 @@ class RdfUpdateHandler(RdfHandler):
             self.flush()
 
     def flush(self, seqid=0):
-        if not self.deleteIds and not self.insertStatements:
-            return
+        sparql = ''
 
-        sparql = '\n'.join(osmutils.prefixes) + '\n\n'
-
-        # Remove all staetments with these subjects
-        sparql += '''
-DELETE {{ ?s ?p ?o . }}
-WHERE {{
-  VALUES ?s {{ {0} }}
-  ?s ?p ?o .
-}};'''.format(' '.join(self.deleteIds))
+        if self.deleteIds:
+            # Remove all staetments with these subjects
+            sparql += '''
+    DELETE {{ ?s ?p ?o . }}
+    WHERE {{
+      VALUES ?s {{ {0} }}
+      ?s ?p ?o .
+    }};'''.format(' '.join(self.deleteIds))
 
         if self.insertStatements:
             sparql += 'INSERT {{ {0} }} WHERE {{}};\n'.format('\n'.join(self.insertStatements))
@@ -53,10 +51,15 @@ WHERE {{
         if seqid > 0:
             sparql += self.set_osm_schema_ver(seqid)
 
-        self.rdf_server.run('update', sparql)
-        self.deleteIds = []
-        self.insertStatements = []
-        self.pendingCounter = 0
+        if sparql:
+            sparql = '\n'.join(osmutils.prefixes) + '\n\n' + sparql
+            self.rdf_server.run('update', sparql)
+            self.pendingCounter = 0
+            self.deleteIds = []
+            self.insertStatements = []
+        elif self.pendingCounter != 0:
+            # Safety check
+            raise Exception('pendingCounter={0}'.format(self.pendingCounter))
 
     def get_osm_schema_ver(self, repserv):
         sparql = '''
