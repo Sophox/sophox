@@ -13,6 +13,8 @@ class Sparql:
                               headers={'Accept': 'application/sparql-results+json'})
             try:
                 if not r.ok:
+                    print(r.reason)
+                    print(sparql)
                     raise Exception(r.reason)
                 if queryType == 'query':
                     return r.json()['results']['bindings']
