@@ -13,8 +13,7 @@ log = logging.getLogger('osm2rdf')
 class RdfUpdateHandler(RdfHandler):
     def __init__(self, options):
         super(RdfUpdateHandler, self).__init__(options)
-        self.deleteIds = []
-        self.insertStatements = []
+        self.pending = {}
         self.pendingCounter = 0
         self.rdf_server = Sparql(self.options.rdf_url, self.options.dry_run)
 
@@ -23,30 +22,36 @@ class RdfUpdateHandler(RdfHandler):
 
         prefixed_id = osmutils.types[obj_type] + str(obj.id)
 
-        self.deleteIds.append(prefixed_id)
-        self.pendingCounter += 1
+        if prefixed_id in self.pending:
+            # Not very efficient, but if the same object is updated more than once within
+            # the same batch, it does not get deleted because all deletes happen first
+            self.flush()
 
         if statements:
+            self.pending[prefixed_id] = [prefixed_id + ' ' + s + '.' for s in osmutils.toStrings(statements)]
             self.pendingCounter += len(statements)
-            self.insertStatements.extend([prefixed_id + ' ' + s + '.' for s in osmutils.toStrings(statements)])
+        else:
+            self.pending[prefixed_id] = False
+            self.pendingCounter += 1
 
-        if self.pendingCounter > 2000:
+        if self.pendingCounter > 5000:
             self.flush()
 
     def flush(self, seqid=0):
         sparql = ''
 
-        if self.deleteIds:
+        if self.pending:
             # Remove all staetments with these subjects
             sparql += '''
     DELETE {{ ?s ?p ?o . }}
     WHERE {{
       VALUES ?s {{ {0} }}
       ?s ?p ?o .
-    }};'''.format(' '.join(self.deleteIds))
+    }};'''.format(' '.join(self.pending.keys()))
 
-        if self.insertStatements:
-            sparql += 'INSERT {{ {0} }} WHERE {{}};\n'.format('\n'.join(self.insertStatements))
+            insertSparql = '\n'.join([v for v in self.pending.values() if v])
+            if insertSparql:
+                sparql += 'INSERT {{ {0} }} WHERE {{}};\n'.format(insertSparql)
 
         if seqid > 0:
             sparql += self.set_osm_schema_ver(seqid)
@@ -55,8 +60,7 @@ class RdfUpdateHandler(RdfHandler):
             sparql = '\n'.join(osmutils.prefixes) + '\n\n' + sparql
             self.rdf_server.run('update', sparql)
             self.pendingCounter = 0
-            self.deleteIds = []
-            self.insertStatements = []
+            self.pending = {}
         elif self.pendingCounter != 0:
             # Safety check
             raise Exception('pendingCounter={0}'.format(self.pendingCounter))
