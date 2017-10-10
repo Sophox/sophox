@@ -49,8 +49,8 @@ class RdfUpdateHandler(RdfHandler):
       ?s ?p ?o .
     }};'''.format(' '.join(self.pending.keys()))
 
-            # flatten list of lists, and if v is truthy, use it
-            insertSparql = '\n'.join([v for sublist in self.pending.values() for v in sublist if v])
+            # flatten list of lists, and if sublist is truthy, use it
+            insertSparql = '\n'.join([v for sublist in self.pending.values() if sublist for v in sublist])
             if insertSparql:
                 sparql += 'INSERT {{ {0} }} WHERE {{}};\n'.format(insertSparql)
 
