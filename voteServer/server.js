@@ -18,13 +18,14 @@ app.options("/*", function (req, res) {
 });
 
 app.use(require('express-accesstoken-validation')({
-	validationUri: 'https://master.apis.dev.openstreetmap.org/oauth/authorize',
+	validationUri: 'https://www.openstreetmap.org/oauth/authorize',
+	// validationUri: 'https://master.apis.dev.openstreetmap.org/oauth/authorize',
 	tokenParam: 'oauth_token'
 }));
 
 app.use(require('body-parser').urlencoded({extended: true}));
-app.put('/v1/:taskId/:osmType/:osmId/:selection', handleRequest);
-app.delete('/v1/:taskId/:osmType/:osmId', handleRequest);
+app.put('/store/v1/:taskId/:osmType/:osmId/:selection', handleRequest);
+app.delete('/store/v1/:taskId/:osmType/:osmId', handleRequest);
 
 app.listen(port, (err) => {
 	if (err) {
@@ -164,6 +165,7 @@ function sparqlPutVote(taskId, osmType, osmId, userName, selection) {
 
 	const statements = [
 		`${sparqlOsmId} osmm:task ${taskURI} .`,
+		`${taskURI} osmm:taskId "${taskId}" .`,
 		`${taskURI} ${userURI} osmm:pick_${selection} .`,
 		`${taskURI} ${userURI} "${(new Date()).toISOString()}"^^xsd:dateTime .`
 	];
