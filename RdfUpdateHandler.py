@@ -47,6 +47,7 @@ class RdfUpdateHandler(RdfHandler):
     WHERE {{
       VALUES ?s {{ {0} }}
       ?s ?p ?o .
+      FILTER (osmm:task != ?p)
     }};'''.format(' '.join(self.pending.keys()))
 
             # flatten list of lists, and if sublist is truthy, use it

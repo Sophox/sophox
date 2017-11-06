@@ -43,3 +43,7 @@ get all queries by their count:
 ```
 zgrep 'query=' /var/log/nginx/access.log* | grep -v '%3E%20schema:dateModified' | gawk -F' ' '{ print $1 " " $4 "\n" gensub(/^\/bigdata\/namespace\/wdq\/sparql\?query=/, "", "g", $7) }' | sort | uniq -c | sort -g | while read; do echo -e ${REPLY//%/\\x}; done | less
 ```
+
+```
+zcat -f /var/log/nginx/access.log* | grep 'query=' | grep -v '%3E%20schema:dateModified' | goaccess -a -o /mnt/tiles/wikidata/wikidata-query-gui/build2/logrep.html -
+```

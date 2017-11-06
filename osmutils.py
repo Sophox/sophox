@@ -17,12 +17,11 @@ XSD_DATE_TIME = '"{0:%Y-%m-%dT%H:%M:%S}Z"^^xsd:dateTime'
 if shapely.speedups.available:
     shapely.speedups.enable()
 
-
 # May contain letters, numbers anywhere, and -:_ symbols anywhere except first and last position
-reSimpleLocalName = re.compile(r'^[0-9a-zA-Z_]([-:0-9a-zA-Z_]*[0-9a-zA-Z_])?$')
+reSimpleLocalName = re.compile(r'^[0-9a-zA-Z_]([-:0-9a-zA-Z_]{0,30}[0-9a-zA-Z_])?$')
 reWikidataKey = re.compile(r'(.:)?wikidata$')
-reWikidataValue = re.compile(r'^Q[1-9][0-9]*$')
-reWikidataMultiValue = re.compile(r'^Q[1-9][0-9]*(;Q[1-9][0-9]*)+$')
+reWikidataValue = re.compile(r'^Q[1-9][0-9]{0,18}$')
+reWikidataMultiValue = re.compile(r'^Q[1-9][0-9]{0,18}(;Q[1-9][0-9]{0,18})+$')
 reWikipediaValue = re.compile(r'^([-a-z]+):(.+)$')
 
 
