@@ -53,39 +53,49 @@ class MyError extends Error {
 
 async function handleRequest(req, resp) {
   try {
-
-    const sparql = req.query.sparql;
-
-    const qres = await sparqlService.query(sparql);
-
-    const pres = await postgresService.query(secrets.table, Object.keys(qres));
-
-    let result = PostgresService.toGeoJSON(pres);
-
-    if (req.query.topojson) {
-      result = topojson.topology({data: JSON.parse(result)}, {
-        // preserve all properties
-        "property-transform": feature => feature.properties
-      });
-      result = JSON.stringify(result);
-    }
-
-    resp.status(201).type(`application/vnd.geo+json`).send(result);
-
+    await processQueryRequest(req, resp);
   } catch (err) {
     if (err instanceof MyError) {
-      resp.status(err.code).send(err.msg);
+      resp.status(err.code).send(`\n\n${err.msg}\n\n`);
     } else {
-      resp.status(500).send(`boom`);
+      resp.status(500).send(`\n\nboom\n\n`);
     }
     try {
       if (err instanceof MyError) {
-        console.error(err.msg, JSON.stringify(req.params), JSON.stringify(req.body));
+        console.error(err.msg, JSON.stringify(req.params), JSON.stringify(req.query));
       } else {
-        console.error(err, JSON.stringify(req.params), JSON.stringify(req.body));
+        console.error(err, JSON.stringify(req.params), JSON.stringify(req.query));
       }
     } catch (e2) {
       console.error(err);
     }
+  }
+}
+
+async function processQueryRequest(req, resp) {
+  const sparql = req.query.sparql;
+  if (!sparql) {
+    throw new MyError(400, `bad sparql parameter`);
+  }
+
+  const qres = await sparqlService.query(sparql, `id`);
+
+  const pres = await postgresService.query(secrets.table, Object.keys(qres));
+
+  let result = PostgresService.toGeoJSON(pres);
+
+  if (!req.query.topojson) {
+
+    resp.status(201).type(`application/geo+json`).send(result);
+
+  } else {
+
+    result = topojson.topology({data: JSON.parse(result)}, {
+      // preserve all properties
+      "property-transform": feature => feature.properties
+    });
+    result = JSON.stringify(result);
+
+    resp.status(201).type(`application/topo+json`).send(result);
   }
 }
