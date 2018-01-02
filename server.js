@@ -113,5 +113,5 @@ async function processQueryRequest(req, resp) {
     throw new Error();
   }
 
-  console.log(type, result.length, sparql);
+  console.log(new Date().toISOString(), type, result.length, req.headers[`x-real-ip`], sparql);
 }
