@@ -3,7 +3,7 @@
 const compression = require(`compression`);
 const {SparqlService, PostgresService} = require(`osm-regions/src`);
 const app = require(`express`)();
-const secrets = require(`../secrets.json`);
+const secrets = require(`./secrets`);
 const topojson = require(`topojson`);
 
 const port = 9978;
