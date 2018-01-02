@@ -17,13 +17,13 @@ app.use(function (req, res, next) {
   next();
 });
 
-app.options("/*", function (req, res) {
+app.options(`/*`, function (req, res) {
   res.sendStatus(200);
 });
 
 app.use(compression());
 
-app.get(`/regions`, handleRequest);
+app.get(`/regions/:type`, handleRequest);
 
 const sparqlService = new SparqlService({
   url: rdfService,
@@ -82,17 +82,23 @@ async function processQueryRequest(req, resp) {
     throw new MyError(400, `bad sparql parameter`);
   }
 
+  const type = req.params.type;
+  if (type !== `geojson` && type !== `topojson`) {
+    throw new MyError(400, `bad type parameter`);
+  }
+
   const qres = await sparqlService.query(sparql, `id`);
 
   const pres = await postgresService.query(secrets.table, Object.keys(qres));
 
   let result = PostgresService.toGeoJSON(pres);
 
-  if (!req.query.topojson) {
-
+  switch (type) {
+  case `geojson`:
     resp.status(200).type(`application/geo+json`).send(result);
+    break;
 
-  } else {
+  case `topojson`:
 
     result = topojson.topology({data: JSON.parse(result)}, {
       // preserve all properties
@@ -101,5 +107,11 @@ async function processQueryRequest(req, resp) {
     result = JSON.stringify(result);
 
     resp.status(200).type(`application/topo+json`).send(result);
+    break;
+
+  default:
+    throw new Error();
   }
+
+  console.log(type, result.length, sparql);
 }
