@@ -83,7 +83,7 @@ async function processQueryRequest(req, resp) {
   }
 
   const type = req.params.type;
-  if (type !== `geojson` && type !== `topojson`) {
+  if (type !== `geojson.json` && type !== `topojson.json`) {
     throw new MyError(400, `bad type parameter`);
   }
 
@@ -94,11 +94,11 @@ async function processQueryRequest(req, resp) {
   let result = PostgresService.toGeoJSON(pres);
 
   switch (type) {
-  case `geojson`:
+  case `geojson.json`:
     resp.status(200).type(`application/geo+json`).send(result);
     break;
 
-  case `topojson`:
+  case `topojson.json`:
 
     result = topojson.topology({data: JSON.parse(result)}, {
       // preserve all properties
