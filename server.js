@@ -19,7 +19,7 @@ app.use(function (req, res, next) {
 
 app.use(compression());
 
-app.get(`/`, handleRequest);
+app.get(`/regions`, handleRequest);
 
 const sparqlService = new SparqlService({
   url: rdfService,
