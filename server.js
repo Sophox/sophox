@@ -10,12 +10,12 @@ const port = 9978;
 // const rdfServerUrl = `https://sophox.org/bigdata/sparql`;
 const rdfService = `https://sophox.org/bigdata/namespace/wdq/sparql`;
 
-app.use(function (req, res, next) {
-  res.header(`Access-Control-Allow-Origin`, `*`);
-  res.header(`Access-Control-Allow-Methods`, `GET`);
-  res.header(`Access-Control-Allow-Headers`, `Content-Type, Content-Length`);
-  next();
-});
+// app.use(function (req, res, next) {
+//   res.header(`Access-Control-Allow-Origin`, `*`);
+//   res.header(`Access-Control-Allow-Methods`, `GET`);
+//   res.header(`Access-Control-Allow-Headers`, `Content-Type, Content-Length`);
+//   next();
+// });
 
 app.options(`/*`, function (req, res) {
   res.sendStatus(200);
