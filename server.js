@@ -91,7 +91,7 @@ async function processQueryRequest(req, resp) {
 
   const pres = await postgresService.query(secrets.table, Object.keys(qres));
 
-  let result = PostgresService.toGeoJSON(pres);
+  let result = PostgresService.toGeoJSON(pres, qres);
 
   switch (type) {
   case `geojson.json`:
