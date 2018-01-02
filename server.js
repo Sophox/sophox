@@ -86,7 +86,7 @@ async function processQueryRequest(req, resp) {
 
   if (!req.query.topojson) {
 
-    resp.status(201).type(`application/geo+json`).send(result);
+    resp.status(200).type(`application/geo+json`).send(result);
 
   } else {
 
@@ -96,6 +96,6 @@ async function processQueryRequest(req, resp) {
     });
     result = JSON.stringify(result);
 
-    resp.status(201).type(`application/topo+json`).send(result);
+    resp.status(200).type(`application/topo+json`).send(result);
   }
 }
