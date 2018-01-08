@@ -10,20 +10,20 @@ const port = 9978;
 // const rdfServerUrl = `https://sophox.org/bigdata/sparql`;
 const rdfService = `https://sophox.org/bigdata/namespace/wdq/sparql`;
 
-// app.use(function (req, res, next) {
-//   res.header(`Access-Control-Allow-Origin`, `*`);
-//   res.header(`Access-Control-Allow-Methods`, `GET`);
-//   res.header(`Access-Control-Allow-Headers`, `Content-Type, Content-Length`);
+// app.use(function (req, resp, next) {
+//   resp.header(`Access-Control-Allow-Origin`, `*`);
+//   resp.header(`Access-Control-Allow-Methods`, `GET`);
+//   resp.header(`Access-Control-Allow-Headers`, `Content-Type, Content-Length`);
 //   next();
 // });
 
-app.options(`/*`, function (req, res) {
-  res.sendStatus(200);
+app.options(`/*`, function (req, resp) {
+  resp.sendStatus(200);
 });
 
 app.use(compression());
 
-app.get(`/regions/:type`, handleRequest);
+app.get(`/regions/:format`, handleRequest);
 
 const sparqlService = new SparqlService({
   url: rdfService,
@@ -85,51 +85,67 @@ const NUMERIC_PARAMS = {
 };
 
 function parseParams(req) {
+  const params = {...req.query, format: req.params.format };
 
-  const sparql = req.query.sparql;
-  if (!sparql) {
-    throw new MyError(400, `bad sparql parameter`);
+  if ((params.ids === undefined) === (params.sparql === undefined)) {
+    throw new MyError(400, 'Either "ids" or "query" parameter must be given, but not both');
   }
 
-  const type = req.params.type;
-  if (type !== `geojson.json` && type !== `topojson.json`) {
-    throw new MyError(400, `bad type parameter. Allows "geojson.json" and "topojson.json"`);
+  let ids = params.ids;
+  if (ids !== undefined) {
+    ids = ids.split(',').filter(id => id !== '');
+    if (ids.length > 1000) throw new MyErorr(400, 'No more than 1000 IDs is allowed');
+    ids.forEach(val => {
+      if (!/^Q[1-9][0-9]{0,15}$/.test(val)) throw new MyError(400, 'Invalid Wikidata ID');
+    });
+  }
+
+  const format = params.format;
+  if (format !== `geojson.json` && format !== `topojson.json`) {
+    throw new MyError(400, `bad format parameter. Allows "geojson.json" and "topojson.json"`);
   }
 
   let param, value;
   for (const name of Object.keys(NUMERIC_PARAMS)) {
-    if (req.query.hasOwnProperty(name)) {
+    if (params.hasOwnProperty(name)) {
       if (param) {
         throw new Error(`${name} parameter cannot be used together with ${param}`);
       }
-      value = parseFloat(req.query[name]);
-      const info = NUMERIC_PARAMS[name];
       param = name;
-      if (!(value.toString() === req.query[name] && value >= 0 && value <= (info.max || Number.MAX_VALUE))) {
+      const info = NUMERIC_PARAMS[name];
+      value = parseFloat(params[name]);
+      if (!(value >= 0 && value <= (info.max || Number.MAX_VALUE))) {
         throw new Error(`${name} parameter, ${info.desc}, must be a non-negative number` +
           (info.max ? ` not larger than ${info.max}` : ''));
       }
     }
   }
 
-  const filter = req.params.filter;
-  if (filter !== undefined && filter !== `all` && filter !== `detached`) {
-    throw new MyError(400, `bad filter parameter. Allows "all" and "detached"`);
+  let filter = params.filter;
+  if (filter === undefined) {
+    filter = param ? 'all' : 'none';
+  } else if (filter !== `none` && filter !== `all` && filter !== `detached`) {
+    throw new MyError(400, `bad filter parameter. Allows "none", "all" and "detached"`);
   }
 
-  return {sparql, param, value, type, filter};
+  return {ids, sparql: params.sparql, param, value, format, filter};
 }
 
 async function processQueryRequest(req, resp) {
-  let {sparql, param, value, type, filter} = parseParams(req);
+  let {sparql, ids, param, value, format, filter} = parseParams(req);
+  let newValue = value;
+  let equivLog = '';
+  let qres;
 
-  const qres = await sparqlService.query(sparql, `id`);
-  const pres = await postgresService.query(secrets.table, Object.keys(qres));
+  if (sparql) {
+    qres = await sparqlService.query(sparql, `id`);
+    ids = Object.keys(qres);
+  }
+  const pres = await postgresService.query(secrets.table, ids);
   let result = PostgresService.toGeoJSON(pres, qres);
+  const originalSize = result.length;
 
-  console.log(new Date().toISOString(), type, param || 'noSimpl', value || 0, filter || 'noFilter', result.length, req.headers[`x-real-ip`], sparql);
-
-  if (param || type === `topojson.json`) {
+  if (param || format === `topojson.json`) {
 
     result = topojson.topology({data: JSON.parse(result)}, {
       // preserve all properties
@@ -142,16 +158,16 @@ async function processQueryRequest(req, resp) {
       result = topojson.presimplify(result, topojson[system + `TriangleArea`]);
 
       if (param === 'planarQuantile' || param === 'sphericalQuantile') {
-        value = topojson.quantile(result, value);
-        param = system + `Area`;
-        res.header(`X-Equivalent-${param}`, value.toString());
+        newValue = topojson.quantile(result, newValue);
+        resp.header(`X-Equivalent-${system}Area`, newValue.toString());
+        equivLog = `X-Equivalent-${system}Area=${newValue.toString()}`;
       }
 
-      result = topojson.simplify(result, value);
+      result = topojson.simplify(result, newValue);
 
-      if (filter) {
+      if (filter !== 'none') {
         const filterFunc = filter === 'all' ? topojson.filterWeight : topojson.filterAttachedWeight;
-        result = topojson.filter(result, filterFunc(result, value, topojson[system + `RingArea`]));
+        result = topojson.filter(result, filterFunc(result, newValue, topojson[system + `RingArea`]));
       }
 
       const transform = result.transform;
@@ -159,13 +175,15 @@ async function processQueryRequest(req, resp) {
         result = topojson.quantize(result, transform);
       }
 
-      if (type === `geojson.json`) {
+      if (format === `geojson.json`) {
         result = topojson.feature(result, result.objects.data);
       }
     }
   }
 
-  const contentType = type === 'geojson.json' ? 'application/geo+json' : 'application/topo+json';
+  const contentType = format === 'geojson.json' ? 'application/geo+json' : 'application/topo+json';
 
   resp.status(200).type(contentType).send(result);
+
+  console.log('\n*************', new Date().toISOString(), format, param || 'noSimpl', value || 0, filter, equivLog, originalSize, (typeof result === 'string' ? result : JSON.stringify(result)).length, req.headers[`x-real-ip`], '\n' + sparql);
 }
