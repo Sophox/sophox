@@ -85,7 +85,7 @@ const NUMERIC_PARAMS = {
 };
 
 function parseParams(req) {
-  const params = {...req.query, format: req.params.format };
+  const params = {...req.query, format: req.params.format};
 
   if ((params.ids === undefined) === (params.sparql === undefined)) {
     throw new MyError(400, 'Either "ids" or "query" parameter must be given, but not both');
@@ -119,6 +119,16 @@ function parseParams(req) {
           (info.max ? ` not larger than ${info.max}` : ''));
       }
     }
+  }
+
+  // By default, without any params, optimize the result to a fraction of the original.
+  // To preserve the original geometry, set sphericalQuantile=1
+  if (!param) {
+    param = 'sphericalQuantile';
+    value = 0.07;
+  } else if (param === 'sphericalQuantile' && value === 1) {
+    param = undefined;
+    value = undefined;
   }
 
   let filter = params.filter;
@@ -183,6 +193,7 @@ async function processQueryRequest(req, resp) {
 
   const contentType = format === 'geojson.json' ? 'application/geo+json' : 'application/topo+json';
 
+  resp.setHeader('Cache-Control', 'public, max-age=43200');
   resp.status(200).type(contentType).send(result);
 
   console.log('\n*************', new Date().toISOString(), format, param || 'noSimpl', value || 0, filter, equivLog, originalSize, (typeof result === 'string' ? result : JSON.stringify(result)).length, req.headers[`x-real-ip`], '\n' + sparql);
