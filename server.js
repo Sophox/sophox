@@ -78,25 +78,34 @@ async function handleRequest(req, resp) {
 
 // Allowed params (per topojson code)
 const NUMERIC_PARAMS = {
-  // 'planarArea': { 'desc': 'minimum planar triangle area (absolute)' },
-  // 'planarQuantile': { 'desc': 'minimum planar triangle area (quantile)', max: 1 },
-  'sphericalArea': {'desc': 'minimum spherical excess (absolute)'},
-  'sphericalQuantile': {'desc': 'minimum spherical excess (quantile)', max: 1},
+  // 'planarArea': { desc: 'minimum planar triangle area (absolute)' },
+  // 'planarQuantile': { desc: 'minimum planar triangle area (quantile)', max: 1 },
+  sphericalArea: {desc: `minimum spherical excess (absolute)`},
+  sphericalQuantile: {desc: `minimum spherical excess (quantile)`, max: 1},
+};
+
+const parseNumber = function (params, name, info) {
+  const value = parseFloat(params[name]);
+  if (!(value >= 0 && value <= (info.max || Number.MAX_VALUE))) {
+    throw new Error(`${name} parameter, ${info.desc}, must be a non-negative number${
+      info.max ? ` not larger than ${info.max}` : ``}`);
+  }
+  return value;
 };
 
 function parseParams(req) {
   const params = {...req.query, format: req.params.format};
 
   if ((params.ids === undefined) === (params.sparql === undefined)) {
-    throw new MyError(400, 'Either "ids" or "query" parameter must be given, but not both');
+    throw new MyError(400, `Either "ids" or "query" parameter must be given, but not both`);
   }
 
   let ids = params.ids;
   if (ids !== undefined) {
-    ids = ids.split(',').filter(id => id !== '');
-    if (ids.length > 1000) throw new MyErorr(400, 'No more than 1000 IDs is allowed');
+    ids = ids.split(`,`).filter(id => id !== ``);
+    if (ids.length > 1000) throw new MyErorr(400, `No more than 1000 IDs is allowed`);
     ids.forEach(val => {
-      if (!/^Q[1-9][0-9]{0,15}$/.test(val)) throw new MyError(400, 'Invalid Wikidata ID');
+      if (!/^Q[1-9][0-9]{0,15}$/.test(val)) throw new MyError(400, `Invalid Wikidata ID`);
     });
   }
 
@@ -112,46 +121,49 @@ function parseParams(req) {
         throw new Error(`${name} parameter cannot be used together with ${param}`);
       }
       param = name;
-      const info = NUMERIC_PARAMS[name];
-      value = parseFloat(params[name]);
-      if (!(value >= 0 && value <= (info.max || Number.MAX_VALUE))) {
-        throw new Error(`${name} parameter, ${info.desc}, must be a non-negative number` +
-          (info.max ? ` not larger than ${info.max}` : ''));
-      }
+      value = parseNumber(params, name, NUMERIC_PARAMS[name]);
     }
   }
 
   // By default, without any params, optimize the result to a fraction of the original.
   // To preserve the original geometry, set sphericalQuantile=1
   if (!param) {
-    param = 'sphericalQuantile';
+    param = `sphericalQuantile`;
     value = 0.07;
-  } else if (param === 'sphericalQuantile' && value === 1) {
+  } else if (param === `sphericalQuantile` && value === 1) {
     param = undefined;
     value = undefined;
   }
 
   let filter = params.filter;
   if (filter === undefined) {
-    filter = param ? 'all' : 'none';
+    filter = param ? `all` : `none`;
   } else if (filter !== `none` && filter !== `all` && filter !== `detached`) {
     throw new MyError(400, `bad filter parameter. Allows "none", "all" and "detached"`);
   }
 
-  return {ids, sparql: params.sparql, param, value, format, filter};
+  let quantize = param ? 4 : 0;
+  if (params.hasOwnProperty(`quantize`)) {
+    quantize = parseNumber(params, `quantize`, {desc: `Exponent to use for quantizing`, max: 8});
+  }
+  quantize = quantize ? Math.pow(10, quantize) : 0;
+
+  const postgresOpts = {waterTable: secrets.waterTable};
+
+  return {ids, sparql: params.sparql, param, value, quantize, format, filter, postgresOpts};
 }
 
 async function processQueryRequest(req, resp) {
-  let {sparql, ids, param, value, format, filter} = parseParams(req);
+  let {sparql, ids, param, value, quantize, format, filter, postgresOpts} = parseParams(req);
   let newValue = value;
-  let equivLog = '';
+  let equivLog = ``;
   let qres;
 
   if (sparql) {
     qres = await sparqlService.query(sparql, `id`);
     ids = Object.keys(qres);
   }
-  const pres = await postgresService.query(secrets.table, ids);
+  const pres = await postgresService.query(secrets.table, ids, postgresOpts);
   let result = PostgresService.toGeoJSON(pres, qres);
   const originalSize = result.length;
 
@@ -163,11 +175,11 @@ async function processQueryRequest(req, resp) {
     });
 
     if (param) {
-      const system = (param === 'sphericalArea' || param === 'sphericalQuantile') ? `spherical` : `planar`;
+      const system = (param === `sphericalArea` || param === `sphericalQuantile`) ? `spherical` : `planar`;
 
-      result = topojson.presimplify(result, topojson[system + `TriangleArea`]);
+      result = topojson.presimplify(result, topojson[`${system  }TriangleArea`]);
 
-      if (param === 'planarQuantile' || param === 'sphericalQuantile') {
+      if (param === `planarQuantile` || param === `sphericalQuantile`) {
         newValue = topojson.quantile(result, newValue);
         resp.header(`X-Equivalent-${system}Area`, newValue.toString());
         equivLog = `X-Equivalent-${system}Area=${newValue.toString()}`;
@@ -175,14 +187,13 @@ async function processQueryRequest(req, resp) {
 
       result = topojson.simplify(result, newValue);
 
-      if (filter !== 'none') {
-        const filterFunc = filter === 'all' ? topojson.filterWeight : topojson.filterAttachedWeight;
-        result = topojson.filter(result, filterFunc(result, newValue, topojson[system + `RingArea`]));
+      if (filter !== `none`) {
+        const filterFunc = filter === `all` ? topojson.filterWeight : topojson.filterAttachedWeight;
+        result = topojson.filter(result, filterFunc(result, newValue, topojson[`${system  }RingArea`]));
       }
 
-      const transform = result.transform;
-      if (transform) {
-        result = topojson.quantize(result, transform);
+      if (quantize) {
+        result = topojson.quantize(result, quantize);
       }
 
       if (format === `geojson.json`) {
@@ -191,10 +202,10 @@ async function processQueryRequest(req, resp) {
     }
   }
 
-  const contentType = format === 'geojson.json' ? 'application/geo+json' : 'application/topo+json';
+  const contentType = format === `geojson.json` ? `application/geo+json` : `application/topo+json`;
 
-  resp.setHeader('Cache-Control', 'public, max-age=43200');
+  resp.setHeader(`Cache-Control`, `public, max-age=43200`);
   resp.status(200).type(contentType).send(result);
 
-  console.log('\n*************', new Date().toISOString(), format, param || 'noSimpl', value || 0, filter, equivLog, originalSize, (typeof result === 'string' ? result : JSON.stringify(result)).length, req.headers[`x-real-ip`], '\n' + sparql);
+  console.log(`\n*************`, new Date().toISOString(), format, param || `noSimpl`, value || 0, filter, equivLog, originalSize, (typeof result === `string` ? result : JSON.stringify(result)).length, req.headers[`x-real-ip`], `\n${  sparql}`);
 }
