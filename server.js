@@ -1,7 +1,7 @@
 'use strict';
 
 const compression = require(`compression`);
-const {SparqlService, PostgresService} = require(`osm-regions/src`);
+const { SparqlService, PostgresService } = require(`osm-regions/src`);
 const app = require(`express`)();
 const secrets = require(`./secrets`);
 const topojson = require(`topojson`);
@@ -80,8 +80,8 @@ async function handleRequest(req, resp) {
 const NUMERIC_PARAMS = {
   // 'planarArea': { desc: 'minimum planar triangle area (absolute)' },
   // 'planarQuantile': { desc: 'minimum planar triangle area (quantile)', max: 1 },
-  sphericalArea: {desc: `minimum spherical excess (absolute)`},
-  sphericalQuantile: {desc: `minimum spherical excess (quantile)`, max: 1},
+  sphericalArea: { desc: `minimum spherical excess (absolute)` },
+  sphericalQuantile: { desc: `minimum spherical excess (quantile)`, max: 1 },
 };
 
 const parseNumber = function (params, name, info) {
@@ -94,7 +94,7 @@ const parseNumber = function (params, name, info) {
 };
 
 function parseParams(req) {
-  const params = {...req.query, format: req.params.format};
+  const params = { ...req.query, format: req.params.format };
 
   if ((params.ids === undefined) === (params.sparql === undefined)) {
     throw new MyError(400, `Either "ids" or "query" parameter must be given, but not both`);
@@ -114,47 +114,47 @@ function parseParams(req) {
     throw new MyError(400, `bad format parameter. Allows "geojson.json" and "topojson.json"`);
   }
 
-  let param, value;
+  let simplifyCmd, value;
   for (const name of Object.keys(NUMERIC_PARAMS)) {
     if (params.hasOwnProperty(name)) {
-      if (param) {
-        throw new Error(`${name} parameter cannot be used together with ${param}`);
+      if (simplifyCmd) {
+        throw new Error(`${name} parameter cannot be used together with ${simplifyCmd}`);
       }
-      param = name;
+      simplifyCmd = name;
       value = parseNumber(params, name, NUMERIC_PARAMS[name]);
     }
   }
 
   // By default, without any params, optimize the result to a fraction of the original.
   // To preserve the original geometry, set sphericalQuantile=1
-  if (!param) {
-    param = `sphericalQuantile`;
+  if (!simplifyCmd) {
+    simplifyCmd = `sphericalQuantile`;
     value = 0.07;
-  } else if (param === `sphericalQuantile` && value === 1) {
-    param = undefined;
+  } else if (simplifyCmd === `sphericalQuantile` && value === 1) {
+    simplifyCmd = undefined;
     value = undefined;
   }
 
   let filter = params.filter;
   if (filter === undefined) {
-    filter = param ? `all` : `none`;
+    filter = simplifyCmd ? `all` : `none`;
   } else if (filter !== `none` && filter !== `all` && filter !== `detached`) {
     throw new MyError(400, `bad filter parameter. Allows "none", "all" and "detached"`);
   }
 
-  let quantize = param ? 4 : 0;
+  let quantize = simplifyCmd ? 4 : 0;
   if (params.hasOwnProperty(`quantize`)) {
-    quantize = parseNumber(params, `quantize`, {desc: `Exponent to use for quantizing`, max: 8});
+    quantize = parseNumber(params, `quantize`, { desc: `Exponent to use for quantizing`, max: 8 });
   }
   quantize = quantize ? Math.pow(10, quantize) : 0;
 
-  const postgresOpts = {waterTable: secrets.waterTable};
+  const postgresOpts = {}; // { waterTable: secrets.waterTable };
 
-  return {ids, sparql: params.sparql, param, value, quantize, format, filter, postgresOpts};
+  return { ids, sparql: params.sparql, simplifyCmd, value, quantize, format, filter, postgresOpts };
 }
 
 async function processQueryRequest(req, resp) {
-  let {sparql, ids, param, value, quantize, format, filter, postgresOpts} = parseParams(req);
+  let { sparql, ids, simplifyCmd, value, quantize, format, filter, postgresOpts } = parseParams(req);
   let newValue = value;
   let equivLog = ``;
   let qres;
@@ -167,19 +167,16 @@ async function processQueryRequest(req, resp) {
   let result = PostgresService.toGeoJSON(pres, qres);
   const originalSize = result.length;
 
-  if (param || format === `topojson.json`) {
+  if (simplifyCmd || format === `topojson.json`) {
 
-    result = topojson.topology({data: JSON.parse(result)}, {
-      // preserve all properties
-      'property-transform': feature => feature.properties
-    });
+    result = topojson.topology({ data: JSON.parse(result) }, quantize);
 
-    if (param) {
-      const system = (param === `sphericalArea` || param === `sphericalQuantile`) ? `spherical` : `planar`;
+    if (simplifyCmd) {
+      const system = (simplifyCmd === `sphericalArea` || simplifyCmd === `sphericalQuantile`) ? `spherical` : `planar`;
 
       result = topojson.presimplify(result, topojson[`${system  }TriangleArea`]);
 
-      if (param === `planarQuantile` || param === `sphericalQuantile`) {
+      if (simplifyCmd === `planarQuantile` || simplifyCmd === `sphericalQuantile`) {
         newValue = topojson.quantile(result, newValue);
         resp.header(`X-Equivalent-${system}Area`, newValue.toString());
         equivLog = `X-Equivalent-${system}Area=${newValue.toString()}`;
@@ -192,9 +189,9 @@ async function processQueryRequest(req, resp) {
         result = topojson.filter(result, filterFunc(result, newValue, topojson[`${system  }RingArea`]));
       }
 
-      if (quantize) {
-        result = topojson.quantize(result, quantize);
-      }
+      // if (quantize) {
+      //   result = topojson.quantize(result, quantize);
+      // }
 
       if (format === `geojson.json`) {
         result = topojson.feature(result, result.objects.data);
@@ -207,5 +204,6 @@ async function processQueryRequest(req, resp) {
   resp.setHeader(`Cache-Control`, `public, max-age=43200`);
   resp.status(200).type(contentType).send(result);
 
-  console.log(`\n*************`, new Date().toISOString(), format, param || `noSimpl`, value || 0, filter, equivLog, originalSize, (typeof result === `string` ? result : JSON.stringify(result)).length, req.headers[`x-real-ip`], `\n${  sparql}`);
+  console.log(`\n*************${new Date().toISOString()} ${format} ${simplifyCmd || 'noSimpl'}=${value || 0} filter=${filter} ${equivLog} quantize=${quantize} size=${originalSize}=>${(typeof result === 'string' ? result : JSON.stringify(result)).length} ip=${req.headers['x-real-ip']}\n${sparql}`);
+
 }
