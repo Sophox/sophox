@@ -1,7 +1,7 @@
 'use strict';
 
 const compression = require(`compression`);
-const { SparqlService, PostgresService } = require(`osm-regions/src`);
+const { SparqlService, PostgresService, directQueries } = require(`osm-regions/src`);
 const app = require(`express`)();
 const secrets = require(`./secrets`);
 const topojson = require(`topojson`);
@@ -32,6 +32,7 @@ const sparqlService = new SparqlService({
 });
 
 const postgresService = new PostgresService({
+  queries: directQueries,
   host: secrets.host,
   port: secrets.port,
   database: secrets.database,
