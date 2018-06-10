@@ -26,7 +26,7 @@ polygon_keys = {
 
 -- Filtering on nodes, ways, and relations
 function filter_tags_generic(keyvalues, numberofkeys)
-    if keyvalues['wikidata'] then
+    if keyvalues['wikidata'] or keyvalues['default_language'] then
       return 0, keyvalues
     else
       return 1, {}

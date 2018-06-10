@@ -37,3 +37,4 @@ node,way    z_order                 int4    nocolumn
 way         way_area                real    nocolumn
 
 node,way    wikidata                text    polygon
+node,way    default_language        text    polygon
