@@ -1,5 +1,7 @@
 FROM debian:buster
 
+WORKDIR /usr/src/app
+
 COPY ./requirements.txt .
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,5 +17,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY . .
 
-ENTRYPOINT [ "python3", "./osm2rdf.py" ]
+ENTRYPOINT [ "python3", "/usr/src/app/osm2rdf.py" ]
 
