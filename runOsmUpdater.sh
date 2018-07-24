@@ -1,7 +1,7 @@
 #!/bin/bash
 
-HOST=http://localhost:9999/bigdata/sparql
-UPDATEURL=https://planet.openstreetmap.org/replication/minute
+HOST="http://localhost:9999/bigdata/sparql"
+UPDATEURL="https://planet.openstreetmap.org/replication/minute"
 MAXDOWNLOAD=5120
 
 while getopts c:s:i:u:h:m:n:t option
