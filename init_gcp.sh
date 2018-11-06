@@ -1,15 +1,30 @@
 #!/usr/bin/env bash
 
-set -e
+DATA_DEV=/dev/sdb
+MAIN_DIR=/mnt/disks/data
 
-if [ ! -d "/mnt/disks/data/" ]; then
-  echo '/mnt/disks/data/ not found - follow README_GCP.md to set up persistent disk'
-  exit 1
+set +e
+if (mount | grep -q "${DATA_DEV} on ${MAIN_DIR} type ext4"); then
+
+  set -e
+  echo "${MAIN_DIR} is already mounted"
+
+else
+
+  set -e
+  sudo mkdir -p ${MAIN_DIR}
+  sudo mount -o discard,defaults ${DATA_DEV} ${MAIN_DIR}
+
+  if [ ! -d "${MAIN_DIR}/lost+found" ]; then
+    echo "Unable to mount ${MAIN_DIR} - follow README_GCP.md to set up persistent disk"
+    exit 1
+  fi
+
 fi
 
-cd /mnt/disks/data/
 
-MAIN_DIR=$PWD
+cd "${MAIN_DIR}"
+
 REPO_DIR=${MAIN_DIR}/sophox_git
 VOLUMES_DIR=${MAIN_DIR}/volumes
 
@@ -30,12 +45,12 @@ git pull
 mkdir -p "${VOLUMES_DIR}"
 cd "${VOLUMES_DIR}"
 
-docker run --rm \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "${MAIN_DIR}:/rootfs" \
-    --workdir "/rootfs" \
-    docker/compose:1.23.1 \
-    --file "${REPO_DIR}/docker-compose-gcp.yml"
-    --project-directory "${VOLUMES_DIR}" \
-    up \
+docker run --rm                                         \
+    -v /var/run/docker.sock:/var/run/docker.sock        \
+    -v "${MAIN_DIR}:/rootfs"                            \
+    --workdir "/rootfs"                                 \
+    docker/compose:1.23.1                               \
+    --file "/rootfs/sophox_git/docker-compose-gcp.yml"  \
+    --project-directory "/rootfs/volumes"               \
+    up                                                  \
     --detach
