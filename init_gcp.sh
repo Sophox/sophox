@@ -39,8 +39,19 @@ fi
 
 cd "${REPO_DIR}"
 
-echo "Pulling latest from github"
-git pull
+
+set +e
+git diff-files --quiet
+retVal=$?
+set -e
+
+if [[ "${retVal}" == 0 ]]; then
+    echo "Pulling latest from github"
+    git pull
+else
+    echo "GIT repo has local changes, skipping git pull..."
+    git status
+fi
 
 mkdir -p "${VOLUMES_DIR}"
 cd "${VOLUMES_DIR}"
