@@ -80,6 +80,9 @@ POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
 # #####################  Run docker-compose from a docker container
 #
 
+# If DEBUG env is not set, run docker compose in the detached (service) mode
+DETACH="" && [[ "${DEBUG}" == "" ]] && DETACH=true
+
 # Must match the list of -e docker params
 export DATA_DIR
 export REPO_DIR
@@ -98,4 +101,4 @@ docker                                                \
                                                       \
     docker/compose:1.23.1                             \
     --file "/rootfs/${REPO_DIR_NAME}/${COMPOSE_FILE}" \
-    up --detach
+    up ${DETACH:+ --detach}
