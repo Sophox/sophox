@@ -54,7 +54,7 @@ fi
 
 cd "${REPO_DIR}"
 set +e
-if ! git diff-files --quiet; then
+if git diff-files --quiet; then
     set -e
     echo "Pulling latest from github"
     git pull
