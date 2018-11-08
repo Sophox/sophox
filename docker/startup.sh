@@ -22,7 +22,17 @@ if (mount | grep -q "${DATA_DEV} on ${DATA_DIR} type ext4"); then
 else
   set -e
   sudo mkdir -p ${DATA_DIR}
-  sudo mount -o discard,defaults ${DATA_DEV} ${DATA_DIR}
+  set +e
+  RET_CODE=$(sudo mount -o discard,defaults ${DATA_DEV} ${DATA_DIR}; echo $?)
+  set -e
+  if [[ ${RET_CODE} -eq 32 ]]; then
+    echo "Formatting new partition..."
+    # Format new partition when mount exits with code 32. It usually prints this:
+    #   mount: /mnt/disks/data: wrong fs type, bad option, bad superblock on /dev/sdb, missing codepage or helper program, or other error.
+    sudo mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard "${DATA_DEV}"
+
+    sudo mount -o discard,defaults ${DATA_DEV} ${DATA_DIR}
+  fi
   if [[ ! -d "${DATA_DIR}/lost+found" ]]; then
     echo "Unable to mount ${DATA_DIR} - follow README_GCP.md to set up persistent disk"
     exit 1
