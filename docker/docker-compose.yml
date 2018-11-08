@@ -60,7 +60,7 @@ services:
     image: "openmaptiles/postgis:2.9"
     command: -c 'max_wal_size=5GB'
     volumes:
-      - "${VOLUMES_DIR}/postgres:/var/lib/postgresql/data"
+      - "${DATA_DIR}/postgres:/var/lib/postgresql/data"
     networks:
       - postgres_conn
     ports:

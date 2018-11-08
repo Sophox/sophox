@@ -7,9 +7,8 @@ REPO_URL=https://github.com/Sophox/sophox.git
 REPO_BRANCH=gcp
 REPO_DIR_NAME=sophox_repo
 REPO_DIR=${DATA_DIR}/${REPO_DIR_NAME}
-VOLUMES_DIR=${DATA_DIR}/volumes
-ACME_FILE=${VOLUMES_DIR}/acme.json
-POSTGRES_PASSWORD_FILE=${VOLUMES_DIR}/postgres_password
+ACME_FILE=${DATA_DIR}/acme.json
+POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
 
 #
 # #####################  Mount Persisted Disk
@@ -66,15 +65,13 @@ fi
 #
 # #####################  Initialize needed files if they do not exist
 #
-mkdir -p "${VOLUMES_DIR}"
-
 if [[ ! -f "${ACME_FILE}" ]]; then
     touch "${ACME_FILE}"
     chmod 600 "${ACME_FILE}"
 fi
 
 if [[ ! -f "${POSTGRES_PASSWORD_FILE}" ]]; then
-    openssl rand -base64 15 | head -c 10 > "${POSTGRES_PASSWORD_FILE}"
+    openssl rand -base64 15 | head -c 12 > "${POSTGRES_PASSWORD_FILE}"
     chmod 400 "${POSTGRES_PASSWORD_FILE}"
 fi
 POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
@@ -83,18 +80,22 @@ POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
 # #####################  Run docker-compose from a docker container
 #
 
-export VOLUMES_DIR
+# Must match the list of -e docker params
+export DATA_DIR
 export REPO_DIR
 export ACME_FILE
 export POSTGRES_PASSWORD
 
-docker run --rm                                   \
-    -v /var/run/docker.sock:/var/run/docker.sock  \
-    -v "${DATA_DIR}:/rootfs"                      \
-    -e VOLUMES_DIR                                \
-    -e REPO_DIR                                   \
-    -e ACME_FILE                                  \
-    -e POSTGRES_PASSWORD                          \
-    docker/compose:1.23.1                         \
+docker                                                \
+    run --rm                                          \
+    -e DATA_DIR                                       \
+    -e REPO_DIR                                       \
+    -e ACME_FILE                                      \
+    -e POSTGRES_PASSWORD                              \
+                                                      \
+    -v "${DATA_DIR}:/rootfs"                          \
+    -v /var/run/docker.sock:/var/run/docker.sock      \
+                                                      \
+    docker/compose:1.23.1                             \
     --file "/rootfs/${REPO_DIR_NAME}/${COMPOSE_FILE}" \
     up --detach
