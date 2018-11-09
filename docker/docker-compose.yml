@@ -17,7 +17,7 @@ services:
 
   postgres-updater:
     image: sophox/osm2pgsql_osmium
-    command: /var/lib/osm2pgsql/osmUpdate.sh
+    command: /osm-to-pgsql/osm-to-pgsql.sh
     networks:
     - postgres_conn
     volumes:

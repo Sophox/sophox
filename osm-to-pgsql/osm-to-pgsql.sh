@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+set -e
 
 if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
 
@@ -19,6 +20,7 @@ if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
 
 fi
 
+set +e
 
 while :; do
 

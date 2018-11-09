@@ -135,6 +135,7 @@ fi
 
 # If DEBUG env is not set, run docker compose in the detached (service) mode
 DETACH="" && [[ "${DEBUG}" == "" ]] && DETACH=true
+DKR_TERM="" && [[ "${DEBUG}" != "" ]] && DKR_TERM=true
 
 # Must match the list of -e docker params
 export DATA_DIR
@@ -145,7 +146,7 @@ export POSTGRES_PASSWORD
 export SOPHOX_HOST
 export OSM_FILE
 
-docker run --rm                                       \
+docker run --rm ${DKR_TERM:+ -it}                       \
     -e DATA_DIR                                       \
     -e REPO_DIR                                       \
     -e DOWNLOAD_DIR                                   \
