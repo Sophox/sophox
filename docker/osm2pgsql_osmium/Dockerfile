@@ -31,12 +31,12 @@ RUN ln -s /opt/osmosis/bin/osmosis \
         cmake \
         expat-dev \
         g++ \
-        geos-dev@testing \
+        geos-dev \
         git \
         lua-dev \
         make \
         postgresql-dev \
-        proj4-dev@testing \
+        proj4-dev \
         zlib-dev \
     && git clone --depth 1 --branch $OSM2PGSQL_VERSION https://github.com/openstreetmap/osm2pgsql.git /usr/src/osm2pgsql \
     && mkdir -p /usr/src/osm2pgsql/build \
