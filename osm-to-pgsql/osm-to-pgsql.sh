@@ -9,6 +9,8 @@ export PGPASSWORD="${POSTGRES_PASSWORD}"
 # file when we download the planet-latest.osm.pbf file, we should not miss any changes.
 if [[ ! -f "${OSM_PGSQL_DATA}/state.txt" ]]; then
 
+    echo '########### Initializing osm-to-pgsql state file ###########'
+
     cp "${OSM_PGSQL_CODE}/sync_config.txt" "${OSM_PGSQL_DATA}"
 
     curl -SL \
@@ -17,10 +19,12 @@ if [[ ! -f "${OSM_PGSQL_DATA}/state.txt" ]]; then
 fi
 
 
-# Wait for the postgress container to start up and possibly initialize the new db
+# Wait for the Postgres container to start up and possibly initialize the new db
 sleep 30
 
 if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
+
+    echo '########### Performing initial Postgres import with osm-to-pgsql ###########'
 
     osm2pgsql \
         --create \
@@ -39,6 +43,8 @@ if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
     touch "${OSM_PGSQL_DATA}/${OSM_FILE}.imported"
 
 fi
+
+echo "########### Running osm-to-pgsql updates every ${LOOP_SLEEP} seconds ###########"
 
 while :; do
 
