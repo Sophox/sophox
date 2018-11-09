@@ -2,49 +2,36 @@ version: '3'
 
 services:
 
-  traefik:
-    image: traefik
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-      - "127.0.0.1:8080:8080"
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
-      - "${REPO_DIR}/docker/traefik.toml:/traefik.toml"
-      - "${ACME_FILE}:/acme.json"
-    container_name: traefik
-
-#  web:
-#    build: https://github.com/nickpeihl/wikidata-query-gui.git#dockerize
+#  traefik:
+#    image: traefik
+#    restart: always
 #    ports:
-#      - "80"
-#    depends_on:
-#      - mapshaper
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.frontend.rule=Host:staging.sophox.org"
-
-  mapshaper:
-    image: crazycapivara/docker-mapshaper
-    ports:
-      - "5555"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/"
-
-#  pg-updater:
-#    image: nickpeihl/osmupdater:latest
-#    command: /var/lib/osm2pgsql/osmUpdate.sh
-#    networks:
-#    - postgres_conn
+#      - "80:80"
+#      - "443:443"
+#      - "127.0.0.1:8080:8080"
 #    volumes:
-#    - wdqs_data:/var/lib/wdqs
-#    - temp_data:/var/tmp
-#    - ./:/var/lib/osm2pgsql
-#    depends_on:
-#    - postgres
-#    env_file: .env
+#      - "/var/run/docker.sock:/var/run/docker.sock"
+#      - "${REPO_DIR}/docker/traefik.toml:/traefik.toml"
+#      - "${ACME_FILE}:/acme.json"
+#    container_name: traefik
+
+  postgres-updater:
+    image: sophox/osm2pgsql_osmium
+    command: /var/lib/osm2pgsql/osmUpdate.sh
+    networks:
+    - postgres_conn
+    volumes:
+    - "${DATA_DIR}/pg_updater:/pg_updater"
+    - "${DOWNLOAD_DIR}:/download"
+    environment:
+      POSTGRES_DB: gis
+      POSTGRES_USER: sophox
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      PG_UPDATER_DATA: "/pg_updater"
+      PG_UPDATER_MEM: 8000
+      PG_UPDATER_CPU: 6
+    depends_on:
+    - postgres
 
 #  osmregions:
 #    image: nickpeihl/osm-regions-server:latest
@@ -55,6 +42,26 @@ services:
 #    - wdqs_conn
 #    depends_on:
 #    - postgres
+
+
+  #  web:
+  #    build: https://github.com/nickpeihl/wikidata-query-gui.git#dockerize
+  #    ports:
+  #      - "80"
+  #    depends_on:
+  #      - mapshaper
+  #    labels:
+  #      - "traefik.enable=true"
+  #      - "traefik.frontend.rule=Host:staging.sophox.org"
+
+  #  mapshaper:
+  #    image: crazycapivara/docker-mapshaper
+  #    ports:
+  #      - "5555"
+  #    labels:
+  #      - "traefik.enable=true"
+  #      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/"
+
 
   postgres:
     image: "openmaptiles/postgis:2.9"
