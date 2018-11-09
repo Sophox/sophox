@@ -21,15 +21,21 @@ services:
     networks:
     - postgres_conn
     volumes:
-    - "${DATA_DIR}/pg_updater:/pg_updater"
-    - "${DOWNLOAD_DIR}:/download"
+    - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql"
+    - "${DATA_DIR}/osm-pgsql:/osm-pgsql"
+    - "${DOWNLOAD_DIR}:/downloads"
     environment:
+      OSM_FILE: "/downloads/${OSM_FILE}"
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-      PG_UPDATER_DATA: "/pg_updater"
-      PG_UPDATER_MEM: 8000
-      PG_UPDATER_CPU: 6
+      POSTGRES_PASSWORD:
+      OSM_PGSQL_DATA: "/osm-pgsql"
+      OSM_PGSQL_CODE: "/osm-to-pgsql"
+      OSM_PGSQL_MEM_IMPORT: 8000
+      OSM_PGSQL_MEM_UPDATE: 500
+      OSM_PGSQL_CPU_IMPORT: 6
+      OSM_PGSQL_CPU_UPDATE: 6
+      LOOP_SLEEP: 60
     depends_on:
     - postgres
 
@@ -76,7 +82,7 @@ services:
     environment:
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_PASSWORD:
 
 networks:
   postgres_conn:

@@ -21,6 +21,7 @@ POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
 OSMSYNC_DIR=${DATA_DIR}/osmsync
 DOWNLOAD_DIR=${DATA_DIR}/download
 SOPHOX_HOST=staging.sophox.org
+OSM_FILE=planet-latest.osm.pbf
 
 #
 # #####################  Mount Persisted Disk
@@ -101,18 +102,20 @@ POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
 # TODO curl bug returns FTP transient problem if file already exists.
 # See https://github.com/curl/curl/issues/2464
 mkdir -p "${DOWNLOAD_DIR}"
-if [[ ! -f "${DOWNLOAD_DIR}/planet-latest.osm.pbf.downloaded" ]]; then
+if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
     curl -SL \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf.md5 \
-        -o "${DOWNLOAD_DIR}/planet-latest.osm.pbf.md5"
+        -o "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
 
     curl -SL --compressed \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf \
-        -o "${DOWNLOAD_DIR}/planet-latest.osm.pbf"
+        -o "${DOWNLOAD_DIR}/${OSM_FILE}"
 
-    md5sum --check "${DOWNLOAD_DIR}/planet-latest.osm.pbf.md5"
+    pushd "${DOWNLOAD_DIR}"
+    md5sum --check "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
+    popd
 
-    touch "${DOWNLOAD_DIR}/planet-latest.osm.pbf.downloaded"
+    touch "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded"
 fi
 
 # Create a state file for the planet download. The state file is generated for 1 week previous
@@ -140,6 +143,7 @@ export DOWNLOAD_DIR
 export ACME_FILE
 export POSTGRES_PASSWORD
 export SOPHOX_HOST
+export OSM_FILE
 
 docker run --rm                                       \
     -e DATA_DIR                                       \
@@ -148,6 +152,7 @@ docker run --rm                                       \
     -e ACME_FILE                                      \
     -e POSTGRES_PASSWORD                              \
     -e SOPHOX_HOST                                    \
+    -e OSM_FILE                                       \
                                                       \
     -v "${DATA_DIR}:/rootfs"                          \
     -v /var/run/docker.sock:/var/run/docker.sock      \
@@ -155,33 +160,3 @@ docker run --rm                                       \
     docker/compose:1.23.1                             \
     --file "/rootfs/${REPO_DIR_NAME}/${COMPOSE_FILE}" \
     up ${DETACH:+ --detach}
-
-
-#
-# #####################  Parse OSM data into Postgres
-#
-
-docker run --rm                                        \
-        --network=${COMPOSE_PROJECT_NAME}_postgres_conn    \
-        -e OSM2PGSQL_VERSION=${OSM2PGSQL_VERSION}          \
-        -e PGHOST=${POSTGRES_HOST}                         \
-        -e PGPORT=${POSTGRES_PORT}                         \
-        -e PGUSER=${POSTGRES_USER}                         \
-        -e PGPASSWORD=${POSTGRES_PASSWORD}                 \
-        -e PGDATABASE=${POSTGRES_DB}                       \
-        -v ${COMPOSE_PROJECT_NAME}_temp_data:/var/tmp      \
-        -v ${COMPOSE_PROJECT_NAME}_wdqs_data:/var/lib/wdqs \
-        -v $PWD:/var/lib/osm2pgsql                         \
-        --entrypoint osm2pgsql                             \
-    sophox/osm2pgsql_osmium                                \
-        --create
-        --slim
-        --database ${POSTGRES_DB}
-        --flat-nodes /var/lib/wdqs/rgn_nodes.cache \
-        -C 26000
-        --number-processes 8
-        --hstore
-        --style /var/lib/osm2pgsql/wikidata.style \
-
-        --tag-transform-script /var/lib/osm2pgsql/wikidata.lua \
-        /var/tmp/planet-latest.osm.pbf
