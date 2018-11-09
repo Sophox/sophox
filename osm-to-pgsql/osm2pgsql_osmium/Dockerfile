@@ -19,6 +19,7 @@ RUN ln -s /opt/osmosis/bin/osmosis \
         libstdc++ \
         libpq \
         postgresql-libs \
+        postgresql-client \
         lua \
     && \
     apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
