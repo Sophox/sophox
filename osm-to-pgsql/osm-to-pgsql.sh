@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-export PGPASS="${POSTGRES_PASSWORD}"
+export PGPASSWORD="${POSTGRES_PASSWORD}"
 
 sleep 5
 
