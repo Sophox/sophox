@@ -10,18 +10,18 @@ services:
 #      - "443:443"
 #      - "127.0.0.1:8080:8080"
 #    volumes:
-#      - "/var/run/docker.sock:/var/run/docker.sock"
-#      - "${REPO_DIR}/docker/traefik.toml:/traefik.toml"
-#      - "${ACME_FILE}:/acme.json"
+#      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+#      - "${REPO_DIR}/docker/traefik.toml:/traefik.toml:ro"
+#      - "${ACME_FILE}:/acme.json:rw"
 #    container_name: traefik
 
   postgres-updater:
     image: sophox/osm2pgsql_osmium
     command: /osm-to-pgsql/osm-to-pgsql.sh
     volumes:
-    - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql"
-    - "${DATA_DIR}/osm-pgsql:/osm-pgsql"
-    - "${DOWNLOAD_DIR}:/downloads"
+    - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql:ro"
+    - "${DOWNLOAD_DIR}:/downloads:ro"
+    - "${DATA_DIR}/osm-pgsql:/osm-pgsql:rw"
     environment:
       OSM_FILE: "/downloads/${OSM_FILE}"
       POSTGRES_HOST: postgres
@@ -75,7 +75,7 @@ services:
     # DblCheck: Nick said it makes import more efficient
     command: -c 'max_wal_size=5GB'
     volumes:
-      - "${DATA_DIR}/postgres:/var/lib/postgresql/data"
+      - "${DATA_DIR}/postgres:/var/lib/postgresql/data:rw"
     networks:
       - postgres_conn
     ports:

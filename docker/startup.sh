@@ -18,7 +18,6 @@ REPO_DIR_NAME=sophox_repo
 REPO_DIR=${DATA_DIR}/${REPO_DIR_NAME}
 ACME_FILE=${DATA_DIR}/acme.json
 POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
-OSMSYNC_DIR=${DATA_DIR}/osmsync
 DOWNLOAD_DIR=${DATA_DIR}/download
 SOPHOX_HOST=staging.sophox.org
 OSM_FILE=planet-latest.osm.pbf
@@ -116,17 +115,6 @@ if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
     popd
 
     touch "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded"
-fi
-
-# Create a state file for the planet download. The state file is generated for 1 week previous
-# in order not to miss any data changes. Since the planet dump is weekly and we generate this
-# file when we download the planet-latest.osm.pbf file, we should not miss any changes.
-if [[ ! -d "${OSMSYNC_DIR}" ]]; then
-    mkdir -p "${OSMSYNC_DIR}"
-    cp "${REPO_DIR_NAME}/docker/sync_config.txt" "${OSMSYNC_DIR}"
-    curl -SL \
-        "https://replicate-sequences.osm.mazdermind.de/?"`date -u -d@"$$(( \`date +%s\`-1*7*24*60*60))" +"%Y-%m-%d"`"T00:00:00Z" \
-        -o "${OSMSYNC_DIR}/state.txt"
 fi
 
 #
