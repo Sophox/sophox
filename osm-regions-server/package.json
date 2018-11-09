@@ -1,0 +1,15 @@
+{
+  "name": "osm-regions-server",
+  "license": "MIT",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": "nyurik/osm-regions-server",
+  "dependencies": {
+    "compression": "^1.7.1",
+    "express": "^4.16.2",
+    "osm-regions": "nyurik/osm-regions",
+    "topojson": "^3.0.2"
+  }
+}
