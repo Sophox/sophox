@@ -18,14 +18,13 @@ services:
   postgres-updater:
     image: sophox/osm2pgsql_osmium
     command: /osm-to-pgsql/osm-to-pgsql.sh
-    networks:
-    - postgres_conn
     volumes:
     - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql"
     - "${DATA_DIR}/osm-pgsql:/osm-pgsql"
     - "${DOWNLOAD_DIR}:/downloads"
     environment:
       OSM_FILE: "/downloads/${OSM_FILE}"
+      POSTGRES_HOST: postgres
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
       POSTGRES_PASSWORD:
@@ -36,6 +35,8 @@ services:
       OSM_PGSQL_CPU_IMPORT: 6
       OSM_PGSQL_CPU_UPDATE: 6
       LOOP_SLEEP: 60
+    networks:
+    - postgres_conn
     depends_on:
     - postgres
 

@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 set -e
 
-sleep 10
+export PGPASS="${POSTGRES_PASSWORD}"
+
+sleep 5
 
 if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
 
     osm2pgsql \
         --create \
         --slim \
+        --host "${POSTGRES_HOST}" \
+        --username "${POSTGRES_USER}" \
         --database "${POSTGRES_DB}" \
         --flat-nodes "${OSM_PGSQL_DATA}/nodes.cache" \
         --cache "${OSM_PGSQL_MEM_IMPORT}" \
@@ -33,6 +37,8 @@ while :; do
     | osm2pgsql \
         --append \
         --slim \
+        --host "${POSTGRES_HOST}" \
+        --username "${POSTGRES_USER}" \
         --database "${POSTGRES_DB}" \
         --flat-nodes "${OSM_PGSQL_DATA}/nodes.cache" \
         --cache "${OSM_PGSQL_MEM_UPDATE}" \
