@@ -58,6 +58,7 @@ services:
 
   postgres:
     image: "openmaptiles/postgis:2.9"
+    # DblCheck: Nick said it makes import more efficient
     command: -c 'max_wal_size=5GB'
     volumes:
       - "${DATA_DIR}/postgres:/var/lib/postgresql/data"
