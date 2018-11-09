@@ -1,0 +1,30 @@
+# debug = true
+# logLevel = "INFO"
+defaultEntryPoints = ["https","http"]
+
+[entryPoints]
+    [entryPoints.http]
+        address = ":80"
+        [entryPoints.http.redirect]
+            entryPoint = "https"
+    [entryPoints.https]
+        address = ":443"
+        [entryPoints.https.tls]
+
+# Enable ACME (Let's Encrypt): automatic SSL.
+[acme]
+    email = "YuriAstrakhan@gmail.com"
+    storage = "acme.json"
+    entryPoint = "https"
+    onHostRule = true
+    acmeLogging = true
+    [acme.tlsChallenge]
+
+[docker]
+    endpoint = "unix:///var/run/docker.sock"
+    domain = "staging.sophox.org"
+    watch = true
+    exposedByDefault = false
+
+[api]
+#    debug = true
