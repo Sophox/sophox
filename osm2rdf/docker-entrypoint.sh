@@ -27,11 +27,14 @@ if [[ ! -f "${OSM_RDF_DATA}/${OSM_FILE}.parsed" ]]; then
     python3 osm2rdf.py \
         --nodes-file "${OSM_RDF_DATA}/nodes.cache" \
         --cache-strategy dense \
-        parse "${OSM_FILE}" "${OSM_RDF_DATA}"
+        parse "${OSM_FILE}" "${TTLS}"
 
     touch "${OSM_RDF_DATA}/${OSM_FILE}.parsed"
-
+    echo "########### Finished parsing with osm2rdf ###########"
 fi
+
+exit
+
 
 echo "########### Running osm2rdf updater ###########"
 

@@ -32,7 +32,11 @@ if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
 
     touch "${OSM_PGSQL_DATA}/${OSM_FILE}.imported"
 
+    echo "########### Finished osm-to-pgsql initial import ###########"
 fi
+
+
+exit
 
 echo "########### Running osm-to-pgsql updates every ${LOOP_SLEEP} seconds ###########"
 
