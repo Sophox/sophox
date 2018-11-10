@@ -1,14 +1,11 @@
 'use strict';
 
 const compression = require(`compression`);
-const { SparqlService, PostgresService, directQueries } = require(`osm-regions/src`);
+const {SparqlService, PostgresService, directQueries} = require(`osm-regions/src`);
 const app = require(`express`)();
-const secrets = require(`./secrets`);
 const topojson = require(`topojson`);
 
 const port = 9978;
-// const rdfServerUrl = `https://sophox.org/bigdata/sparql`;
-const rdfService = `https://sophox.org/bigdata/namespace/wdq/sparql`;
 
 // app.use(function (req, resp, next) {
 //   resp.header(`Access-Control-Allow-Origin`, `*`);
@@ -25,20 +22,26 @@ app.use(compression());
 
 app.get(`/regions/:format`, handleRequest);
 
-const sparqlService = new SparqlService({
-  url: rdfService,
+const sparqlSvcOpts = {
   userAgent: `osm-regions`,
-  Accept: `application/sparql-results+json`
-});
+  Accept: `application/sparql-results+json`,
+};
+const wikibaseSparqlService = new SparqlService({url: process.env.WIKIBASE_URL, ...sparqlSvcOpts});
+const sophoxSparqlService = new SparqlService({url: process.env.SOPHOX_URL, ...sparqlSvcOpts});
 
-const postgresService = new PostgresService({
+const pgServerOpts = {
   queries: directQueries,
-  host: secrets.host,
-  port: secrets.port,
-  database: secrets.database,
-  user: secrets.user,
-  password: secrets.password,
-});
+  host: process.env.POSTGRES_HOST,
+  database: process.env.POSTGRES_DB,
+  user: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+};
+
+if (process.env.POSTGRES_PORT) {
+  pgServerOpts.port = process.env.POSTGRES_PORT;
+}
+
+const postgresService = new PostgresService(pgServerOpts);
 
 app.listen(port, err => {
   if (err) {
@@ -81,8 +84,8 @@ async function handleRequest(req, resp) {
 const NUMERIC_PARAMS = {
   // 'planarArea': { desc: 'minimum planar triangle area (absolute)' },
   // 'planarQuantile': { desc: 'minimum planar triangle area (quantile)', max: 1 },
-  sphericalArea: { desc: `minimum spherical excess (absolute)` },
-  sphericalQuantile: { desc: `minimum spherical excess (quantile)`, max: 1 },
+  sphericalArea: {desc: `minimum spherical excess (absolute)`},
+  sphericalQuantile: {desc: `minimum spherical excess (quantile)`, max: 1},
 };
 
 const parseNumber = function (params, name, info) {
@@ -95,10 +98,27 @@ const parseNumber = function (params, name, info) {
 };
 
 function parseParams(req) {
-  const params = { ...req.query, format: req.params.format };
+  const params = {...req.query, format: req.params.format};
 
   if ((params.ids === undefined) === (params.sparql === undefined)) {
     throw new MyError(400, `Either "ids" or "query" parameter must be given, but not both`);
+  }
+
+  let sparqlService;
+  if (params.sparql) {
+    switch (params.service) {
+      case undefined:
+      case 'sophox':
+        sparqlService = sophoxSparqlService;
+        break;
+      case 'wikidata':
+        sparqlService = wikibaseSparqlService;
+        break;
+      default:
+        throw new MyError(400, `If set, "service" param must be either "sophox" or "wikidata"`);
+    }
+  } else {
+    throw new MyError(400, `Parameter "service" must be used with "sparql"`);
   }
 
   let ids = params.ids;
@@ -145,17 +165,17 @@ function parseParams(req) {
 
   let quantize = simplifyCmd ? 4 : 0;
   if (params.hasOwnProperty(`quantize`)) {
-    quantize = parseNumber(params, `quantize`, { desc: `Exponent to use for quantizing`, max: 8 });
+    quantize = parseNumber(params, `quantize`, {desc: `Exponent to use for quantizing`, max: 8});
   }
   quantize = quantize ? Math.pow(10, quantize) : 0;
 
-  const postgresOpts = {}; // { waterTable: secrets.waterTable };
+  const postgresOpts = {}; // { waterTable: process.env.OSM_REGIONS_SQL_WATER_TABLE };
 
-  return { ids, sparql: params.sparql, simplifyCmd, value, quantize, format, filter, postgresOpts };
+  return {ids, sparqlService, sparql: params.sparql, simplifyCmd, value, quantize, format, filter, postgresOpts};
 }
 
 async function processQueryRequest(req, resp) {
-  let { sparql, ids, simplifyCmd, value, quantize, format, filter, postgresOpts } = parseParams(req);
+  let {sparqlService, sparql, ids, simplifyCmd, value, quantize, format, filter, postgresOpts} = parseParams(req);
   let newValue = value;
   let equivLog = ``;
   let qres;
@@ -164,13 +184,13 @@ async function processQueryRequest(req, resp) {
     qres = await sparqlService.query(sparql, `id`);
     ids = Object.keys(qres);
   }
-  const pres = await postgresService.query(secrets.table, ids, postgresOpts);
+  const pres = await postgresService._query(process.env.REGIONS_TABLE, ids, postgresOpts);
   let result = PostgresService.toGeoJSON(pres, qres);
   const originalSize = result.length;
 
   if (simplifyCmd || format === `topojson.json`) {
 
-    result = topojson.topology({ data: JSON.parse(result) }, quantize);
+    result = topojson.topology({data: JSON.parse(result)}, quantize);
 
     if (simplifyCmd) {
       const system = (simplifyCmd === `sphericalArea` || simplifyCmd === `sphericalQuantile`) ? `spherical` : `planar`;

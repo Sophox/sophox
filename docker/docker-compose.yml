@@ -56,6 +56,15 @@ services:
 
   osm-regions:
     build: "${REPO_DIR2}/osm-regions-server"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: gis
+      POSTGRES_USER: sophox
+      POSTGRES_PASSWORD:
+      WIKIBASE_URL: "http://blazegraph/bigdata/sparql"
+      SOPHOX_URL: "https://sophox.org/bigdata/namespace/wdq/sparql"
+      REGIONS_TABLE: planet_osm_polygon
+#      OSM_REGIONS_SQL_WATER_TABLE: "${}"
     ports:
     - "9978"
     networks:
