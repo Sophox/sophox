@@ -49,6 +49,7 @@ services:
     environment:
       OSM_FILE: "/downloads/${OSM_FILE}"
       OSM_RDF_DATA: "/osm-rdf"
+      OSM_RDF_WORKERS: 2
 #    networks:
 #    - blazegraph_conn
 #    depends_on:

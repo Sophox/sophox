@@ -25,11 +25,12 @@ if [[ ! -f "${OSM_RDF_DATA}/${OSM_FILE}.parsed" ]]; then
     mkdir -p "${OUTPUT_DIR}"
 
     set -x
-    python3 osm2rdf.py \
+    python3 osm2rdf.py                             \
         --nodes-file "${OSM_RDF_DATA}/nodes.cache" \
-        --cache-strategy dense \
-        --workers 2 \
-        parse "${OSM_FILE}" "${OUTPUT_DIR}"
+        --cache-strategy dense                     \
+        parse "${OSM_FILE}" "${OUTPUT_DIR}"        \
+        --workers "${OSM_RDF_WORKERS}"
+
     set +x
 
     touch "${OSM_RDF_DATA}/${OSM_FILE}.parsed"
@@ -53,12 +54,12 @@ while :; do
         set -x
     fi
 
-    python3 osm2rdf.py \
+    python3 osm2rdf.py                             \
         --nodes-file "${OSM_RDF_DATA}/nodes.cache" \
-        --cache-strategy dense \
-        update \
-        --host "${BIGDATA_URL}" \
-        --max-download "${MAX_DOWNLOAD}" \
+        --cache-strategy dense                     \
+        update                                     \
+        --host "${BIGDATA_URL}"                    \
+        --max-download "${MAX_DOWNLOAD}"           \
         --update-url "${UPDATE_URL}"
 
     set +x
