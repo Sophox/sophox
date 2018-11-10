@@ -137,7 +137,8 @@ export POSTGRES_PASSWORD
 export SOPHOX_HOST
 export OSM_FILE
 
-docker run --rm                                       \
+# Keep the container around (no --rm) to simplify debugging
+docker run                                            \
     -e DATA_DIR                                       \
     -e REPO_DIR                                       \
     -e DOWNLOAD_DIR                                   \
