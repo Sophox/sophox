@@ -1,6 +1,6 @@
 FROM debian:buster
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
 COPY ./requirements.txt .
 
@@ -19,5 +19,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY . .
 
-ENTRYPOINT [ "python3", "/usr/src/app/osm2rdf.py" ]
-
+ENTRYPOINT [ "/app/docker-entrypoint.sh" ]
+CMD [ "osm2rdf.py" ]

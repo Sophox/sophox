@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright Yuri Astrakhan <YuriAstrakhan@gmail.com>
 # Some ideas were taken from https://github.com/waymarkedtrails/osgende/blob/master/tools/osgende-import
 

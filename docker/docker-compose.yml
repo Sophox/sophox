@@ -30,33 +30,49 @@ services:
       POSTGRES_PASSWORD:
       OSM_PGSQL_DATA: "/osm-pgsql"
       OSM_PGSQL_CODE: "/osm-to-pgsql"
-      OSM_PGSQL_MEM_IMPORT: 8000
-      OSM_PGSQL_MEM_UPDATE: 500
-      OSM_PGSQL_CPU_IMPORT: 6
-      OSM_PGSQL_CPU_UPDATE: 6
+      # Note that cache MEM is total per container, but will be divided by CPU count
+      OSM_PGSQL_MEM_IMPORT: 6000
+      OSM_PGSQL_CPU_IMPORT: 4
+      OSM_PGSQL_MEM_UPDATE: 2000
+      OSM_PGSQL_CPU_UPDATE: 2
       LOOP_SLEEP: 60
     networks:
     - postgres_conn
     depends_on:
     - postgres
 
-#  osmregions:
-#    image: nickpeihl/osm-regions-server:latest
-#    ports:
-#    - "9978"
+  osm-to-rdf:
+    build: "${REPO_DIR}/osm2rdf"
+    volumes:
+    - "${DOWNLOAD_DIR}:/downloads:ro"
+    - "${DATA_DIR}/osm-pgsql:/osm-rdf:rw"
+    environment:
+      OSM_FILE: "/downloads/${OSM_FILE}"
+      OSM_RDF_DATA: "/osm-rdf"
 #    networks:
-#    - postgres_conn
-#    - wdqs_conn
+#    - blazegraph_conn
 #    depends_on:
-#    - postgres
+#    - blazegraph
+
+  osm-regions:
+    build: "${REPO_DIR}/osm-regions-server"
+    ports:
+    - "9978"
+    networks:
+    - postgres_conn
+    - blazegraph_conn
+    depends_on:
+    - postgres
+    labels:
+    - "traefik.enable=true"
+    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/"
+#    - "traefik.port=80"
 
 
-  #  web:
+  #  sophox-gui:
   #    build: https://github.com/nickpeihl/wikidata-query-gui.git#dockerize
   #    ports:
   #      - "80"
-  #    depends_on:
-  #      - mapshaper
   #    labels:
   #      - "traefik.enable=true"
   #      - "traefik.frontend.rule=Host:staging.sophox.org"
@@ -87,4 +103,5 @@ services:
 
 networks:
   postgres_conn:
-  wdqs_conn:
+  blazegraph_conn:
+

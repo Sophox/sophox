@@ -26,6 +26,10 @@ if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
 
     echo '########### Performing initial Postgres import with osm-to-pgsql ###########'
 
+    # osm2pgsql cache memory is per CPU, not total
+    OSM_PGSQL_MEM_IMPORT=$(( ${OSM_PGSQL_MEM_IMPORT} / ${OSM_PGSQL_CPU_IMPORT} ))
+
+    set -x
     osm2pgsql \
         --create \
         --slim \
@@ -39,6 +43,7 @@ if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
         --style "${OSM_PGSQL_CODE}/wikidata.style" \
         --tag-transform-script "${OSM_PGSQL_CODE}/wikidata.lua" \
         "${OSM_FILE}"
+    set +x
 
     touch "${OSM_PGSQL_DATA}/${OSM_FILE}.imported"
 
@@ -46,10 +51,20 @@ fi
 
 echo "########### Running osm-to-pgsql updates every ${LOOP_SLEEP} seconds ###########"
 
+# osm2pgsql cache memory is per CPU, not total
+OSM_PGSQL_MEM_UPDATE=$(( ${OSM_PGSQL_MEM_UPDATE} / ${OSM_PGSQL_CPU_UPDATE} ))
+FIRST_LOOP=true
+
 while :; do
 
     # It is ok for the import to crash - it should be safe to restart
     set +e
+
+    # First iteration - log the osmosis + osm2pgsql commands
+    if [[ "${FIRST_LOOP}" == "true" ]]; then
+        FIRST_LOOP=false
+        set -x
+    fi
 
     osmosis \
         --read-replication-interval "workingDirectory=${OSM_PGSQL_DATA}" \
@@ -70,6 +85,8 @@ while :; do
         --tag-transform-script "${OSM_PGSQL_CODE}/wikidata.lua" \
         -r xml \
         -
+
+    set +x
 
     # Set LOOP_SLEEP to 0 to run this only once, otherwise sleep that many seconds until retry
     [[ "${LOOP_SLEEP}" -eq 0 ]] && exit $?
