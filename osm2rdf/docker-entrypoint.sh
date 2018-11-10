@@ -24,10 +24,12 @@ if [[ ! -f "${OSM_RDF_DATA}/${OSM_FILE}.parsed" ]]; then
     fi
     mkdir -p "${TTLS}"
 
+    set -x
     python3 osm2rdf.py \
         --nodes-file "${OSM_RDF_DATA}/nodes.cache" \
         --cache-strategy dense \
         parse "${OSM_FILE}" "${TTLS}"
+    set +x
 
     touch "${OSM_RDF_DATA}/${OSM_FILE}.parsed"
     echo "########### Finished parsing with osm2rdf ###########"
@@ -40,16 +42,28 @@ echo "########### Running osm2rdf updater ###########"
 
 # It is ok for the updater to crash - it should be safe to restart
 set +e
+FIRST_LOOP=true
 
-until python3 osm2rdf.py \
-    --nodes-file "${OSM_RDF_DATA}/nodes.cache" \
-    --cache-strategy dense \
-    update \
-    --host "${BIGDATA_URL}" \
-    --max-download "${MAX_DOWNLOAD}" \
-    --update-url "${UPDATE_URL}"
-do
+while :; do
+
+    # First iteration - log the osm2rdf.py command
+    if [[ "${FIRST_LOOP}" == "true" ]]; then
+        FIRST_LOOP=false
+        set -x
+    fi
+
+    python3 osm2rdf.py \
+        --nodes-file "${OSM_RDF_DATA}/nodes.cache" \
+        --cache-strategy dense \
+        update \
+        --host "${BIGDATA_URL}" \
+        --max-download "${MAX_DOWNLOAD}" \
+        --update-url "${UPDATE_URL}"
+
+    set +x
     echo "osm2rdf updater crashed with exit code $?.  Re-spawning in 5 seconds" >&2
     sleep 5
+
 done
+
 fi

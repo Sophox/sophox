@@ -30,10 +30,10 @@ services:
       POSTGRES_PASSWORD:
       OSM_PGSQL_DATA: "/osm-pgsql"
       OSM_PGSQL_CODE: "/osm-to-pgsql"
-      # Note that cache MEM is total per container, but will be divided by CPU count
-      OSM_PGSQL_MEM_IMPORT: 6000
-      OSM_PGSQL_CPU_IMPORT: 4
-      OSM_PGSQL_MEM_UPDATE: 2000
+      # MEM is a percentage of total machine memory
+      OSM_PGSQL_MEM_IMPORT: 30
+      OSM_PGSQL_CPU_IMPORT: 3
+      OSM_PGSQL_MEM_UPDATE: 10
       OSM_PGSQL_CPU_UPDATE: 2
       LOOP_SLEEP: 60
     networks:

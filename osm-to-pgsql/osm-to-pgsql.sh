@@ -4,6 +4,8 @@ set -e
 # osm2pgsql expects password in this env var
 export PGPASSWORD="${POSTGRES_PASSWORD}"
 
+TOTAL_MEMORY_MB=$(( $(free | awk '/^Mem:/{print $2}') / 1024 ))
+
 # Wait for the Postgres container to start up and possibly initialize the new db
 sleep 30
 
@@ -12,7 +14,7 @@ if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
     echo '########### Performing initial Postgres import with osm-to-pgsql ###########'
 
     # osm2pgsql cache memory is per CPU, not total
-    OSM_PGSQL_MEM_IMPORT=$(( ${OSM_PGSQL_MEM_IMPORT} / ${OSM_PGSQL_CPU_IMPORT} ))
+    OSM_PGSQL_MEM_IMPORT=$(( ${TOTAL_MEMORY_MB} / 100 * ${OSM_PGSQL_MEM_IMPORT} / ${OSM_PGSQL_CPU_IMPORT} ))
 
     set -x
     osm2pgsql \
@@ -41,7 +43,8 @@ exit
 echo "########### Running osm-to-pgsql updates every ${LOOP_SLEEP} seconds ###########"
 
 # osm2pgsql cache memory is per CPU, not total
-OSM_PGSQL_MEM_UPDATE=$(( ${OSM_PGSQL_MEM_UPDATE} / ${OSM_PGSQL_CPU_UPDATE} ))
+OSM_PGSQL_MEM_UPDATE=$(( ${TOTAL_MEMORY_MB} / 100 * ${OSM_PGSQL_MEM_UPDATE} / ${OSM_PGSQL_CPU_IMPORT} ))
+
 FIRST_LOOP=true
 
 while :; do
