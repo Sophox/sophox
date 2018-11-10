@@ -14,8 +14,7 @@ DATA_DIR=/mnt/disks/data
 COMPOSE_FILE=docker/docker-compose.yml
 REPO_URL=https://github.com/Sophox/sophox.git
 REPO_BRANCH=gcp
-REPO_DIR_NAME=sophox_repo
-REPO_DIR=${DATA_DIR}/${REPO_DIR_NAME}
+REPO_DIR=${DATA_DIR}/sophox_repo
 ACME_FILE=${DATA_DIR}/acme.json
 POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
 DOWNLOAD_DIR=${DATA_DIR}/download
@@ -141,10 +140,11 @@ docker run --rm                                       \
     -e POSTGRES_PASSWORD                              \
     -e SOPHOX_HOST                                    \
     -e OSM_FILE                                       \
+    -e REPO_DIR2=/git_repo                            \
                                                       \
-    -v "${DATA_DIR}:/rootfs"                          \
+    -v "${REPO_DIR}:/git_repo"                        \
     -v /var/run/docker.sock:/var/run/docker.sock      \
                                                       \
     docker/compose:1.23.1                             \
-    --file "/rootfs/${REPO_DIR_NAME}/${COMPOSE_FILE}" \
+    --file "/git_repo/${COMPOSE_FILE}" \
     up ${DETACH:+ --detach}

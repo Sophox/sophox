@@ -42,7 +42,7 @@ services:
     - postgres
 
   osm-to-rdf:
-    build: "${REPO_DIR}/osm2rdf"
+    build: "${REPO_DIR2}/osm2rdf"
     volumes:
     - "${DOWNLOAD_DIR}:/downloads:ro"
     - "${DATA_DIR}/osm-pgsql:/osm-rdf:rw"
@@ -55,7 +55,7 @@ services:
 #    - blazegraph
 
   osm-regions:
-    build: "${REPO_DIR}/osm-regions-server"
+    build: "${REPO_DIR2}/osm-regions-server"
     ports:
     - "9978"
     networks:
