@@ -62,15 +62,14 @@ class Osm2rdf(object):
         parser_update.add_argument('-n', '--dry-run', action='store_true', dest='dry_run', default=False,
                                    help='Do not modify RDF database.')
 
-
         opts = parser.parse_args()
-
         if not opts.command:
             self.parse_fail(parser, 'Missing command parameter')
 
         if opts.command == 'update':
             # if opts.addWayLoc:
-            #     self.parse_fail(parser, 'Updating osmm:loc is not yet implemented, use --skip-way-geo parameter right after osm2rdf.py')
+            #     self.parse_fail(parser, 'Updating osmm:loc is not yet implemented, '
+            #                             'use --skip-way-geo parameter right after osm2rdf.py')
 
             if opts.addWayLoc and not opts.cacheFile:
                 self.parse_fail(parser, 'Node cache file must be specified when updating with way centroids')

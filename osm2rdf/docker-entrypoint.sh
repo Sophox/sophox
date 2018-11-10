@@ -16,19 +16,20 @@ sleep 15
 if [[ ! -f "${OSM_RDF_DATA}/${OSM_FILE}.parsed" ]]; then
 
     echo '########### Performing initial OSM->RDF parsing with osm2rdf ###########'
-    TTLS="${OSM_RDF_DATA}/ttls"
+    OUTPUT_DIR="${OSM_RDF_DATA}/ttls"
 
-    if [[ -d "${TTLS}" ]]; then
-        echo "Removing partially parsed TTLs in ${TTLS}"
-        rd -rf "${TTLS}"
+    if [[ -d "${OUTPUT_DIR}" ]]; then
+        echo "Removing partially parsed TTLs in ${OUTPUT_DIR}"
+        rm -rf "${OUTPUT_DIR}"
     fi
-    mkdir -p "${TTLS}"
+    mkdir -p "${OUTPUT_DIR}"
 
     set -x
     python3 osm2rdf.py \
         --nodes-file "${OSM_RDF_DATA}/nodes.cache" \
         --cache-strategy dense \
-        parse "${OSM_FILE}" "${TTLS}"
+        --workers 2 \
+        parse "${OSM_FILE}" "${OUTPUT_DIR}"
     set +x
 
     touch "${OSM_RDF_DATA}/${OSM_FILE}.parsed"
