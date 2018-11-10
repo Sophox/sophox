@@ -20,6 +20,8 @@ POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
 DOWNLOAD_DIR=${DATA_DIR}/download
 SOPHOX_HOST=staging.sophox.org
 OSM_FILE=planet-latest.osm.pbf
+OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
+OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
 
 #
 # #####################  Mount Persisted Disk
@@ -121,6 +123,31 @@ if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
     touch "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded"
 fi
 
+# Create a state file for the planet download. The state file is generated for 1 week previous
+# in order not to miss any data changes. Since the planet dump is weekly and we generate this
+# file when we download the planet-latest.osm.pbf file, we should not miss any changes.
+mkdir -p "${OSM_PGSQL_DATA_DIR}"
+if [[ ! -f "${OSM_PGSQL_DATA_DIR}/state.txt" ]]; then
+
+    echo "########### Initializing ${OSM_PGSQL_DATA_DIR} state file ###########"
+    cp "${REPO_DIR}/docker/sync_config.txt" "${OSM_PGSQL_DATA_DIR}"
+    curl -SL \
+        "https://replicate-sequences.osm.mazdermind.de/?"`date -u -d@"$$(( \`date +%s\`-1*7*24*60*60))" +"%Y-%m-%d"`"T00:00:00Z" \
+        -o "${OSM_PGSQL_DATA_DIR}/state.txt"
+fi
+
+# Same thing but for OSM_RDF_DATA_DIR  (someday maybe it should be merged?)
+mkdir -p "${OSM_RDF_DATA_DIR}"
+if [[ ! -f "${OSM_RDF_DATA_DIR}/state.txt" ]]; then
+
+    echo "########### Initializing ${OSM_RDF_DATA_DIR} state file ###########"
+    cp "${REPO_DIR}/docker/sync_config.txt" "${OSM_RDF_DATA_DIR}"
+    curl -SL \
+        "https://replicate-sequences.osm.mazdermind.de/?"`date -u -d@"$$(( \`date +%s\`-1*7*24*60*60))" +"%Y-%m-%d"`"T00:00:00Z" \
+        -o "${OSM_RDF_DATA_DIR}/state.txt"
+fi
+
+
 #
 # #####################  Run docker-compose from a docker container
 #
@@ -136,6 +163,8 @@ export ACME_FILE
 export POSTGRES_PASSWORD
 export SOPHOX_HOST
 export OSM_FILE
+export OSM_PGSQL_DATA_DIR
+export OSM_RDF_DATA_DIR
 
 # Keep the container around (no --rm) to simplify debugging
 docker run                                            \
@@ -146,6 +175,8 @@ docker run                                            \
     -e POSTGRES_PASSWORD                              \
     -e SOPHOX_HOST                                    \
     -e OSM_FILE                                       \
+    -e OSM_PGSQL_DATA_DIR                             \
+    -e OSM_RDF_DATA_DIR                               \
     -e REPO_DIR2=/git_repo                            \
                                                       \
     -v "${REPO_DIR}:/git_repo"                        \

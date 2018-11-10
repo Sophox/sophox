@@ -21,7 +21,7 @@ services:
     volumes:
     - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql:ro"
     - "${DOWNLOAD_DIR}:/downloads:ro"
-    - "${DATA_DIR}/osm-pgsql:/osm-pgsql:rw"
+    - "${OSM_PGSQL_DATA_DIR}:/osm-pgsql:rw"
     environment:
       OSM_FILE: "/downloads/${OSM_FILE}"
       POSTGRES_HOST: postgres
@@ -45,7 +45,7 @@ services:
     build: "${REPO_DIR2}/osm2rdf"
     volumes:
     - "${DOWNLOAD_DIR}:/downloads:ro"
-    - "${DATA_DIR}/osm-pgsql:/osm-rdf:rw"
+    - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
     environment:
       OSM_FILE: "/downloads/${OSM_FILE}"
       OSM_RDF_DATA: "/osm-rdf"

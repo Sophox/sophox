@@ -10,22 +10,6 @@ BIGDATA_URL=http://localhost:9999/bigdata/sparql
 UPDATE_URL=https://planet.openstreetmap.org/replication/minute
 MAX_DOWNLOAD=5120
 
-
-# Create a state file for the planet download. The state file is generated for 1 week previous
-# in order not to miss any data changes. Since the planet dump is weekly and we generate this
-# file when we download the planet-latest.osm.pbf file, we should not miss any changes.
-if [[ ! -f "${OSM_RDF_DATA}/state.txt" ]]; then
-
-    echo '########### Initializing osm-to-pgsql state file ###########'
-
-    cp "${OSM_RDF_CODE}/sync_config.txt" "${OSM_RDF_DATA}"
-
-    curl -SL \
-        "https://replicate-sequences.osm.mazdermind.de/?"`date -u -d@"$$(( \`date +%s\`-1*7*24*60*60))" +"%Y-%m-%d"`"T00:00:00Z" \
-        -o "${OSM_RDF_DATA}/state.txt"
-fi
-
-
 # Wait for the Blazegraph container to start up and possibly initialize the new db
 sleep 15
 
