@@ -1,15 +1,14 @@
 FROM node:10.11-alpine
-LABEL maintainer='Nick Peihl <nick.peihl@elastic.co>'
+LABEL maintainer='Nick Peihl <nick.peihl@elastic.co>, Yuri Astrakhan <YuriAstrakhan@gmail.com>'
 
 # RUN mkdir -p /app
 WORKDIR /app
 
 COPY package*.json ./
 
-#RUN apk add --no-cache git \
-#    && npm install
-#
-RUN npm install -g -s --no-progress yarn && \
+# Git is needed at the moment because package.json relies on nyurik/osm-regions github repo (TODO)
+RUN apk add --no-cache git && \
+    npm install -g -s --no-progress yarn && \
     yarn && \
     yarn cache clean
 

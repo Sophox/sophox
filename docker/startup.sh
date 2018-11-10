@@ -47,6 +47,8 @@ else
     echo "Unable to mount ${DATA_DIR} - follow README_GCP.md to set up persistent disk"
     exit 1
   fi
+
+  echo "${DATA_DEV} has been mounted as ${DATA_DIR}"
 fi
 
 #
@@ -79,12 +81,14 @@ fi
 
 # File for the Let's encrypt certificate
 if [[ ! -f "${ACME_FILE}" ]]; then
+    echo "Creating ${ACME_FILE}"
     touch "${ACME_FILE}"
     chmod 600 "${ACME_FILE}"
 fi
 
 # Generate a random Postgres password
 if [[ ! -f "${POSTGRES_PASSWORD_FILE}" ]]; then
+    echo "Creating ${POSTGRES_PASSWORD_FILE}"
     openssl rand -base64 15 | head -c 12 > "${POSTGRES_PASSWORD_FILE}"
     chmod 400 "${POSTGRES_PASSWORD_FILE}"
 fi
@@ -101,6 +105,7 @@ POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
 # See https://github.com/curl/curl/issues/2464
 mkdir -p "${DOWNLOAD_DIR}"
 if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
+    echo "Downloading ${OSM_FILE}"
     curl -SL \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf.md5 \
         -o "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
