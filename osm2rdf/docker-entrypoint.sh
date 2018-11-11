@@ -10,8 +10,15 @@ BIGDATA_URL=http://localhost:9999/bigdata/sparql
 UPDATE_URL=https://planet.openstreetmap.org/replication/minute
 MAX_DOWNLOAD=5120
 
+# Note that TEMP may be the same disk as DATA
+NODES_CACHE="${OSM_RDF_DATA}/nodes.cache"
+NODES_CACHE_TMP="${OSM_RDF_TEMP}/nodes.cache"
+
+mkdir -p "${OSM_RDF_DATA}"
+mkdir -p "${OSM_RDF_TEMP}"
+
 # Wait for the Blazegraph container to start up and possibly initialize the new db
-sleep 15
+sleep 30
 
 if [[ ! -f "${OSM_RDF_DATA}/${OSM_FILE}.parsed" ]]; then
 
@@ -24,14 +31,26 @@ if [[ ! -f "${OSM_RDF_DATA}/${OSM_FILE}.parsed" ]]; then
     fi
     mkdir -p "${OUTPUT_DIR}"
 
+    if [[ -f "${NODES_CACHE}" ]]; then
+        rm "${NODES_CACHE}"
+    fi
+    if [[ -f "${NODES_CACHE_TMP}" ]]; then
+        rm "${NODES_CACHE_TMP}"
+    fi
+
     set -x
     python3 osm2rdf.py                             \
-        --nodes-file "${OSM_RDF_DATA}/nodes.cache" \
+        --nodes-file "${NODES_CACHE_TMP}" \
         --cache-strategy dense                     \
         parse "${OSM_FILE}" "${OUTPUT_DIR}"        \
         --workers "${OSM_RDF_WORKERS}"
-
     set +x
+
+    # If nodes.cache did not show up automatically in the data dir,
+    # the temp dir is the different from the data dir, so need to move it
+    if [[ ! -f "${NODES_CACHE}" ]]; then
+        mv --no-target-directory "${NODES_CACHE_TMP}" "${NODES_CACHE}"
+    fi
 
     touch "${OSM_RDF_DATA}/${OSM_FILE}.parsed"
     echo "########### Finished parsing with osm2rdf ###########"
@@ -55,7 +74,7 @@ while :; do
     fi
 
     python3 osm2rdf.py                             \
-        --nodes-file "${OSM_RDF_DATA}/nodes.cache" \
+        --nodes-file "${NODES_CACHE}" \
         --cache-strategy dense                     \
         update                                     \
         --host "${BIGDATA_URL}"                    \

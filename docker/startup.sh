@@ -11,6 +11,8 @@ if [[ "$EUID" -ne 0 ]]; then echo "This script must run with sudo" && exit 1; fi
 
 DATA_DEV=/dev/sdb
 DATA_DIR=/mnt/disks/data
+TEMP_DEV=/dev/nvme0n1
+TEMP_DIR=/mnt/disks/temp
 COMPOSE_FILE=docker/docker-compose.yml
 REPO_URL=https://github.com/Sophox/sophox.git
 REPO_BRANCH=gcp
@@ -23,42 +25,65 @@ OSM_FILE=planet-latest.osm.pbf
 OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
 OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
 
+TOTAL_MEMORY_MB=$(( $(free | awk '/^Mem:/{print $2}') / 1024 ))
+
 #
-# #####################  Mount Persisted Disk
+# #####################  Initialize and Mount Persisted Disk
 #
 
-set +e
-if (mount | grep -q "${DATA_DEV} on ${DATA_DIR} type ext4"); then
-  set -e
-  echo "${DATA_DIR} is already mounted"
-else
-  mkdir -p ${DATA_DIR}
-  RET_CODE=$(mount -o discard,defaults ${DATA_DEV} ${DATA_DIR}; echo $?)
-  set -e
-  if [[ ${RET_CODE} -eq 32 ]]; then
-    # Format new partition when mount exits with code 32. It usually prints this:
-    #   mount: /mnt/disks/data: wrong fs type, bad option, bad superblock on /dev/sdb, missing codepage or helper program, or other error.
-    echo "Formatting new partition..."
-    mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard "${DATA_DEV}"
-    mount -o discard,defaults ${DATA_DEV} ${DATA_DIR}
-  fi
+function init_disk {
+    local device_id="$1"
+    local mount_dir="$2"
 
-  chmod a+w "${DATA_DIR}"
+    set +e
+    if (mount | grep -q "${device_id} on ${mount_dir} type ext4"); then
+      set -e
+      echo "${mount_dir} is already mounted"
+      return
+    fi
 
-  if [[ ! -d "${DATA_DIR}/lost+found" ]]; then
-    echo "Unable to mount ${DATA_DIR} - follow README_GCP.md to set up persistent disk"
-    exit 1
-  fi
+    echo "Checking if device ${device_id} exists:"
+    if ! lsblk --noheadings ${device_id}; then
+        if [[ "${device_id}" == "${TEMP_DEV}" ]]; then
+            echo "Temporary disk does not exist, skipping"
+            TEMP_DIR=""
+            return 0
+        else
+            echo "Data disk does not exist"
+            exit 1
+        fi
+    fi
 
-  echo "${DATA_DEV} has been mounted as ${DATA_DIR}"
-fi
+    mkdir -p "${mount_dir}"
+    RET_CODE=$(mount -o discard,defaults "${device_id}" "${mount_dir}"; echo $?)
+    if [[ ${RET_CODE} -eq 32 ]]; then
+      # Format new partition when mount exits with code 32. It usually prints this:
+      #   mount: /mnt/disks/data: wrong fs type, bad option, bad superblock on /dev/sdb, missing codepage or helper program, or other error.
+      echo "Formatting new partition..."
+      set -e
+      mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard "${device_id}"
+      mount -o discard,defaults "${device_id}" "${mount_dir}"
+    fi
+
+    set -e
+    chmod a+w "${mount_dir}"
+    if [[ ! -d "${mount_dir}/lost+found" ]]; then
+      echo "Unable to mount ${mount_dir} on ${device_id}"
+      exit 1
+    fi
+    echo "${device_id} has been mounted as ${mount_dir}"
+}
+
+init_disk "${DATA_DEV}" "${DATA_DIR}"
+init_disk "${TEMP_DEV}" "${TEMP_DIR}"
 
 #
 # #####################  Clone/update GIT repo
 #
 
+set -e
 if [[ ! -d "${REPO_DIR}" ]]; then
-  git clone -b "${REPO_BRANCH}" "${REPO_URL}" "${REPO_DIR}"
+  git clone -b "${REPO_BRANCH}" --recurse-submodules -j4 "${REPO_URL}" "${REPO_DIR}"
 fi
 if [[ ! -d "${REPO_DIR}/.git" ]]; then
   echo "${REPO_DIR} has no .git directory"
@@ -71,6 +96,7 @@ if git diff-files --quiet; then
     set -e
     echo "Pulling latest from github"
     git pull
+    git submodule update --init --recursive
 else
     set -e
     echo "GIT repo has local changes, skipping git pull..."
@@ -123,30 +149,27 @@ if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
     touch "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded"
 fi
 
-# Create a state file for the planet download. The state file is generated for 1 week previous
+# Create a state file for the planet download. The state file is generated for 1 week prior to now
 # in order not to miss any data changes. Since the planet dump is weekly and we generate this
 # file when we download the planet-latest.osm.pbf file, we should not miss any changes.
-mkdir -p "${OSM_PGSQL_DATA_DIR}"
-if [[ ! -f "${OSM_PGSQL_DATA_DIR}/state.txt" ]]; then
+function init_state {
+    local data_dir=$1
+    mkdir -p "${data_dir}"
+    if [[ ! -f "${data_dir}/state.txt" ]]; then
 
-    echo "########### Initializing ${OSM_PGSQL_DATA_DIR} state file ###########"
-    cp "${REPO_DIR}/docker/sync_config.txt" "${OSM_PGSQL_DATA_DIR}"
-    curl -SL \
-        "https://replicate-sequences.osm.mazdermind.de/?"`date -u -d@"$$(( \`date +%s\`-1*7*24*60*60))" +"%Y-%m-%d"`"T00:00:00Z" \
-        -o "${OSM_PGSQL_DATA_DIR}/state.txt"
-fi
+        echo "########### Initializing ${data_dir} state file ###########"
+        cp "${REPO_DIR}/docker/sync_config.txt" "${data_dir}"
+        # Current date minus 1 week
+        local start_date=$(( `date +%s` - 1*7*24*60*60 ))
+        local start_date_fmt=$(date --utc --date="@${start_date}" +"%Y-%m-%dT00:00:00Z")
+        curl -SL \
+            "https://replicate-sequences.osm.mazdermind.de/?${start_date_fmt}" \
+            -o "${data_dir}/state.txt"
+    fi
+}
 
-# Same thing but for OSM_RDF_DATA_DIR  (someday maybe it should be merged?)
-mkdir -p "${OSM_RDF_DATA_DIR}"
-if [[ ! -f "${OSM_RDF_DATA_DIR}/state.txt" ]]; then
-
-    echo "########### Initializing ${OSM_RDF_DATA_DIR} state file ###########"
-    cp "${REPO_DIR}/docker/sync_config.txt" "${OSM_RDF_DATA_DIR}"
-    curl -SL \
-        "https://replicate-sequences.osm.mazdermind.de/?"`date -u -d@"$$(( \`date +%s\`-1*7*24*60*60))" +"%Y-%m-%d"`"T00:00:00Z" \
-        -o "${OSM_RDF_DATA_DIR}/state.txt"
-fi
-
+init_state "${OSM_PGSQL_DATA_DIR}"
+init_state "${OSM_RDF_DATA_DIR}"
 
 #
 # #####################  Run docker-compose from a docker container
@@ -165,7 +188,11 @@ export SOPHOX_HOST
 export OSM_FILE
 export OSM_PGSQL_DATA_DIR
 export OSM_RDF_DATA_DIR
-export OSM_RDF_MEM_MB=
+export OSM_RDF_MEM_MB=$(( ${TOTAL_MEMORY_MB} / 3 ))
+
+# In case there is a local SSD, use it for the temp storage
+export OSM_PGSQL_TEMP_DIR=$(( "${TEMP_DIR}" == "" ? "${OSM_PGSQL_DATA_DIR}" : "${TEMP_DIR}/osm-pgsql-tmp" ))
+export OSM_RDF_TEMP_DIR=$(( "${TEMP_DIR}" == "" ? "${OSM_RDF_DATA_DIR}" : "${TEMP_DIR}/osm-rfd-tmp" ))
 
 # Keep the container around (no --rm) to simplify debugging
 docker run                                            \
@@ -177,7 +204,10 @@ docker run                                            \
     -e SOPHOX_HOST                                    \
     -e OSM_FILE                                       \
     -e OSM_PGSQL_DATA_DIR                             \
+    -e OSM_PGSQL_TEMP_DIR                             \
     -e OSM_RDF_DATA_DIR                               \
+    -e OSM_RDF_TEMP_DIR                               \
+    -e OSM_RDF_MEM_MB                                 \
     -e REPO_DIR2=/git_repo                            \
                                                       \
     -v "${REPO_DIR}:/git_repo"                        \

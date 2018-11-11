@@ -22,6 +22,7 @@ services:
     - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql:ro"
     - "${DOWNLOAD_DIR}:/downloads:ro"
     - "${OSM_PGSQL_DATA_DIR}:/osm-pgsql:rw"
+    - "${OSM_PGSQL_TEMP_DIR}:/osm-pgsql-temp:rw"
     environment:
       OSM_FILE: "/downloads/${OSM_FILE}"
       POSTGRES_HOST: postgres
@@ -29,6 +30,7 @@ services:
       POSTGRES_USER: sophox
       POSTGRES_PASSWORD:
       OSM_PGSQL_DATA: "/osm-pgsql"
+      OSM_PGSQL_TEMP: "/osm-pgsql-temp"
       OSM_PGSQL_CODE: "/osm-to-pgsql"
       # MEM is a percentage of total machine memory
       OSM_PGSQL_MEM_IMPORT: 30
@@ -41,18 +43,21 @@ services:
     depends_on:
     - postgres
 
-  osm-to-rdf:
-    build: "${REPO_DIR2}/osm2rdf"
-    mem_limit: "${OSM_RDF_MEM_MB:-4000}m"
-    memswap_limit: "${OSM_RDF_MEM_MB:-4000}m"
-    mem_swappiness: 0
-    volumes:
-    - "${DOWNLOAD_DIR}:/downloads:ro"
-    - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
-    environment:
-      OSM_FILE: "/downloads/${OSM_FILE}"
-      OSM_RDF_DATA: "/osm-rdf"
-      OSM_RDF_WORKERS: 2
+#  osm-to-rdf:
+#    build: "${REPO_DIR2}/osm2rdf"
+#    mem_limit: "${OSM_RDF_MEM_MB:-4000}m"
+#    memswap_limit: "${OSM_RDF_MEM_MB:-4000}m"
+#    mem_swappiness: 0
+#    volumes:
+#    - "${DOWNLOAD_DIR}:/downloads:ro"
+#    - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
+#    - "${OSM_RDF_TEMP_DIR}:/osm-rdf-temp:rw"
+#    environment:
+#      OSM_FILE: "/downloads/${OSM_FILE}"
+#      OSM_RDF_DATA: "/osm-rdf"
+#      OSM_RDF_TEMP: "/osm-rdf-temp"
+#      OSM_RDF_WORKERS: 2
+
 #    networks:
 #    - blazegraph_conn
 #    depends_on:
