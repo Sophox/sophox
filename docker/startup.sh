@@ -134,13 +134,13 @@ POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
 mkdir -p "${DOWNLOAD_DIR}"
 if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
     echo "Downloading ${OSM_FILE}"
-    curl -SL \
+    curl --silent --show-error --location --compressed \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf.md5 \
-        -o "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
+        --output "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
 
-    curl -SL --compressed \
+    curl --silent --show-error --location --compressed \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf \
-        -o "${DOWNLOAD_DIR}/${OSM_FILE}"
+        --output "${DOWNLOAD_DIR}/${OSM_FILE}"
 
     pushd "${DOWNLOAD_DIR}"
     md5sum --check "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
@@ -162,9 +162,9 @@ function init_state {
         # Current date minus 1 week
         local start_date=$(( `date +%s` - 1*7*24*60*60 ))
         local start_date_fmt=$(date --utc --date="@${start_date}" +"%Y-%m-%dT00:00:00Z")
-        curl -SL \
+        curl --silent --show-error --location --compressed \
             "https://replicate-sequences.osm.mazdermind.de/?${start_date_fmt}" \
-            -o "${data_dir}/state.txt"
+            --output "${data_dir}/state.txt"
     fi
 }
 
@@ -190,9 +190,9 @@ export OSM_PGSQL_DATA_DIR
 export OSM_RDF_DATA_DIR
 export OSM_RDF_MEM_MB=$(( ${TOTAL_MEMORY_MB} / 3 ))
 
-# In case there is a local SSD, use it for the temp storage
-export OSM_PGSQL_TEMP_DIR=$(( "${TEMP_DIR}" == "" ? "${OSM_PGSQL_DATA_DIR}" : "${TEMP_DIR}/osm-pgsql-tmp" ))
-export OSM_RDF_TEMP_DIR=$(( "${TEMP_DIR}" == "" ? "${OSM_RDF_DATA_DIR}" : "${TEMP_DIR}/osm-rfd-tmp" ))
+# In case there is a local SSD, use it as the temp storage, otherwise use data dir.
+export OSM_PGSQL_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_PGSQL_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
+export OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
 
 # Keep the container around (no --rm) to simplify debugging
 docker run                                            \
