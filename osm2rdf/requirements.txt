@@ -1,7 +1,9 @@
 -i https://pypi.org/simple
+
 certifi>=2018.10.15
 chardet>=3.0.4
 idna==2.7
+
 osmium>=2.14.3
 requests>=2.20.1
 shapely>=1.6.4.post2

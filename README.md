@@ -1,5 +1,12 @@
 # Sophox
 
+## Development
+
+Make sure to run this in order to autmotacally use ssh instead of https:
+```
+git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+```
+
 ## Docker Usage
 
 1.  Install [Docker](https://www.docker.com/community-edition) and [Docker Compose](https://docs.docker.com/compose/install/)

@@ -1,0 +1,6 @@
+[submodule "wikidata-query-gui"]
+	path = wikidata-query-gui
+	url = https://github.com/Sophox/wikidata-query-gui.git
+[submodule "wikidata-query-rdf"]
+	path = wikidata-query-rdf
+	url = https://github.com/Sophox/wikidata-query-rdf.git
