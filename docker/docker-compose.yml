@@ -1,4 +1,4 @@
-version: '3'
+version: '2.2'
 
 services:
 
@@ -43,6 +43,9 @@ services:
 
   osm-to-rdf:
     build: "${REPO_DIR2}/osm2rdf"
+    mem_limit: "${OSM_RDF_MEM_MB:-4000}m"
+    memswap_limit: "${OSM_RDF_MEM_MB:-4000}m"
+    mem_swappiness: 0
     volumes:
     - "${DOWNLOAD_DIR}:/downloads:ro"
     - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"

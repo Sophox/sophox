@@ -165,6 +165,7 @@ export SOPHOX_HOST
 export OSM_FILE
 export OSM_PGSQL_DATA_DIR
 export OSM_RDF_DATA_DIR
+export OSM_RDF_MEM_MB=
 
 # Keep the container around (no --rm) to simplify debugging
 docker run                                            \
