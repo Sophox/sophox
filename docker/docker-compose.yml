@@ -45,8 +45,8 @@ services:
 
 #  osm-to-rdf:
 #    build: "${BUILD_DIR}/osm2rdf"
-#    mem_limit: "${OSM_RDF_MEM_MB:-4000}m"
-#    memswap_limit: "${OSM_RDF_MEM_MB:-4000}m"
+#    mem_limit: "${MEM_30_PRCNT_MB:-4000}m"
+#    memswap_limit: "${MEM_30_PRCNT_MB:-4000}m"
 #    mem_swappiness: 0
 #    volumes:
 #    - "${DOWNLOAD_DIR}:/downloads:ro"
@@ -119,25 +119,32 @@ services:
   #      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/"
 
 
+  # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
+  # work_mem                        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-WORK-MEM
+  # maintenance_work_mem            https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAINTENANCE-WORK-MEM
+  # effective_io_concurrency        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-EFFECTIVE-IO-CONCURRENCY
+  # max_worker_processes            https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAX-WORKER-PROCESSES
+  # max_parallel_workers_per_gather https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAX-PARALLEL-WORKERS-PER-GATHER
+  # checkpoint_timeout              https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-CHECKPOINT-TIMEOUT
+  # max_wal_size                    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-MAX-WAL-SIZE
+  # min_wal_size                    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-MIN-WAL-SIZE
+  # checkpoint_completion_target    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-CHECKPOINT-COMPLETION-TARGET
+  # random_page_cost                https://www.postgresql.org/docs/9.6/runtime-config-query.html#GUC-RANDOM-PAGE-COST
   postgres:
     image: "openmaptiles/postgis:2.9"
     command: >-
       postgres
-      -c 'shared_buffers = 4GB'
-      -c 'work_mem = 1GB'
-      -c 'maintenance_work_mem = 4GB'
-      -c 'effective_io_concurrency = 500'
+      -c 'shared_buffers = ${MEM_15_PRCNT_MB}MB'
+      -c 'work_mem = ${MEM_5_PRCNT_MB}MB'
+      -c 'maintenance_work_mem = ${MEM_15_PRCNT_MB}MB'
+      -c 'effective_io_concurrency = 200'
       -c 'max_worker_processes = 5'
       -c 'max_parallel_workers_per_gather = 2'
-      -c 'max_parallel_workers = 5'
       -c 'checkpoint_timeout = 1h'
       -c 'max_wal_size = 5GB'
       -c 'min_wal_size = 1GB'
-      -c 'checkpoint_completion_target = 0.9'
+      -c 'checkpoint_completion_target = 0.7'
       -c 'random_page_cost = 1.1'
-      -c 'min_parallel_table_scan_size = 8MB'
-      -c 'min_parallel_index_scan_size = 512kB'
-      -c 'effective_cache_size = 6GB'
     volumes:
       - "${DATA_DIR}/postgres:/var/lib/postgresql/data:rw"
     networks:

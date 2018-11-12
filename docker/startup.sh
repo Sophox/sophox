@@ -191,24 +191,26 @@ echo "########### Starting Docker-compose ###########"
 export POSTGRES_PASSWORD
 set -x
 
-docker run                                            \
-    -e "DATA_DIR=${DATA_DIR}"                         \
-    -e "REPO_DIR=${REPO_DIR}"                         \
-    -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                 \
-    -e "ACME_FILE=${ACME_FILE}"                       \
-    -e "SOPHOX_HOST=${SOPHOX_HOST}"                   \
-    -e "OSM_FILE=${OSM_FILE}"                         \
-    -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"     \
-    -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"     \
-    -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"         \
-    -e "OSM_RDF_TEMP_DIR=${OSM_RDF_TEMP_DIR}"         \
-    -e "OSM_RDF_MEM_MB=$(( ${TOTAL_MEMORY_MB} / 3 ))" \
-    -e BUILD_DIR=/git_repo                            \
-    -e POSTGRES_PASSWORD                              \
-                                                      \
-    -v "${REPO_DIR}:/git_repo"                        \
-    -v /var/run/docker.sock:/var/run/docker.sock      \
-                                                      \
-    docker/compose:1.23.1                             \
-    --file "/git_repo/${COMPOSE_FILE}"                \
+docker run                                                \
+    -e "DATA_DIR=${DATA_DIR}"                             \
+    -e "REPO_DIR=${REPO_DIR}"                             \
+    -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                     \
+    -e "ACME_FILE=${ACME_FILE}"                           \
+    -e "SOPHOX_HOST=${SOPHOX_HOST}"                       \
+    -e "OSM_FILE=${OSM_FILE}"                             \
+    -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"         \
+    -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"         \
+    -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"             \
+    -e "OSM_RDF_TEMP_DIR=${OSM_RDF_TEMP_DIR}"             \
+    -e "MEM_5_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*5/100 ))"   \
+    -e "MEM_15_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*15/100 ))" \
+    -e "MEM_30_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*30/100 ))" \
+    -e BUILD_DIR=/git_repo                                \
+    -e POSTGRES_PASSWORD                                  \
+                                                          \
+    -v "${REPO_DIR}:/git_repo"                            \
+    -v /var/run/docker.sock:/var/run/docker.sock          \
+                                                          \
+    docker/compose:1.23.1                                 \
+    --file "/git_repo/${COMPOSE_FILE}"                    \
     up ${DETACH:+ --detach}
