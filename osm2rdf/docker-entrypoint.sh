@@ -33,9 +33,11 @@ if [[ ! -f "${PARSED_FLAG}" ]]; then
     mkdir -p "${OUTPUT_DIR}"
 
     if [[ -f "${NODES_CACHE}" ]]; then
+        echo "Removing nodes cache ${NODES_CACHE}"
         rm "${NODES_CACHE}"
     fi
     if [[ -f "${NODES_CACHE_TMP}" ]]; then
+        echo "Removing temporary nodes cache ${NODES_CACHE_TMP}"
         rm "${NODES_CACHE_TMP}"
     fi
 
