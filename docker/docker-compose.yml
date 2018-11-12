@@ -134,17 +134,17 @@ services:
     image: "openmaptiles/postgis:2.9"
     command: >-
       postgres
-      -c 'shared_buffers = ${MEM_15_PRCNT_MB}MB'
-      -c 'work_mem = ${MEM_5_PRCNT_MB}MB'
-      -c 'maintenance_work_mem = ${MEM_15_PRCNT_MB}MB'
-      -c 'effective_io_concurrency = 200'
-      -c 'max_worker_processes = 5'
-      -c 'max_parallel_workers_per_gather = 2'
-      -c 'checkpoint_timeout = 1h'
-      -c 'max_wal_size = 5GB'
-      -c 'min_wal_size = 1GB'
-      -c 'checkpoint_completion_target = 0.7'
-      -c 'random_page_cost = 1.1'
+      -c 'shared_buffers=${MEM_15_PRCNT_MB}MB'
+      -c 'work_mem=${MEM_5_PRCNT_MB}MB'
+      -c 'maintenance_work_mem=${MEM_15_PRCNT_MB}MB'
+      -c 'effective_io_concurrency=200'
+      -c 'max_worker_processes=5'
+      -c 'max_parallel_workers_per_gather=2'
+      -c 'checkpoint_timeout=1h'
+      -c 'max_wal_size=5GB'
+      -c 'min_wal_size=1GB'
+      -c 'checkpoint_completion_target=0.7'
+      -c 'random_page_cost=1.1'
     volumes:
       - "${DATA_DIR}/postgres:/var/lib/postgresql/data:rw"
     networks:
