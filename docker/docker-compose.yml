@@ -24,7 +24,7 @@ services:
     - "${OSM_PGSQL_DATA_DIR}:/osm-pgsql:rw"
     - "${OSM_PGSQL_TEMP_DIR}:/osm-pgsql-temp:rw"
     environment:
-      OSM_FILE: "/downloads/${OSM_FILE}"
+      OSM_FILE_PATH: "/downloads/${OSM_FILE}"
       POSTGRES_HOST: postgres
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
@@ -53,7 +53,7 @@ services:
 #    - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
 #    - "${OSM_RDF_TEMP_DIR}:/osm-rdf-temp:rw"
 #    environment:
-#      OSM_FILE: "/downloads/${OSM_FILE}"
+#      OSM_FILE_PATH: "/downloads/${OSM_FILE}"
 #      OSM_RDF_DATA: "/osm-rdf"
 #      OSM_RDF_TEMP: "/osm-rdf-temp"
 #      OSM_RDF_WORKERS: 2

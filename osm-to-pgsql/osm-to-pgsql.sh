@@ -16,7 +16,8 @@ mkdir -p "${OSM_PGSQL_TEMP}"
 # Wait for the Postgres container to start up and possibly initialize the new db
 sleep 30
 
-if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
+IMPORTED_FLAG="${OSM_PGSQL_DATA}/status.imported"
+if [[ ! -f "${IMPORTED_FLAG}" ]]; then
 
     echo '########### Performing initial Postgres import with osm-to-pgsql ###########'
 
@@ -43,22 +44,20 @@ if [[ ! -f "${OSM_PGSQL_DATA}/${OSM_FILE}.imported" ]]; then
         --hstore \
         --style "${OSM_PGSQL_CODE}/wikidata.style" \
         --tag-transform-script "${OSM_PGSQL_CODE}/wikidata.lua" \
-        "${OSM_FILE}"
+        "${OSM_FILE_PATH}"
     set +x
 
     # If nodes.cache did not show up automatically in the data dir,
     # the temp dir is the different from the data dir, so need to move it
     if [[ ! -f "${NODES_CACHE}" ]]; then
-        mv --no-target-directory "${NODES_CACHE_TMP}" "${NODES_CACHE}"
+        mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
     fi
 
-    touch "${OSM_PGSQL_DATA}/${OSM_FILE}.imported"
+    touch "${IMPORTED_FLAG}"
 
     echo "########### Finished osm-to-pgsql initial import ###########"
 fi
 
-
-exit
 
 echo "########### Running osm-to-pgsql updates every ${LOOP_SLEEP} seconds ###########"
 
@@ -66,7 +65,6 @@ echo "########### Running osm-to-pgsql updates every ${LOOP_SLEEP} seconds #####
 OSM_PGSQL_MEM_UPDATE=$(( ${TOTAL_MEMORY_MB} / 100 * ${OSM_PGSQL_MEM_UPDATE} / ${OSM_PGSQL_CPU_IMPORT} ))
 
 FIRST_LOOP=true
-
 while :; do
 
     # It is ok for the import to crash - it should be safe to restart

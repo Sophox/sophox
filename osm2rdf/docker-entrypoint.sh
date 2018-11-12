@@ -20,7 +20,8 @@ mkdir -p "${OSM_RDF_TEMP}"
 # Wait for the Blazegraph container to start up and possibly initialize the new db
 sleep 30
 
-if [[ ! -f "${OSM_RDF_DATA}/${OSM_FILE}.parsed" ]]; then
+PARSED_FLAG="${OSM_RDF_DATA}/status.parsed"
+if [[ ! -f "${PARSED_FLAG}" ]]; then
 
     echo '########### Performing initial OSM->RDF parsing with osm2rdf ###########'
     OUTPUT_DIR="${OSM_RDF_DATA}/ttls"
@@ -42,17 +43,17 @@ if [[ ! -f "${OSM_RDF_DATA}/${OSM_FILE}.parsed" ]]; then
     python3 osm2rdf.py                             \
         --nodes-file "${NODES_CACHE_TMP}" \
         --cache-strategy dense                     \
-        parse "${OSM_FILE}" "${OUTPUT_DIR}"        \
+        parse "${OSM_FILE_PATH}" "${OUTPUT_DIR}"        \
         --workers "${OSM_RDF_WORKERS}"
     set +x
 
     # If nodes.cache did not show up automatically in the data dir,
     # the temp dir is the different from the data dir, so need to move it
     if [[ ! -f "${NODES_CACHE}" ]]; then
-        mv --no-target-directory "${NODES_CACHE_TMP}" "${NODES_CACHE}"
+        mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
     fi
 
-    touch "${OSM_RDF_DATA}/${OSM_FILE}.parsed"
+    touch "${PARSED_FLAG}"
     echo "########### Finished parsing with osm2rdf ###########"
 fi
 

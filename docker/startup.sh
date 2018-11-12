@@ -134,6 +134,7 @@ POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
 mkdir -p "${DOWNLOAD_DIR}"
 if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
     echo "Downloading ${OSM_FILE}"
+    set -x
     curl --silent --show-error --location --compressed \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf.md5 \
         --output "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
@@ -141,6 +142,7 @@ if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
     curl --silent --show-error --location --compressed \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf \
         --output "${DOWNLOAD_DIR}/${OSM_FILE}"
+    set +x
 
     pushd "${DOWNLOAD_DIR}"
     md5sum --check "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
@@ -149,7 +151,7 @@ if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
     touch "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded"
 fi
 
-# Create a state file for the planet download. The state file is generated for 1 week prior to now
+# Create a state file for the planet download. The state file is generated for N weeks prior to now
 # in order not to miss any data changes. Since the planet dump is weekly and we generate this
 # file when we download the planet-latest.osm.pbf file, we should not miss any changes.
 function init_state {
@@ -159,12 +161,14 @@ function init_state {
 
         echo "########### Initializing ${data_dir} state file ###########"
         cp "${REPO_DIR}/docker/sync_config.txt" "${data_dir}"
-        # Current date minus 1 week
-        local start_date=$(( `date +%s` - 1*7*24*60*60 ))
+        # Current date minus N weeks (first number)
+        local start_date=$(( `date +%s` - 2*7*24*60*60 ))
         local start_date_fmt=$(date --utc --date="@${start_date}" +"%Y-%m-%dT00:00:00Z")
+        set -x
         curl --silent --show-error --location --compressed \
             "https://replicate-sequences.osm.mazdermind.de/?${start_date_fmt}" \
             --output "${data_dir}/state.txt"
+        set +x
     fi
 }
 
