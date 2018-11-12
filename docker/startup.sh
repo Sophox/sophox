@@ -208,7 +208,7 @@ docker run                                            \
     -e OSM_RDF_DATA_DIR                               \
     -e OSM_RDF_TEMP_DIR                               \
     -e OSM_RDF_MEM_MB                                 \
-    -e REPO_DIR2=/git_repo                            \
+    -e BUILD_DIR=/git_repo                            \
                                                       \
     -v "${REPO_DIR}:/git_repo"                        \
     -v /var/run/docker.sock:/var/run/docker.sock      \

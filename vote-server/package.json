@@ -1,0 +1,15 @@
+{
+  "name": "vote-server",
+  "license": "GPL-3.0+",
+  "version": "0.0.2",
+  "repository": "github:sophox/sophox",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.16.4",
+    "express-accesstoken-validation": "^0.5.0",
+    "request": "^2.88.0",
+    "body-parser": "^1.18.3"
+  }
+}

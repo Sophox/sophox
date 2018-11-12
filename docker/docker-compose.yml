@@ -44,7 +44,7 @@ services:
     - postgres
 
 #  osm-to-rdf:
-#    build: "${REPO_DIR2}/osm2rdf"
+#    build: "${BUILD_DIR}/osm2rdf"
 #    mem_limit: "${OSM_RDF_MEM_MB:-4000}m"
 #    memswap_limit: "${OSM_RDF_MEM_MB:-4000}m"
 #    mem_swappiness: 0
@@ -64,16 +64,15 @@ services:
 #    - blazegraph
 
   osm-regions:
-    build: "${REPO_DIR2}/osm-regions-server"
+    build: "${BUILD_DIR}/osm-regions-server"
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
       POSTGRES_PASSWORD:
-      WIKIBASE_URL: "http://blazegraph/bigdata/sparql"
-      SOPHOX_URL: "https://sophox.org/bigdata/namespace/wdq/sparql"
+      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
+      WIKIBASE_URL: "https://wikibase.org/bigdata/namespace/wdq/sparql"
       REGIONS_TABLE: planet_osm_polygon
-#      OSM_REGIONS_SQL_WATER_TABLE: "${}"
     ports:
     - "9978"
     networks:
@@ -81,9 +80,25 @@ services:
     - blazegraph_conn
     depends_on:
     - postgres
+    - blazegraph
     labels:
     - "traefik.enable=true"
     - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/"
+#    - "traefik.port=80"
+
+  vote-server:
+    build: "${BUILD_DIR}/vote-server"
+    environment:
+      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
+    ports:
+    - "9979"
+    networks:
+    - blazegraph_conn
+    depends_on:
+    - blazegraph
+    labels:
+    - "traefik.enable=true"
+    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/store/"
 #    - "traefik.port=80"
 
 
@@ -106,8 +121,23 @@ services:
 
   postgres:
     image: "openmaptiles/postgis:2.9"
-    # DblCheck: Nick said it makes import more efficient
-    command: -c 'max_wal_size=5GB'
+    command: >-
+      postgres
+      -c 'shared_buffers = 4GB'
+      -c 'work_mem = 1GB'
+      -c 'maintenance_work_mem = 4GB'
+      -c 'effective_io_concurrency = 500'
+      -c 'max_worker_processes = 5'
+      -c 'max_parallel_workers_per_gather = 2'
+      -c 'max_parallel_workers = 5'
+      -c 'checkpoint_timeout = 1h'
+      -c 'max_wal_size = 5GB'
+      -c 'min_wal_size = 1GB'
+      -c 'checkpoint_completion_target = 0.9'
+      -c 'random_page_cost = 1.1'
+      -c 'min_parallel_table_scan_size = 8MB'
+      -c 'min_parallel_index_scan_size = 512kB'
+      -c 'effective_cache_size = 6GB'
     volumes:
       - "${DATA_DIR}/postgres:/var/lib/postgresql/data:rw"
     networks:
@@ -119,7 +149,17 @@ services:
       POSTGRES_USER: sophox
       POSTGRES_PASSWORD:
 
+  blazegraph:
+    # placeholder
+    image: busybox
+    command: sleep 10000d
+    ports:
+    - "9999"
+    volumes:
+    - "${DATA_DIR}/blazegraph:/app/data:rw"
+    networks:
+    - blazegraph_conn
+
 networks:
   postgres_conn:
   blazegraph_conn:
-
