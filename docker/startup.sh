@@ -178,41 +178,33 @@ init_state "${OSM_RDF_DATA_DIR}"
 # If DEBUG env is not set, run docker compose in the detached (service) mode
 DETACH="" && [[ "${DEBUG}" == "" ]] && DETACH=true
 
-# Must match the list of -e docker params
-export DATA_DIR
-export REPO_DIR
-export DOWNLOAD_DIR
-export ACME_FILE
-export POSTGRES_PASSWORD
-export SOPHOX_HOST
-export OSM_FILE
-export OSM_PGSQL_DATA_DIR
-export OSM_RDF_DATA_DIR
-export OSM_RDF_MEM_MB=$(( ${TOTAL_MEMORY_MB} / 3 ))
-
 # In case there is a local SSD, use it as the temp storage, otherwise use data dir.
-export OSM_PGSQL_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_PGSQL_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
-export OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
+OSM_PGSQL_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_PGSQL_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
+OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
 
 # Keep the container around (no --rm) to simplify debugging
+echo "########### Starting Docker-compose ###########"
+export POSTGRES_PASSWORD
+set -x
+
 docker run                                            \
-    -e DATA_DIR                                       \
-    -e REPO_DIR                                       \
-    -e DOWNLOAD_DIR                                   \
-    -e ACME_FILE                                      \
-    -e POSTGRES_PASSWORD                              \
-    -e SOPHOX_HOST                                    \
-    -e OSM_FILE                                       \
-    -e OSM_PGSQL_DATA_DIR                             \
-    -e OSM_PGSQL_TEMP_DIR                             \
-    -e OSM_RDF_DATA_DIR                               \
-    -e OSM_RDF_TEMP_DIR                               \
-    -e OSM_RDF_MEM_MB                                 \
+    -e "DATA_DIR=${DATA_DIR}"                         \
+    -e "REPO_DIR=${REPO_DIR}"                         \
+    -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                 \
+    -e "ACME_FILE=${ACME_FILE}"                       \
+    -e "SOPHOX_HOST=${SOPHOX_HOST}"                   \
+    -e "OSM_FILE=${OSM_FILE}"                         \
+    -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"     \
+    -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"     \
+    -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"         \
+    -e "OSM_RDF_TEMP_DIR=${OSM_RDF_TEMP_DIR}"         \
+    -e "OSM_RDF_MEM_MB=$(( ${TOTAL_MEMORY_MB} / 3 ))" \
     -e BUILD_DIR=/git_repo                            \
+    -e POSTGRES_PASSWORD                              \
                                                       \
     -v "${REPO_DIR}:/git_repo"                        \
     -v /var/run/docker.sock:/var/run/docker.sock      \
                                                       \
     docker/compose:1.23.1                             \
-    --file "/git_repo/${COMPOSE_FILE}" \
+    --file "/git_repo/${COMPOSE_FILE}"                \
     up ${DETACH:+ --detach}
