@@ -142,7 +142,7 @@ if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
     curl --silent --show-error --location --compressed \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf \
         --output "${DOWNLOAD_DIR}/${OSM_FILE}"
-    set +x
+    { set +x; } 2>/dev/null
 
     pushd "${DOWNLOAD_DIR}"
     md5sum --check "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
@@ -168,7 +168,7 @@ function init_state {
         curl --silent --show-error --location --compressed \
             "https://replicate-sequences.osm.mazdermind.de/?${start_date_fmt}" \
             --output "${data_dir}/state.txt"
-        set +x
+        { set +x; } 2>/dev/null
     fi
 }
 

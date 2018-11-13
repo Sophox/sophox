@@ -45,13 +45,18 @@ if [[ ! -f "${IMPORTED_FLAG}" ]]; then
         --style "${OSM_PGSQL_CODE}/wikidata.style" \
         --tag-transform-script "${OSM_PGSQL_CODE}/wikidata.lua" \
         "${OSM_FILE_PATH}"
-    set +x
+    { set +x; } 2>/dev/null
 
     # If nodes.cache did not show up automatically in the data dir,
     # the temp dir is the different from the data dir, so need to move it
     if [[ ! -f "${NODES_CACHE}" ]]; then
         mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
     fi
+
+    echo "########### Creating Indexes ###########"
+    set -x
+    psql --host=postgres --username=sophox --dbname=gis "--file=${OSM_PGSQL_CODE}/create_indexes.sql"
+    { set +x; } 2>/dev/null
 
     touch "${IMPORTED_FLAG}"
 
@@ -96,7 +101,7 @@ while :; do
         -r xml \
         -
 
-    set +x
+    { set +x; } 2>/dev/null
 
     # Set LOOP_SLEEP to 0 to run this only once, otherwise sleep that many seconds until retry
     [[ "${LOOP_SLEEP}" -eq 0 ]] && exit $?

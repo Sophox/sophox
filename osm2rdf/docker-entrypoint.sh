@@ -47,7 +47,7 @@ if [[ ! -f "${PARSED_FLAG}" ]]; then
         --cache-strategy dense                     \
         parse "${OSM_FILE_PATH}" "${OUTPUT_DIR}"        \
         --workers "${OSM_RDF_WORKERS}"
-    set +x
+    { set +x; } 2>/dev/null
 
     # If nodes.cache did not show up automatically in the data dir,
     # the temp dir is the different from the data dir, so need to move it
@@ -84,7 +84,7 @@ while :; do
         --max-download "${MAX_DOWNLOAD}"           \
         --update-url "${UPDATE_URL}"
 
-    set +x
+    { set +x; } 2>/dev/null
     echo "osm2rdf updater crashed with exit code $?.  Re-spawning in 5 seconds" >&2
     sleep 5
 
