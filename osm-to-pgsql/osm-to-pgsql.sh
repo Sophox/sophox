@@ -55,7 +55,10 @@ if [[ ! -f "${IMPORTED_FLAG}" ]]; then
 
     echo "########### Creating Indexes ###########"
     set -x
-    psql --host=postgres --username=sophox --dbname=gis "--file=${OSM_PGSQL_CODE}/create_indexes.sql"
+    psql "--host=${POSTGRES_HOST}" \
+         "--username=${POSTGRES_USER}" \
+         "--dbname=${POSTGRES_DB}" \
+         "--file=${OSM_PGSQL_CODE}/create_indexes.sql"
     { set +x; } 2>/dev/null
 
     touch "${IMPORTED_FLAG}"
