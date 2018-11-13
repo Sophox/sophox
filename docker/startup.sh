@@ -160,7 +160,8 @@ function init_state {
     if [[ ! -f "${data_dir}/state.txt" ]]; then
 
         echo "########### Initializing ${data_dir} state file ###########"
-        cp "${REPO_DIR}/docker/sync_config.txt" "${data_dir}"
+        cp "${REPO_DIR}/docker/osmosis_configuration.txt" "${data_dir}/configuration.txt"
+        touch "${data_dir}/download.lock"
         # Current date minus N weeks (first number)
         local start_date=$(( `date +%s` - 2*7*24*60*60 ))
         local start_date_fmt=$(date --utc --date="@${start_date}" +"%Y-%m-%dT00:00:00Z")
