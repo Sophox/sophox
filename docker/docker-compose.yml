@@ -16,7 +16,7 @@ services:
 #    container_name: traefik
 #    logging:
 #      driver: json-file
-#      options: {max-file: 5, max-size: 10m}
+#      options: {max-file: "3", max-size: "10m"}
 
 #  sophox-gui:
 #    build: https://github.com/nickpeihl/wikidata-query-gui.git#dockerize
@@ -27,7 +27,7 @@ services:
 #      - "traefik.frontend.rule=Host:staging.sophox.org"
 #    logging:
 #      driver: json-file
-#      options: {max-file: 5, max-size: 10m}
+#      options: {max-file: "3", max-size: "10m"}
 
 #  mapshaper:
 #    image: crazycapivara/docker-mapshaper
@@ -38,7 +38,7 @@ services:
 #      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/"
 #    logging:
 #      driver: json-file
-#      options: {max-file: 5, max-size: 10m}
+#      options: {max-file: "3", max-size: "10m"}
 
 #  vote-server:
 #    build: "${BUILD_DIR}/vote-server"
@@ -56,7 +56,7 @@ services:
 ##    - "traefik.port=80"
 #    logging:
 #      driver: json-file
-#      options: {max-file: 5, max-size: 10m}
+#      options: {max-file: "3", max-size: "10m"}
 
 #  osm-regions:
 #    build: "${BUILD_DIR}/osm-regions-server"
@@ -82,7 +82,7 @@ services:
 #  #    - "traefik.port=80"
 #    logging:
 #      driver: json-file
-#      options: {max-file: 5, max-size: 10m}
+#      options: {max-file: "3", max-size: "10m"}
 
 
   osm-to-postgres:
@@ -116,7 +116,7 @@ services:
     - postgres
     logging:
       driver: json-file
-      options: {max-file: 5, max-size: 10m}
+      options: {max-file: "3", max-size: "10m"}
 
   osm-to-blazegraph:
     build: "${BUILD_DIR}/osm2rdf"
@@ -142,7 +142,7 @@ services:
     - blazegraph
     logging:
       driver: json-file
-      options: {max-file: 5, max-size: 10m}
+      options: {max-file: "3", max-size: "10m"}
 
 
   # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
@@ -183,7 +183,7 @@ services:
     - postgres_net
     logging:
       driver: json-file
-      options: {max-file: 5, max-size: 10m}
+      options: {max-file: "3", max-size: "10m"}
 
   blazegraph:
     image: openjdk:8-jdk
@@ -200,7 +200,7 @@ services:
     - blazegraph_net
     logging:
       driver: json-file
-      options: {max-file: 5, max-size: 10m}
+      options: {max-file: "3", max-size: "10m"}
 
 networks:
   postgres_net:

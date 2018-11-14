@@ -40,7 +40,7 @@ function init_disk {
     local device_id="$1"
     local mount_dir="$2"
 
-    echo "########### Setting up ${device_id} as ${mount_dir}"
+    echo "########### Setting up ${device_id} as ${mount_dir} ###########"
     set +e
     if (mount | grep -q "${device_id} on ${mount_dir} type ext4"); then
       set -e
@@ -87,7 +87,7 @@ init_disk "${TEMP_DEV}" "${TEMP_DIR}"
 # #####################  Clone/update GIT repo
 #
 
-echo "########### Updating git repo ${REPO_DIR}"
+echo "########### Updating git repo ${REPO_DIR} ###########"
 set -e
 if [[ ! -d "${REPO_DIR}" ]]; then
   git clone -b "${REPO_BRANCH}" --recurse-submodules -j4 "${REPO_URL}" "${REPO_DIR}"
@@ -116,14 +116,14 @@ fi
 
 # File for the Let's encrypt certificate
 if [[ ! -f "${ACME_FILE}" ]]; then
-    echo "########### Creating ${ACME_FILE}"
+    echo "########### Creating ${ACME_FILE} ###########"
     touch "${ACME_FILE}"
     chmod 600 "${ACME_FILE}"
 fi
 
 # Generate a random Postgres password
 if [[ ! -f "${POSTGRES_PASSWORD_FILE}" ]]; then
-    echo "########### Creating ${POSTGRES_PASSWORD_FILE}"
+    echo "########### Creating ${POSTGRES_PASSWORD_FILE} ###########"
     openssl rand -base64 15 | head -c 12 > "${POSTGRES_PASSWORD_FILE}"
     chmod 400 "${POSTGRES_PASSWORD_FILE}"
 fi
@@ -142,7 +142,7 @@ mkdir -p "${DOWNLOAD_DIR}"
 
 FLAG_DOWNLOADED="${STATUS_DIR}/${OSM_FILE}.downloaded"
 if [[ ! -f "${FLAG_DOWNLOADED}" ]]; then
-    echo "########### Downloading ${OSM_FILE}"
+    echo "########### Downloading ${OSM_FILE} ###########"
     set -x
     curl --silent --show-error --location --compressed \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf.md5 \
@@ -168,7 +168,7 @@ function init_state {
     mkdir -p "${data_dir}"
     if [[ ! -f "${data_dir}/state.txt" ]]; then
 
-        echo "########### Initializing ${data_dir} state files ###########"
+        echo "########### Initializing ${data_dir} state files ########### ###########"
         cp "${REPO_DIR}/docker/osmosis_configuration.txt" "${data_dir}/configuration.txt"
         touch "${data_dir}/download.lock"
         # Current date minus N weeks (first number)
@@ -197,7 +197,7 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
     BLAZE_VERSION=$(grep --before-context=1 '<packaging>pom</packaging>' "${REPO_DIR}/wikidata-query-rdf/pom.xml" \
         | head --lines=1 \
         | sed 's/^[^>]*>\([^<]*\)<.*$/\1/g')
-    echo "########### Building Blazegraph ${BLAZE_VERSION}"
+    echo "########### Building Blazegraph ${BLAZE_VERSION} ###########"
 
     # Cleanup the source code dir
     cd "${REPO_DIR}/wikidata-query-rdf"
@@ -225,14 +225,16 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
             unzip -d /app /app-src/dist/target/service-${BLAZE_VERSION}-dist.zip && \
             mv /app/service-${BLAZE_VERSION}/* /app && \
             rmdir /app/service-${BLAZE_VERSION} && \
+            \
+            # Install envsubst
             apt-get update && \
             apt-get -y install gettext-base && \
-            cd /app && \
-            mv prefixes.conf /app-data && \
+            \
             export BLAZEGRAPH_ENDPOINTS='${BLAZEGRAPH_ENDPOINTS}' && \
             export BLAZEGRAPH_JNL_DATA_FILE='${BLAZEGRAPH_JNL_DATA_FILE}' && \
+            cd /app && \
             envsubst < RWStore.properties > subst.temp && mv subst.temp RWStore.properties && \
-            envsubst < services.json > /app-data/mwservices.json"
+            envsubst < services.json > subst.temp && mv subst.temp mwservices.json"
     { set +x; } 2>/dev/null
 
     touch "${FLAG_BUILD_BLAZE}"
