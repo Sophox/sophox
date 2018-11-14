@@ -3,7 +3,7 @@ if [[ "$EUID" -ne 0 ]]; then echo "This script must run with sudo" && exit 1; fi
 
 #
 # DEBUGGING:  This script can ran interactively on a VM instance:
-#    cat /mnt/disks/data/sophox_repo/docker/startup.sh | DEBUG=true sudo -E bash
+#    cat /mnt/disks/data/git-repo/docker/startup.sh | DEBUG=true sudo -E bash
 #
 # LOGs:  To see the logs this script generated during the startup use
 #    sudo journalctl -u google-startup-scripts.service
@@ -17,7 +17,8 @@ STATUS_DIR=${DATA_DIR}/status
 COMPOSE_FILE=docker/docker-compose.yml
 REPO_URL=https://github.com/Sophox/sophox.git
 REPO_BRANCH=gcp
-REPO_DIR=${DATA_DIR}/sophox_repo
+REPO_DIR=${DATA_DIR}/git-repo
+BLAZEGRAPH_APP_DIR=${DATA_DIR}/blazegraph-app
 ACME_FILE=${DATA_DIR}/acme.json
 POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
 DOWNLOAD_DIR=${DATA_DIR}/download
@@ -216,7 +217,7 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
     set -x
     docker run --rm \
         -v "${REPO_DIR}/wikidata-query-rdf:/app-src:rw" \
-        -v "${DATA_DIR}/blazegraph_app:/app:rw" \
+        -v "${BLAZEGRAPH_APP_DIR}:/app:rw" \
         -v "${DATA_DIR}/blazegraph:/app-data:rw" \
         -w /app-src maven:3.6.0-jdk-8 \
         sh -c "\
@@ -259,6 +260,7 @@ set -x
 docker run --rm                                           \
     -e "DATA_DIR=${DATA_DIR}"                             \
     -e "REPO_DIR=${REPO_DIR}"                             \
+    -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"         \
     -e "STATUS_DIR=${STATUS_DIR}"                         \
     -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                     \
     -e "ACME_FILE=${ACME_FILE}"                           \

@@ -187,12 +187,12 @@ services:
 
   blazegraph:
     image: openjdk:8-jdk
-    working_dir: /app
     volumes:
-    - "${DATA_DIR}/blazegraph_app:/app:ro"
+    - "${BLAZEGRAPH_APP_DIR}:/app:ro"
       # Make sure it matches BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
     - "${DATA_DIR}/blazegraph:/app-data:rw"
              # Disable upstream warnings
+    working_dir: /app
     command: "./runBlazegraph.sh -o '-Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF'"
     ports:
     - "9999"
