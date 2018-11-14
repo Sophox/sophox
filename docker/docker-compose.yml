@@ -14,6 +14,9 @@ services:
 #      - "${REPO_DIR}/docker/traefik.toml:/traefik.toml:ro"
 #      - "${ACME_FILE}:/acme.json:rw"
 #    container_name: traefik
+#    logging:
+#      driver: json-file
+#      options: {max-file: 5, max-size: 10m}
 
 #  sophox-gui:
 #    build: https://github.com/nickpeihl/wikidata-query-gui.git#dockerize
@@ -22,6 +25,9 @@ services:
 #    labels:
 #      - "traefik.enable=true"
 #      - "traefik.frontend.rule=Host:staging.sophox.org"
+#    logging:
+#      driver: json-file
+#      options: {max-file: 5, max-size: 10m}
 
 #  mapshaper:
 #    image: crazycapivara/docker-mapshaper
@@ -30,6 +36,9 @@ services:
 #    labels:
 #      - "traefik.enable=true"
 #      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/"
+#    logging:
+#      driver: json-file
+#      options: {max-file: 5, max-size: 10m}
 
 #  vote-server:
 #    build: "${BUILD_DIR}/vote-server"
@@ -45,6 +54,9 @@ services:
 #    - "traefik.enable=true"
 #    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/store/"
 ##    - "traefik.port=80"
+#    logging:
+#      driver: json-file
+#      options: {max-file: 5, max-size: 10m}
 
 #  osm-regions:
 #    build: "${BUILD_DIR}/osm-regions-server"
@@ -68,6 +80,9 @@ services:
 #    - "traefik.enable=true"
 #    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/"
 #  #    - "traefik.port=80"
+#    logging:
+#      driver: json-file
+#      options: {max-file: 5, max-size: 10m}
 
 
   osm-to-postgres:
@@ -99,6 +114,9 @@ services:
     - postgres_net
     depends_on:
     - postgres
+    logging:
+      driver: json-file
+      options: {max-file: 5, max-size: 10m}
 
   osm-to-blazegraph:
     build: "${BUILD_DIR}/osm2rdf"
@@ -122,6 +140,10 @@ services:
     - blazegraph_net
     depends_on:
     - blazegraph
+    logging:
+      driver: json-file
+      options: {max-file: 5, max-size: 10m}
+
 
   # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
   # work_mem                        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-WORK-MEM
@@ -155,15 +177,16 @@ services:
       -c 'min_wal_size=1GB'
       -c 'checkpoint_completion_target=0.7'
       -c 'random_page_cost=1.1'
-    networks:
-      - postgres_net
     ports:
-      - "5432"
+    - "5432"
+    networks:
+    - postgres_net
+    logging:
+      driver: json-file
+      options: {max-file: 5, max-size: 10m}
 
   blazegraph:
     image: openjdk:8-jdk
-    ports:
-    - "9999"
     working_dir: /app
     volumes:
     - "${DATA_DIR}/blazegraph_app:/app:ro"
@@ -171,8 +194,13 @@ services:
     - "${DATA_DIR}/blazegraph:/app-data:rw"
              # Disable upstream warnings
     command: "./runBlazegraph.sh -o '-Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF'"
+    ports:
+    - "9999"
     networks:
     - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: 5, max-size: 10m}
 
 networks:
   postgres_net:

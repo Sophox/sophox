@@ -40,6 +40,7 @@ function init_disk {
     local device_id="$1"
     local mount_dir="$2"
 
+    echo "########### Setting up ${device_id} as ${mount_dir}"
     set +e
     if (mount | grep -q "${device_id} on ${mount_dir} type ext4"); then
       set -e
@@ -86,6 +87,7 @@ init_disk "${TEMP_DEV}" "${TEMP_DIR}"
 # #####################  Clone/update GIT repo
 #
 
+echo "########### Updating git repo ${REPO_DIR}"
 set -e
 if [[ ! -d "${REPO_DIR}" ]]; then
   git clone -b "${REPO_BRANCH}" --recurse-submodules -j4 "${REPO_URL}" "${REPO_DIR}"
@@ -114,14 +116,14 @@ fi
 
 # File for the Let's encrypt certificate
 if [[ ! -f "${ACME_FILE}" ]]; then
-    echo "Creating ${ACME_FILE}"
+    echo "########### Creating ${ACME_FILE}"
     touch "${ACME_FILE}"
     chmod 600 "${ACME_FILE}"
 fi
 
 # Generate a random Postgres password
 if [[ ! -f "${POSTGRES_PASSWORD_FILE}" ]]; then
-    echo "Creating ${POSTGRES_PASSWORD_FILE}"
+    echo "########### Creating ${POSTGRES_PASSWORD_FILE}"
     openssl rand -base64 15 | head -c 12 > "${POSTGRES_PASSWORD_FILE}"
     chmod 400 "${POSTGRES_PASSWORD_FILE}"
 fi
@@ -140,7 +142,7 @@ mkdir -p "${DOWNLOAD_DIR}"
 
 FLAG_DOWNLOADED="${STATUS_DIR}/${OSM_FILE}.downloaded"
 if [[ ! -f "${FLAG_DOWNLOADED}" ]]; then
-    echo "Downloading ${OSM_FILE}"
+    echo "########### Downloading ${OSM_FILE}"
     set -x
     curl --silent --show-error --location --compressed \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf.md5 \
@@ -195,7 +197,7 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
     BLAZE_VERSION=$(grep --before-context=1 '<packaging>pom</packaging>' "${REPO_DIR}/wikidata-query-rdf/pom.xml" \
         | head --lines=1 \
         | sed 's/^[^>]*>\([^<]*\)<.*$/\1/g')
-    echo "Building Blazegraph ${BLAZE_VERSION}"
+    echo "########### Building Blazegraph ${BLAZE_VERSION}"
 
     # Cleanup the source code dir
     cd "${REPO_DIR}/wikidata-query-rdf"
@@ -212,7 +214,7 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
 
     # Compile & package Blazegraph, and extract result to the /blazegraph dir
     set -x
-    docker run -it --rm \
+    docker run --rm \
         -v "${REPO_DIR}/wikidata-query-rdf:/app-src:rw" \
         -v "${DATA_DIR}/blazegraph_app:/app:rw" \
         -v "${DATA_DIR}/blazegraph:/app-data:rw" \
