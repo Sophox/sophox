@@ -13,24 +13,20 @@ MAX_DOWNLOAD=5120
 # Note that TEMP may be the same disk as DATA
 NODES_CACHE="${OSM_RDF_DATA}/nodes.cache"
 NODES_CACHE_TMP="${OSM_RDF_TEMP}/nodes.cache"
+TTL_DATA_DIR="${OSM_RDF_DATA}/ttls"
 
 mkdir -p "${OSM_RDF_DATA}"
 mkdir -p "${OSM_RDF_TEMP}"
 
-# Wait for the Blazegraph container to start up and possibly initialize the new db
-sleep 30
-
-PARSED_FLAG="${OSM_RDF_DATA}/status.parsed"
-if [[ ! -f "${PARSED_FLAG}" ]]; then
+if [[ ! -f "${FLAG_PARSED}" ]]; then
 
     echo '########### Performing initial OSM->RDF parsing with osm2rdf ###########'
-    OUTPUT_DIR="${OSM_RDF_DATA}/ttls"
 
-    if [[ -d "${OUTPUT_DIR}" ]]; then
-        echo "Removing partially parsed TTLs in ${OUTPUT_DIR}"
-        rm -rf "${OUTPUT_DIR}"
+    if [[ -d "${TTL_DATA_DIR}" ]]; then
+        echo "Removing partially parsed TTLs in ${TTL_DATA_DIR}"
+        rm -rf "${TTL_DATA_DIR}"
     fi
-    mkdir -p "${OUTPUT_DIR}"
+    mkdir -p "${TTL_DATA_DIR}"
 
     if [[ -f "${NODES_CACHE}" ]]; then
         echo "Removing nodes cache ${NODES_CACHE}"
@@ -42,10 +38,10 @@ if [[ ! -f "${PARSED_FLAG}" ]]; then
     fi
 
     set -x
-    python3 osm2rdf.py                             \
-        --nodes-file "${NODES_CACHE_TMP}" \
-        --cache-strategy dense                     \
-        parse "${OSM_FILE_PATH}" "${OUTPUT_DIR}"        \
+    python3 osm2rdf.py                           \
+        --nodes-file "${NODES_CACHE_TMP}"        \
+        --cache-strategy dense                   \
+        parse "${OSM_FILE_PATH}" "${TTL_DATA_DIR}" \
         --workers "${OSM_RDF_WORKERS}"
     { set +x; } 2>/dev/null
 
@@ -55,7 +51,17 @@ if [[ ! -f "${PARSED_FLAG}" ]]; then
         mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
     fi
 
-    touch "${PARSED_FLAG}"
+    touch "${FLAG_PARSED}"
+
+    # Once all status flag files are created, delete downloaded OSM file
+    # Var must not be quoted (multiple files)
+    set +e
+    if ls ${FLAGS_TO_DELETE_OSM_FILE} > /dev/null ; then
+        set -e
+        echo "Deleting ${OSM_FILE_PATH}"
+        # rm "${OSM_FILE_PATH}"
+    fi
+
     echo "########### Finished parsing with osm2rdf ###########"
 fi
 
@@ -76,12 +82,12 @@ while :; do
         set -x
     fi
 
-    python3 osm2rdf.py                             \
-        --nodes-file "${NODES_CACHE}" \
-        --cache-strategy dense                     \
-        update                                     \
-        --host "${BIGDATA_URL}"                    \
-        --max-download "${MAX_DOWNLOAD}"           \
+    python3 osm2rdf.py                   \
+        --nodes-file "${NODES_CACHE}"    \
+        --cache-strategy dense           \
+        update                           \
+        --host "${BIGDATA_URL}"          \
+        --max-download "${MAX_DOWNLOAD}" \
         --update-url "${UPDATE_URL}"
 
     { set +x; } 2>/dev/null

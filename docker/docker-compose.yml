@@ -15,17 +15,73 @@ services:
 #      - "${ACME_FILE}:/acme.json:rw"
 #    container_name: traefik
 
-  postgres-updater:
+#  sophox-gui:
+#    build: https://github.com/nickpeihl/wikidata-query-gui.git#dockerize
+#    ports:
+#      - "80"
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.frontend.rule=Host:staging.sophox.org"
+
+#  mapshaper:
+#    image: crazycapivara/docker-mapshaper
+#    ports:
+#      - "5555"
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/"
+
+#  vote-server:
+#    build: "${BUILD_DIR}/vote-server"
+#    environment:
+#      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
+#    ports:
+#    - "9979"
+#    networks:
+#    - blazegraph_net
+#    depends_on:
+#    - blazegraph
+#    labels:
+#    - "traefik.enable=true"
+#    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/store/"
+##    - "traefik.port=80"
+
+#  osm-regions:
+#    build: "${BUILD_DIR}/osm-regions-server"
+#    environment:
+#      POSTGRES_HOST: postgres
+#      POSTGRES_DB: gis
+#      POSTGRES_USER: sophox
+#      POSTGRES_PASSWORD:
+#      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
+#      WIKIBASE_URL: "https://wikibase.org/bigdata/namespace/wdq/sparql"
+#      REGIONS_TABLE: planet_osm_polygon
+#    ports:
+#    - "9978"
+#    networks:
+#    - postgres_net
+#    - blazegraph_net
+#    depends_on:
+#    - postgres
+#    - blazegraph
+#    labels:
+#    - "traefik.enable=true"
+#    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/"
+#  #    - "traefik.port=80"
+
+
+  osm-to-postgres:
     image: sophox/osm2pgsql_osmium
-    command: /osm-to-pgsql/osm-to-pgsql.sh
     volumes:
-    - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql:ro"
-    - "${DOWNLOAD_DIR}:/downloads:ro"
+    - "${STATUS_DIR}:/app-status:rw"               # status files (e.g. file.downloaded)
+    - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql:ro"  # source code
+    - "${DOWNLOAD_DIR}:/downloads:rw"              # downloaded planet file
     - "${OSM_PGSQL_DATA_DIR}:/osm-pgsql:rw"
     - "${OSM_PGSQL_TEMP_DIR}:/osm-pgsql-temp:rw"
     environment:
+      FLAG_IMPORTED: "/app-status/osm-pgsql.imported"
+      FLAGS_TO_DELETE_OSM_FILE: "/app-status/osm-rdf.parsed /app-status/osm-pgsql.imported"
       OSM_FILE_PATH: "/downloads/${OSM_FILE}"
-      POSTGRES_HOST: postgres
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
       POSTGRES_PASSWORD:
@@ -38,86 +94,34 @@ services:
       OSM_PGSQL_MEM_UPDATE: 10
       OSM_PGSQL_CPU_UPDATE: 2
       LOOP_SLEEP: 60
+    command: /osm-to-pgsql/osm-to-pgsql.sh
     networks:
-    - postgres_conn
+    - postgres_net
     depends_on:
     - postgres
 
-#  osm-to-rdf:
-#    build: "${BUILD_DIR}/osm2rdf"
-#    mem_limit: "${MEM_30_PRCNT_MB:-4000}m"
-#    memswap_limit: "${MEM_30_PRCNT_MB:-4000}m"
-#    mem_swappiness: 0
-#    volumes:
-#    - "${DOWNLOAD_DIR}:/downloads:ro"
-#    - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
-#    - "${OSM_RDF_TEMP_DIR}:/osm-rdf-temp:rw"
-#    environment:
-#      OSM_FILE_PATH: "/downloads/${OSM_FILE}"
-#      OSM_RDF_DATA: "/osm-rdf"
-#      OSM_RDF_TEMP: "/osm-rdf-temp"
-#      OSM_RDF_WORKERS: 2
-
-#    networks:
-#    - blazegraph_conn
-#    depends_on:
-#    - blazegraph
-
-  osm-regions:
-    build: "${BUILD_DIR}/osm-regions-server"
+  osm-to-blazegraph:
+    build: "${BUILD_DIR}/osm2rdf"
+    mem_limit: "${MEM_30_PRCNT_MB:-4000}m"
+    memswap_limit: "${MEM_30_PRCNT_MB:-4000}m"
+    mem_swappiness: 0
+    volumes:
+    - "${STATUS_DIR}:/app-status:rw"
+    - "${DOWNLOAD_DIR}:/downloads:rw"
+    - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
+    - "${OSM_RDF_TEMP_DIR}:/osm-rdf-temp:rw"
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_DB: gis
-      POSTGRES_USER: sophox
-      POSTGRES_PASSWORD:
-      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
-      WIKIBASE_URL: "https://wikibase.org/bigdata/namespace/wdq/sparql"
-      REGIONS_TABLE: planet_osm_polygon
-    ports:
-    - "9978"
+      FLAG_PARSED: "/app-status/osm-rdf.parsed"
+      FLAG_IMPORTED: "/app-status/osm-rdf.imported"
+      FLAGS_TO_DELETE_OSM_FILE: "/app-status/osm-rdf.parsed /app-status/osm-pgsql.imported"
+      OSM_FILE_PATH: "/downloads/${OSM_FILE}"
+      OSM_RDF_DATA: "/osm-rdf"
+      OSM_RDF_TEMP: "/osm-rdf-temp"
+      OSM_RDF_WORKERS: 2
     networks:
-    - postgres_conn
-    - blazegraph_conn
-    depends_on:
-    - postgres
-    - blazegraph
-    labels:
-    - "traefik.enable=true"
-    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/"
-#    - "traefik.port=80"
-
-  vote-server:
-    build: "${BUILD_DIR}/vote-server"
-    environment:
-      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
-    ports:
-    - "9979"
-    networks:
-    - blazegraph_conn
+    - blazegraph_net
     depends_on:
     - blazegraph
-    labels:
-    - "traefik.enable=true"
-    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/store/"
-#    - "traefik.port=80"
-
-
-  #  sophox-gui:
-  #    build: https://github.com/nickpeihl/wikidata-query-gui.git#dockerize
-  #    ports:
-  #      - "80"
-  #    labels:
-  #      - "traefik.enable=true"
-  #      - "traefik.frontend.rule=Host:staging.sophox.org"
-
-  #  mapshaper:
-  #    image: crazycapivara/docker-mapshaper
-  #    ports:
-  #      - "5555"
-  #    labels:
-  #      - "traefik.enable=true"
-  #      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/"
-
 
   # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
   # work_mem                        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-WORK-MEM
@@ -132,6 +136,12 @@ services:
   # random_page_cost                https://www.postgresql.org/docs/9.6/runtime-config-query.html#GUC-RANDOM-PAGE-COST
   postgres:
     image: "openmaptiles/postgis:2.9"
+    volumes:
+      - "${DATA_DIR}/postgres:/var/lib/postgresql/data:rw"
+    environment:
+      POSTGRES_DB: gis
+      POSTGRES_USER: sophox
+      POSTGRES_PASSWORD:
     command: >-
       postgres
       -c 'shared_buffers=${MEM_15_PRCNT_MB}MB'
@@ -145,28 +155,25 @@ services:
       -c 'min_wal_size=1GB'
       -c 'checkpoint_completion_target=0.7'
       -c 'random_page_cost=1.1'
-    volumes:
-      - "${DATA_DIR}/postgres:/var/lib/postgresql/data:rw"
     networks:
-      - postgres_conn
+      - postgres_net
     ports:
       - "5432"
-    environment:
-      POSTGRES_DB: gis
-      POSTGRES_USER: sophox
-      POSTGRES_PASSWORD:
 
   blazegraph:
-    # placeholder
-    image: busybox
-    command: sleep 10000d
+    image: openjdk:8-jdk
     ports:
     - "9999"
+    working_dir: /app
     volumes:
-    - "${DATA_DIR}/blazegraph:/app/data:rw"
+    - "${DATA_DIR}/blazegraph_app:/app:ro"
+      # Make sure it matches BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
+    - "${DATA_DIR}/blazegraph:/app-data:rw"
+             # Disable upstream warnings
+    command: "./runBlazegraph.sh -o '-Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF'"
     networks:
-    - blazegraph_conn
+    - blazegraph_net
 
 networks:
-  postgres_conn:
-  blazegraph_conn:
+  postgres_net:
+  blazegraph_net:

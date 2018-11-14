@@ -16,8 +16,7 @@ mkdir -p "${OSM_PGSQL_TEMP}"
 # Wait for the Postgres container to start up and possibly initialize the new db
 sleep 30
 
-IMPORTED_FLAG="${OSM_PGSQL_DATA}/status.imported"
-if [[ ! -f "${IMPORTED_FLAG}" ]]; then
+if [[ ! -f "${FLAG_IMPORTED}" ]]; then
 
     echo '########### Performing initial Postgres import with osm-to-pgsql ###########'
 
@@ -61,7 +60,17 @@ if [[ ! -f "${IMPORTED_FLAG}" ]]; then
          "--file=${OSM_PGSQL_CODE}/create_indexes.sql"
     { set +x; } 2>/dev/null
 
-    touch "${IMPORTED_FLAG}"
+    touch "${FLAG_IMPORTED}"
+
+    # Once all status flag files are created, delete downloaded OSM file
+    # Var must not be quoted (multiple files)
+    set +e
+    if ls ${FLAGS_TO_DELETE_OSM_FILE} > /dev/null ; then
+        set -e
+        echo "Deleting ${OSM_FILE_PATH}"
+        # rm "${OSM_FILE_PATH}"
+    fi
+    set -e
 
     echo "########### Finished osm-to-pgsql initial import ###########"
 fi

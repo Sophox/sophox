@@ -13,6 +13,7 @@ DATA_DEV=/dev/sdb
 DATA_DIR=/mnt/disks/data
 TEMP_DEV=/dev/nvme0n1
 TEMP_DIR=/mnt/disks/temp
+STATUS_DIR=${DATA_DIR}/status
 COMPOSE_FILE=docker/docker-compose.yml
 REPO_URL=https://github.com/Sophox/sophox.git
 REPO_BRANCH=gcp
@@ -24,6 +25,10 @@ SOPHOX_HOST=staging.sophox.org
 OSM_FILE=planet-latest.osm.pbf
 OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
 OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
+BLAZEGRAPH_ENDPOINTS='"wiki.openstreetmap.org"'
+
+# This path must match docker-compose.yml - blazegraph volume
+BLAZEGRAPH_JNL_DATA_FILE=/app-data/osmdata.jnl
 
 TOTAL_MEMORY_MB=$(( $(free | awk '/^Mem:/{print $2}') / 1024 ))
 
@@ -132,7 +137,9 @@ POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
 # TODO curl bug returns FTP transient problem if file already exists.
 # See https://github.com/curl/curl/issues/2464
 mkdir -p "${DOWNLOAD_DIR}"
-if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
+
+FLAG_DOWNLOADED="${STATUS_DIR}/${OSM_FILE}.downloaded"
+if [[ ! -f "${FLAG_DOWNLOADED}" ]]; then
     echo "Downloading ${OSM_FILE}"
     set -x
     curl --silent --show-error --location --compressed \
@@ -148,7 +155,7 @@ if [[ ! -f "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded" ]]; then
     md5sum --check "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
     popd
 
-    touch "${DOWNLOAD_DIR}/${OSM_FILE}.downloaded"
+    touch "${FLAG_DOWNLOADED}"
 fi
 
 # Create a state file for the planet download. The state file is generated for N weeks prior to now
@@ -159,7 +166,7 @@ function init_state {
     mkdir -p "${data_dir}"
     if [[ ! -f "${data_dir}/state.txt" ]]; then
 
-        echo "########### Initializing ${data_dir} state file ###########"
+        echo "########### Initializing ${data_dir} state files ###########"
         cp "${REPO_DIR}/docker/osmosis_configuration.txt" "${data_dir}/configuration.txt"
         touch "${data_dir}/download.lock"
         # Current date minus N weeks (first number)
@@ -177,6 +184,59 @@ init_state "${OSM_PGSQL_DATA_DIR}"
 init_state "${OSM_RDF_DATA_DIR}"
 
 #
+# #####################  Compile Blazegraph
+#
+
+set -e
+FLAG_BUILD_BLAZE="${STATUS_DIR}/blazegraph.build"
+if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
+
+    # Extract the version number from the line right above the <packaging>pom</packaging>
+    BLAZE_VERSION=$(grep --before-context=1 '<packaging>pom</packaging>' "${REPO_DIR}/wikidata-query-rdf/pom.xml" \
+        | head --lines=1 \
+        | sed 's/^[^>]*>\([^<]*\)<.*$/\1/g')
+    echo "Building Blazegraph ${BLAZE_VERSION}"
+
+    # Cleanup the source code dir
+    cd "${REPO_DIR}/wikidata-query-rdf"
+    set +e
+    if git diff-files --quiet; then
+        set -e
+        echo "Cleaning ${PWD}"
+        git clean -fdx
+    else
+        set -e
+        echo "GIT repo ${PWD} has local changes, skipping git clean..."
+        git status
+    fi
+
+    # Compile & package Blazegraph, and extract result to the /blazegraph dir
+    set -x
+    docker run -it --rm \
+        -v "${REPO_DIR}/wikidata-query-rdf:/app-src:rw" \
+        -v "${DATA_DIR}/blazegraph_app:/app:rw" \
+        -v "${DATA_DIR}/blazegraph:/app-data:rw" \
+        -w /app-src maven:3.6.0-jdk-8 \
+        sh -c "\
+            mvn package -DskipTests=true -DskipITs=true && \
+            rm -rf /app/* && \
+            unzip -d /app /app-src/dist/target/service-${BLAZE_VERSION}-dist.zip && \
+            mv /app/service-${BLAZE_VERSION}/* /app && \
+            rmdir /app/service-${BLAZE_VERSION} && \
+            apt-get update && \
+            apt-get -y install gettext-base && \
+            cd /app && \
+            mv prefixes.conf /app-data && \
+            export BLAZEGRAPH_ENDPOINTS='${BLAZEGRAPH_ENDPOINTS}' && \
+            export BLAZEGRAPH_JNL_DATA_FILE='${BLAZEGRAPH_JNL_DATA_FILE}' && \
+            envsubst < RWStore.properties > subst.temp && mv subst.temp RWStore.properties && \
+            envsubst < services.json > /app-data/mwservices.json"
+    { set +x; } 2>/dev/null
+
+    touch "${FLAG_BUILD_BLAZE}"
+fi
+
+#
 # #####################  Run docker-compose from a docker container
 #
 
@@ -192,9 +252,10 @@ echo "########### Starting Docker-compose ###########"
 export POSTGRES_PASSWORD
 set -x
 
-docker run                                                \
+docker run --rm                                           \
     -e "DATA_DIR=${DATA_DIR}"                             \
     -e "REPO_DIR=${REPO_DIR}"                             \
+    -e "STATUS_DIR=${STATUS_DIR}"                         \
     -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                     \
     -e "ACME_FILE=${ACME_FILE}"                           \
     -e "SOPHOX_HOST=${SOPHOX_HOST}"                       \

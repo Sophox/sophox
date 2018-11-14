@@ -1,4 +1,5 @@
 FROM debian:buster
+LABEL maintainer='Yuri Astrakhan <YuriAstrakhan@gmail.com>'
 
 WORKDIR /app
 
@@ -19,5 +20,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY . .
 
-ENTRYPOINT [ "/app/docker-entrypoint.sh" ]
+ENTRYPOINT [ "/app/entrypoint.sh" ]
 CMD [ "osm2rdf.py" ]
