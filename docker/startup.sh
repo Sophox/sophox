@@ -30,6 +30,7 @@ OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
 OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
 OSM_TTLS_DIR=${DATA_DIR}/osm-rdf-ttls
 BLAZEGRAPH_ENDPOINTS='"wiki.openstreetmap.org"'
+BLAZEGRAPH_IMAGE=openjdk:8-jdk
 
 # This path must match docker-compose.yml - blazegraph volume
 BLAZEGRAPH_JNL_DATA_FILE=/app-data/osmdata.jnl
@@ -259,6 +260,7 @@ set -x
 
 docker run --rm                                           \
     -e "REPO_DIR=${REPO_DIR}"                             \
+    -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"             \
     -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"         \
     -e "BLAZEGRAPH_DATA_DIR=${BLAZEGRAPH_DATA_DIR}"       \
     -e "STATUS_DIR=${STATUS_DIR}"                         \

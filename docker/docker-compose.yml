@@ -150,30 +150,30 @@ services:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
-#  # This container waits for FLAG_PARSED, imports TTLs & sets FLAG_IMPORTED, and continuously updates from OSM wiki
-#  blazegraph-updater:
-#    image: openjdk:8-jdk
-#    volumes:
-#    - "${STATUS_DIR}:/app-status:rw"
-#    - "${BLAZEGRAPH_APP_DIR}:/app:ro"
-#    - "${REPO_DIR}/docker/blazegraph-updater:/app-script:ro"
-#    - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"
-#    working_dir: /app-script
-#    command: "./bg-updater.sh"
-#    environment:
-#      FLAG_PARSED: "/app-status/osm-rdf.parsed"      # Wait for this flag
-#      FLAG_IMPORTED: "/app-status/osm-rdf.imported"  # Set this flag after import and exit
-#      OSM_RDF_TTLS: "/osm-rdf-ttls" # Must match blazegraph container's volume name
-#      BLAZEGRAPH_APP: "/app"
-#      BLAZEGRAPH_HOST: "http://blazegraph:9999"
-#    networks:
-#    - blazegraph_net
-#    logging:
-#      driver: json-file
-#      options: {max-file: "3", max-size: "10m"}
+  # This container waits for FLAG_PARSED, imports TTLs & sets FLAG_IMPORTED, and continuously updates from OSM wiki
+  blazegraph-updater:
+    image: openjdk:8-jdk
+    volumes:
+    - "${STATUS_DIR}:/app-status:rw"
+    - "${BLAZEGRAPH_APP_DIR}:/app:ro"
+    - "${REPO_DIR}/docker/blazegraph-updater:/app-script:ro"
+    - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"
+    working_dir: /app-script
+    command: "./bg-updater.sh"
+    environment:
+      FLAG_PARSED: "/app-status/osm-rdf.parsed"      # Wait for this flag
+      FLAG_IMPORTED: "/app-status/osm-rdf.imported"  # Set this flag after import and exit
+      OSM_RDF_TTLS: "/osm-rdf-ttls" # Must match Blazegraph container's volume name
+      BLAZEGRAPH_APP: "/app"
+      BLAZEGRAPH_HOST: "http://blazegraph:9999"
+    networks:
+    - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
 
   blazegraph:
-    image: openjdk:8-jdk
+    image: "${BLAZEGRAPH_IMAGE}"
     volumes:
     - "${BLAZEGRAPH_APP_DIR}:/app:ro"
     - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # See BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
@@ -187,11 +187,10 @@ services:
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
-#    labels:
-#    - "traefik.enable=true"
-#    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/bigdata/;Method:GET"
-#      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
-#  #    - "traefik.port=80"
+    labels:
+    - "traefik.enable=true"
+    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/bigdata/;Method:GET"
+    - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 
   # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
   # work_mem                        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-WORK-MEM
