@@ -97,6 +97,7 @@ services:
       FLAG_IMPORTED: "/app-status/osm-pgsql.imported"
       FLAGS_TO_DELETE_OSM_FILE: "/app-status/osm-rdf.parsed /app-status/osm-pgsql.imported"
       OSM_FILE_PATH: "/downloads/${OSM_FILE}"
+      POSTGRES_HOST: postgres
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
       POSTGRES_PASSWORD:
