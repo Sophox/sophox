@@ -230,16 +230,13 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
             mv /app/service-${BLAZE_VERSION}/* /app && \
             rmdir /app/service-${BLAZE_VERSION} && \
             \
-            # Install envsubst
-            apt-get update && \
-            apt-get -y install gettext-base && \
-            \
-            export BLAZEGRAPH_ENDPOINTS='${BLAZEGRAPH_ENDPOINTS}' && \
-            export BLAZEGRAPH_JNL_DATA_FILE='${BLAZEGRAPH_JNL_DATA_FILE}' && \
             cd /app && \
-            envsubst < RWStore.properties > subst.temp && mv subst.temp RWStore.properties && \
-            envsubst < services.json > subst.temp && mv subst.temp mwservices.json"
-    { set +x; } 2>/dev/null
+            sed 's|%BLAZEGRAPH_JNL_DATA_FILE%|'"${BLAZEGRAPH_JNL_DATA_FILE}"'|g' RWStore.properties > subst.temp && \
+            mv subst.temp RWStore.properties && \
+            sed 's|%BLAZEGRAPH_ENDPOINTS%|'"${BLAZEGRAPH_ENDPOINTS}"'|g' services.json > subst.temp && \
+            mv subst.temp services.json"
+
+        { set +x; } 2>/dev/null
 
     touch "${FLAG_BUILD_BLAZE}"
 fi
