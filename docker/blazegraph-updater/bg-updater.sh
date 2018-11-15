@@ -8,6 +8,9 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
     done
 fi
 
+# Allow Blazegraph to start up  (TODO)
+sleep 15
+
 if [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; then
     echo '########### Importing TTLs into Blazegraph ###########'
 

@@ -124,8 +124,8 @@ services:
   # This container parses data into TTLs (sets FLAG_TTL_PARSED), waits for FLAG_TTL_IMPORTED, and continuously updates from OSM
   osm-to-blazegraph:
     build: "${BUILD_DIR}/osm2rdf"
-    mem_limit: "${MEM_30_PRCNT_MB:-4000}m"
-    memswap_limit: "${MEM_30_PRCNT_MB:-4000}m"
+    mem_limit: "${MEM_30_PRCNT_MB}m"
+    memswap_limit: "${MEM_30_PRCNT_MB}m"
     mem_swappiness: 0
     volumes:
     - "${STATUS_DIR}:/app-status:rw"
@@ -168,12 +168,17 @@ services:
       BLAZEGRAPH_HOST: "http://blazegraph:9999"
     networks:
     - blazegraph_net
+    depends_on:
+    - blazegraph
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
   blazegraph:
     image: "${BLAZEGRAPH_IMAGE}"
+    mem_limit: "${MEM_50_PRCNT_MB}m"
+    memswap_limit: "${MEM_50_PRCNT_MB}m"
+    mem_swappiness: 0
     volumes:
     - "${BLAZEGRAPH_APP_DIR}:/app:ro"
     - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # See BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
