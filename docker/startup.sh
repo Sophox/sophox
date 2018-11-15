@@ -19,13 +19,16 @@ REPO_URL=https://github.com/Sophox/sophox.git
 REPO_BRANCH=gcp
 REPO_DIR=${DATA_DIR}/git-repo
 BLAZEGRAPH_APP_DIR=${DATA_DIR}/blazegraph-app
+BLAZEGRAPH_DATA_DIR=${DATA_DIR}/blazegraph-data
 ACME_FILE=${DATA_DIR}/acme.json
 POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
+POSTGRES_DATA_DIR=${DATA_DIR}/postgres
 DOWNLOAD_DIR=${DATA_DIR}/download
 SOPHOX_HOST=staging.sophox.org
 OSM_FILE=planet-latest.osm.pbf
 OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
 OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
+OSM_TTLS_DIR=${DATA_DIR}/osm-rdf-ttls
 BLAZEGRAPH_ENDPOINTS='"wiki.openstreetmap.org"'
 
 # This path must match docker-compose.yml - blazegraph volume
@@ -218,7 +221,7 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
     docker run --rm \
         -v "${REPO_DIR}/wikidata-query-rdf:/app-src:rw" \
         -v "${BLAZEGRAPH_APP_DIR}:/app:rw" \
-        -v "${DATA_DIR}/blazegraph:/app-data:rw" \
+        -v "${BLAZEGRAPH_DATA_DIR}:/app-data:rw" \
         -w /app-src maven:3.6.0-jdk-8 \
         sh -c "\
             mvn package -DskipTests=true -DskipITs=true && \
@@ -258,18 +261,20 @@ export POSTGRES_PASSWORD
 set -x
 
 docker run --rm                                           \
-    -e "DATA_DIR=${DATA_DIR}"                             \
     -e "REPO_DIR=${REPO_DIR}"                             \
     -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"         \
+    -e "BLAZEGRAPH_DATA_DIR=${BLAZEGRAPH_DATA_DIR}"       \
     -e "STATUS_DIR=${STATUS_DIR}"                         \
     -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                     \
     -e "ACME_FILE=${ACME_FILE}"                           \
     -e "SOPHOX_HOST=${SOPHOX_HOST}"                       \
+    -e "POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR}"           \
     -e "OSM_FILE=${OSM_FILE}"                             \
     -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"         \
     -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"         \
     -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"             \
     -e "OSM_RDF_TEMP_DIR=${OSM_RDF_TEMP_DIR}"             \
+    -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                     \
     -e "MEM_5_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*5/100 ))"   \
     -e "MEM_15_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*15/100 ))" \
     -e "MEM_30_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*30/100 ))" \

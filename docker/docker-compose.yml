@@ -24,7 +24,7 @@ services:
 #      - "80"
 #    labels:
 #      - "traefik.enable=true"
-#      - "traefik.frontend.rule=Host:staging.sophox.org"
+#      - "traefik.frontend.rule=Host:staging.sophox.org;Method:GET"
 #    logging:
 #      driver: json-file
 #      options: {max-file: "3", max-size: "10m"}
@@ -35,7 +35,8 @@ services:
 #      - "5555"
 #    labels:
 #      - "traefik.enable=true"
-#      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/"
+#      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/;Method:GET"
+#      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 #    logging:
 #      driver: json-file
 #      options: {max-file: "3", max-size: "10m"}
@@ -52,7 +53,7 @@ services:
 #    - blazegraph
 #    labels:
 #    - "traefik.enable=true"
-#    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/store/"
+#    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/store/;Method:POST"
 ##    - "traefik.port=80"
 #    logging:
 #      driver: json-file
@@ -78,7 +79,8 @@ services:
 #    - blazegraph
 #    labels:
 #    - "traefik.enable=true"
-#    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/"
+#    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/;Method:GET"
+#      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 #  #    - "traefik.port=80"
 #    logging:
 #      driver: json-file
@@ -130,7 +132,7 @@ services:
     - "${DOWNLOAD_DIR}:/downloads:rw"
     - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
     - "${OSM_RDF_TEMP_DIR}:/osm-rdf-temp:rw"
-    - "${DATA_DIR}/osm-rdf-ttls:/osm-rdf-ttls:rw"
+    - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"
     environment:
       FLAG_PARSED: "/app-status/osm-rdf.parsed"     # Set this flag after parsing into TTLs
       FLAG_IMPORTED: "/app-status/osm-rdf.imported" # Wait for this flag before starting updates
@@ -155,7 +157,7 @@ services:
 #    - "${STATUS_DIR}:/app-status:rw"
 #    - "${BLAZEGRAPH_APP_DIR}:/app:ro"
 #    - "${REPO_DIR}/docker/blazegraph-updater:/app-script:ro"
-#    - "${DATA_DIR}/osm-rdf-ttls:/osm-rdf-ttls:rw"
+#    - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"
 #    working_dir: /app-script
 #    command: "./bg-updater.sh"
 #    environment:
@@ -174,8 +176,8 @@ services:
     image: openjdk:8-jdk
     volumes:
     - "${BLAZEGRAPH_APP_DIR}:/app:ro"
-    - "${DATA_DIR}/blazegraph:/app-data:rw"  # Matches BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
-    - "${DATA_DIR}/osm-rdf-ttls:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
+    - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # See BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
+    - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
     working_dir: /app
     command: "./runBlazegraph.sh -h 0.0.0.0 -o '-Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF'" # Disable upstream warnings
     ports:
@@ -185,6 +187,11 @@ services:
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
+#    labels:
+#    - "traefik.enable=true"
+#    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/bigdata/;Method:GET"
+#      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
+#  #    - "traefik.port=80"
 
   # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
   # work_mem                        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-WORK-MEM
@@ -200,7 +207,7 @@ services:
   postgres:
     image: "openmaptiles/postgis:2.9"
     volumes:
-    - "${DATA_DIR}/postgres:/var/lib/postgresql/data:rw"
+    - "${POSTGRES_DATA_DIR}:/var/lib/postgresql/data:rw"
     environment:
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
