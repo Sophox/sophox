@@ -62,8 +62,8 @@ function init_disk {
     fi
 
     mkdir -p "${mount_dir}"
-    RET_CODE=$(mount -o discard,defaults "${device_id}" "${mount_dir}"; echo $?)
-    if [[ ${RET_CODE} -eq 32 ]]; then
+    local ret_code=$(mount -o discard,defaults "${device_id}" "${mount_dir}"; echo $?)
+    if [[ ${ret_code} -eq 32 ]]; then
       # Format new partition when mount exits with code 32. It usually prints this:
       #   mount: /mnt/disks/data: wrong fs type, bad option, bad superblock on /dev/sdb, missing codepage or helper program, or other error.
       echo "Formatting new partition..."
@@ -281,4 +281,5 @@ docker run --rm                                           \
                                                           \
     docker/compose:1.23.1                                 \
     --file "/git_repo/${COMPOSE_FILE}"                    \
+    --project-name sophox                                 \
     up ${DETACH:+ --detach}

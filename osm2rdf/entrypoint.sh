@@ -13,7 +13,6 @@ MAX_DOWNLOAD=5120
 # Note that TEMP may be the same disk as DATA
 NODES_CACHE="${OSM_RDF_DATA}/nodes.cache"
 NODES_CACHE_TMP="${OSM_RDF_TEMP}/nodes.cache"
-TTL_DATA_DIR="${OSM_RDF_DATA}/ttls"
 
 mkdir -p "${OSM_RDF_DATA}"
 mkdir -p "${OSM_RDF_TEMP}"
@@ -65,8 +64,16 @@ if [[ ! -f "${FLAG_PARSED}" ]]; then
     echo "########### Finished parsing with osm2rdf ###########"
 fi
 
-exit
+if [[ ! -f "${FLAG_IMPORTED}" ]]; then
 
+    echo '########### Waiting for TTLs to be imported ###########'
+
+    while [[ ! -f "${FLAG_IMPORTED}" ]]; do
+      sleep 2
+    done
+
+    echo "########### TTLs have been imported ###########"
+fi
 
 echo "########### Running osm2rdf updater ###########"
 

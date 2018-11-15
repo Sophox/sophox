@@ -118,6 +118,7 @@ services:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
+  # This container parses data into TTLs (sets FLAG_PARSED), waits for FLAG_IMPORTED, and continuously updates from OSM
   osm-to-blazegraph:
     build: "${BUILD_DIR}/osm2rdf"
     mem_limit: "${MEM_30_PRCNT_MB:-4000}m"
@@ -128,13 +129,15 @@ services:
     - "${DOWNLOAD_DIR}:/downloads:rw"
     - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
     - "${OSM_RDF_TEMP_DIR}:/osm-rdf-temp:rw"
+    - "${DATA_DIR}/osm-rdf-ttls:/osm-rdf-ttls:rw"
     environment:
-      FLAG_PARSED: "/app-status/osm-rdf.parsed"
-      FLAG_IMPORTED: "/app-status/osm-rdf.imported"
+      FLAG_PARSED: "/app-status/osm-rdf.parsed"     # Set this flag after parsing into TTLs
+      FLAG_IMPORTED: "/app-status/osm-rdf.imported" # Wait for this flag before starting updates
       FLAGS_TO_DELETE_OSM_FILE: "/app-status/osm-rdf.parsed /app-status/osm-pgsql.imported"
       OSM_FILE_PATH: "/downloads/${OSM_FILE}"
       OSM_RDF_DATA: "/osm-rdf"
       OSM_RDF_TEMP: "/osm-rdf-temp"
+      OSM_RDF_TTLS: "/osm-rdf-ttls"
       OSM_RDF_WORKERS: 2
     networks:
     - blazegraph_net
@@ -144,6 +147,43 @@ services:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
+#  # This container waits for FLAG_PARSED, imports TTLs & sets FLAG_IMPORTED, and continuously updates from OSM wiki
+#  blazegraph-updater:
+#    image: openjdk:8-jdk
+#    volumes:
+#    - "${STATUS_DIR}:/app-status:rw"
+#    - "${BLAZEGRAPH_APP_DIR}:/app:ro"
+#    - "${REPO_DIR}/docker/blazegraph-updater:/app-script:ro"
+#    - "${DATA_DIR}/osm-rdf-ttls:/osm-rdf-ttls:rw"
+#    working_dir: /app-script
+#    command: "./bg-updater.sh"
+#    environment:
+#      FLAG_PARSED: "/app-status/osm-rdf.parsed"      # Wait for this flag
+#      FLAG_IMPORTED: "/app-status/osm-rdf.imported"  # Set this flag after import and exit
+#      OSM_RDF_TTLS: "/osm-rdf-ttls" # Must match blazegraph container's volume name
+#      BLAZEGRAPH_APP: "/app"
+#      BLAZEGRAPH_HOST: "http://blazegraph:9999"
+#    networks:
+#    - blazegraph_net
+#    logging:
+#      driver: json-file
+#      options: {max-file: "3", max-size: "10m"}
+
+  blazegraph:
+    image: openjdk:8-jdk
+    volumes:
+    - "${BLAZEGRAPH_APP_DIR}:/app:ro"
+    - "${DATA_DIR}/blazegraph:/app-data:rw"  # Matches BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
+    - "${DATA_DIR}/osm-rdf-ttls:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
+    working_dir: /app
+    command: "./runBlazegraph.sh -h 0.0.0.0 -o '-Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF'" # Disable upstream warnings
+    ports:
+    - "9999"
+    networks:
+    - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
 
   # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
   # work_mem                        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-WORK-MEM
@@ -159,7 +199,7 @@ services:
   postgres:
     image: "openmaptiles/postgis:2.9"
     volumes:
-      - "${DATA_DIR}/postgres:/var/lib/postgresql/data:rw"
+    - "${DATA_DIR}/postgres:/var/lib/postgresql/data:rw"
     environment:
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
@@ -181,23 +221,6 @@ services:
     - "5432"
     networks:
     - postgres_net
-    logging:
-      driver: json-file
-      options: {max-file: "3", max-size: "10m"}
-
-  blazegraph:
-    image: openjdk:8-jdk
-    volumes:
-    - "${BLAZEGRAPH_APP_DIR}:/app:ro"
-      # Make sure it matches BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
-    - "${DATA_DIR}/blazegraph:/app-data:rw"
-             # Disable upstream warnings
-    working_dir: /app
-    command: "./runBlazegraph.sh -o '-Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF'"
-    ports:
-    - "9999"
-    networks:
-    - blazegraph_net
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
