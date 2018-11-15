@@ -17,15 +17,15 @@ NODES_CACHE_TMP="${OSM_RDF_TEMP}/nodes.cache"
 mkdir -p "${OSM_RDF_DATA}"
 mkdir -p "${OSM_RDF_TEMP}"
 
-if [[ ! -f "${FLAG_PARSED}" ]]; then
+if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
 
     echo '########### Performing initial OSM->RDF parsing with osm2rdf ###########'
 
-    if [[ -d "${TTL_DATA_DIR}" ]]; then
-        echo "Removing partially parsed TTLs in ${TTL_DATA_DIR}"
-        rm -rf "${TTL_DATA_DIR}"
+    if [[ -d "${OSM_RDF_TTLS}" ]]; then
+        echo "Removing partially parsed TTLs in ${OSM_RDF_TTLS}"
+        rm -rf "${OSM_RDF_TTLS}"
     fi
-    mkdir -p "${TTL_DATA_DIR}"
+    mkdir -p "${OSM_RDF_TTLS}"
 
     if [[ -f "${NODES_CACHE}" ]]; then
         echo "Removing nodes cache ${NODES_CACHE}"
@@ -40,7 +40,7 @@ if [[ ! -f "${FLAG_PARSED}" ]]; then
     python3 osm2rdf.py                           \
         --nodes-file "${NODES_CACHE_TMP}"        \
         --cache-strategy dense                   \
-        parse "${OSM_FILE_PATH}" "${TTL_DATA_DIR}" \
+        parse "${OSM_FILE_PATH}" "${OSM_RDF_TTLS}" \
         --workers "${OSM_RDF_WORKERS}"
     { set +x; } 2>/dev/null
 
@@ -50,7 +50,7 @@ if [[ ! -f "${FLAG_PARSED}" ]]; then
         mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
     fi
 
-    touch "${FLAG_PARSED}"
+    touch "${FLAG_TTL_PARSED}"
 
     # Once all status flag files are created, delete downloaded OSM file
     # Var must not be quoted (multiple files)
@@ -64,11 +64,11 @@ if [[ ! -f "${FLAG_PARSED}" ]]; then
     echo "########### Finished parsing with osm2rdf ###########"
 fi
 
-if [[ ! -f "${FLAG_IMPORTED}" ]]; then
+if [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; then
 
     echo '########### Waiting for TTLs to be imported ###########'
 
-    while [[ ! -f "${FLAG_IMPORTED}" ]]; do
+    while [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; do
       sleep 2
     done
 

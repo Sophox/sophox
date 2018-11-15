@@ -96,7 +96,7 @@ services:
     - "${OSM_PGSQL_DATA_DIR}:/osm-pgsql:rw"
     - "${OSM_PGSQL_TEMP_DIR}:/osm-pgsql-temp:rw"
     environment:
-      FLAG_IMPORTED: "/app-status/osm-pgsql.imported"
+      FLAG_PG_IMPORTED: "/app-status/osm-pgsql.imported"
       FLAGS_TO_DELETE_OSM_FILE: "/app-status/osm-rdf.parsed /app-status/osm-pgsql.imported"
       OSM_FILE_PATH: "/downloads/${OSM_FILE}"
       POSTGRES_HOST: postgres
@@ -121,7 +121,7 @@ services:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
-  # This container parses data into TTLs (sets FLAG_PARSED), waits for FLAG_IMPORTED, and continuously updates from OSM
+  # This container parses data into TTLs (sets FLAG_TTL_PARSED), waits for FLAG_TTL_IMPORTED, and continuously updates from OSM
   osm-to-blazegraph:
     build: "${BUILD_DIR}/osm2rdf"
     mem_limit: "${MEM_30_PRCNT_MB:-4000}m"
@@ -134,8 +134,8 @@ services:
     - "${OSM_RDF_TEMP_DIR}:/osm-rdf-temp:rw"
     - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"
     environment:
-      FLAG_PARSED: "/app-status/osm-rdf.parsed"     # Set this flag after parsing into TTLs
-      FLAG_IMPORTED: "/app-status/osm-rdf.imported" # Wait for this flag before starting updates
+      FLAG_TTL_PARSED: "/app-status/osm-rdf.parsed"     # Set this flag after parsing into TTLs
+      FLAG_TTL_IMPORTED: "/app-status/osm-rdf.imported" # Wait for this flag before starting updates
       FLAGS_TO_DELETE_OSM_FILE: "/app-status/osm-rdf.parsed /app-status/osm-pgsql.imported"
       OSM_FILE_PATH: "/downloads/${OSM_FILE}"
       OSM_RDF_DATA: "/osm-rdf"
@@ -150,19 +150,19 @@ services:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
-  # This container waits for FLAG_PARSED, imports TTLs & sets FLAG_IMPORTED, and continuously updates from OSM wiki
+  # This container waits for FLAG_TTL_PARSED, imports TTLs & sets FLAG_TTL_IMPORTED, and continuously updates from OSM wiki
   blazegraph-updater:
     image: openjdk:8-jdk
     volumes:
     - "${STATUS_DIR}:/app-status:rw"
     - "${BLAZEGRAPH_APP_DIR}:/app:ro"
     - "${REPO_DIR}/docker/blazegraph-updater:/app-script:ro"
-    - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"
+    - "${OSM_TTLS_DIR}:/osm-rdf-ttls:ro"
     working_dir: /app-script
     command: "./bg-updater.sh"
     environment:
-      FLAG_PARSED: "/app-status/osm-rdf.parsed"      # Wait for this flag
-      FLAG_IMPORTED: "/app-status/osm-rdf.imported"  # Set this flag after import and exit
+      FLAG_TTL_PARSED: "/app-status/osm-rdf.parsed"      # Wait for this flag
+      FLAG_TTL_IMPORTED: "/app-status/osm-rdf.imported"  # Set this flag after import and exit
       OSM_RDF_TTLS: "/osm-rdf-ttls" # Must match Blazegraph container's volume name
       BLAZEGRAPH_APP: "/app"
       BLAZEGRAPH_HOST: "http://blazegraph:9999"
