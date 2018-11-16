@@ -280,6 +280,7 @@ docker run --rm                                           \
     -e "MEM_15_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*15/100 ))" \
     -e "MEM_30_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*30/100 ))" \
     -e "MEM_50_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*50/100 ))" \
+    -e "MEM_65_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*65/100 ))" \
     -e BUILD_DIR=/git_repo                                \
     -e POSTGRES_PASSWORD                                  \
                                                           \

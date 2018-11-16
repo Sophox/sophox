@@ -3,12 +3,15 @@ version: '2.2'
 services:
 
   traefik:
+    # Web proxy
     image: traefik
-    restart: always
+    # restart: always
     ports:
       - "80:80"
       - "443:443"
       - "127.0.0.1:8080:8080"
+    networks:
+    - proxy_net
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "${REPO_DIR}/docker/traefik.toml:/traefik.toml:ro"
@@ -19,6 +22,7 @@ services:
       options: {max-file: "3", max-size: "10m"}
 
 #  sophox-gui:
+#    # Main web interface
 #    build: https://github.com/nickpeihl/wikidata-query-gui.git#dockerize
 #    ports:
 #      - "80"
@@ -30,9 +34,13 @@ services:
 #      options: {max-file: "3", max-size: "10m"}
 
   mapshaper:
+    # Extra web UI tool to process map geometry results
     image: crazycapivara/docker-mapshaper
+    # restart: always
     ports:
       - "5555"
+    networks:
+      - proxy_net
     labels:
       - "traefik.enable=true"
       - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/;Method:GET"
@@ -42,25 +50,29 @@ services:
       options: {max-file: "3", max-size: "10m"}
 
 #  vote-server:
+#    # Records user votes for feature modification
 #    build: "${BUILD_DIR}/vote-server"
+#    # restart: always
 #    environment:
 #      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
 #    ports:
 #      - "9979"
 #    networks:
+#      - proxy_net
 #      - blazegraph_net
 #    depends_on:
 #      - blazegraph
 #    labels:
 #      - "traefik.enable=true"
 #      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/store/;Method:POST"
-##      - "traefik.port=80"
 #    logging:
 #      driver: json-file
 #      options: {max-file: "3", max-size: "10m"}
 
   osm-regions:
+    # Serves geoshapes from Postgres, attaching them to the SPARQL query results
     build: "${BUILD_DIR}/osm-regions-server"
+    # restart: always
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_DB: gis
@@ -72,6 +84,7 @@ services:
     ports:
       - "9978"
     networks:
+      - proxy_net
       - postgres_net
       - blazegraph_net
     depends_on:
@@ -81,14 +94,14 @@ services:
       - "traefik.enable=true"
       - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
-#      - "traefik.port=80"
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
-
   osm-to-postgres:
+    # Parse osm file into Postgres DB, and continuously update from live OSM data
     image: sophox/osm2pgsql_osmium
+    # restart: always
     volumes:
       - "${STATUS_DIR}:/app-status:rw"               # status files (e.g. file.downloaded)
       - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql:ro"  # source code
@@ -107,9 +120,9 @@ services:
       OSM_PGSQL_TEMP: "/osm-pgsql-temp"
       OSM_PGSQL_CODE: "/osm-to-pgsql"
       # MEM is a percentage of total machine memory
-      OSM_PGSQL_MEM_IMPORT: 30
-      OSM_PGSQL_CPU_IMPORT: 3
-      OSM_PGSQL_MEM_UPDATE: 10
+      OSM_PGSQL_MEM_IMPORT: "${MEM_30_PRCNT_MB}"
+      OSM_PGSQL_CPU_IMPORT: 4
+      OSM_PGSQL_MEM_UPDATE: "${MEM_5_PRCNT_MB}"
       OSM_PGSQL_CPU_UPDATE: 2
       LOOP_SLEEP: 60
     command: /osm-to-pgsql/osm-to-pgsql.sh
@@ -121,11 +134,13 @@ services:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
-  # This container parses data into TTLs (sets FLAG_TTL_PARSED), waits for FLAG_TTL_IMPORTED, and continuously updates from OSM
   osm-to-blazegraph:
+    # This container parses data into TTLs (sets FLAG_TTL_PARSED), waits for FLAG_TTL_IMPORTED,
+    # and continuously updates from OSM data
     build: "${BUILD_DIR}/osm2rdf"
-    mem_limit: "${MEM_50_PRCNT_MB}m"
-    memswap_limit: "${MEM_50_PRCNT_MB}m"
+    # restart: always
+    mem_limit: "${MEM_65_PRCNT_MB}m"
+    memswap_limit: "${MEM_65_PRCNT_MB}m"
     mem_swappiness: 0
     volumes:
       - "${STATUS_DIR}:/app-status:rw"
@@ -151,9 +166,11 @@ services:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
-  # This container waits for FLAG_TTL_PARSED, imports TTLs & sets FLAG_TTL_IMPORTED, and continuously updates from OSM wiki
   blazegraph-updater:
+    # This container waits for FLAG_TTL_PARSED, imports TTLs into Blazegraph & sets FLAG_TTL_IMPORTED,
+    # and continuously updates from OSM wiki
     image: openjdk:8-jdk
+    # restart: always
     volumes:
       - "${STATUS_DIR}:/app-status:rw"
       - "${BLAZEGRAPH_APP_DIR}:/app:ro"
@@ -177,9 +194,10 @@ services:
 
   blazegraph:
     image: "${BLAZEGRAPH_IMAGE}"
-    mem_limit: "${MEM_50_PRCNT_MB}m"
-    memswap_limit: "${MEM_50_PRCNT_MB}m"
+    mem_limit: "${MEM_65_PRCNT_MB}m"
+    memswap_limit: "${MEM_65_PRCNT_MB}m"
     mem_swappiness: 0
+    # restart: always
     volumes:
       - "${BLAZEGRAPH_APP_DIR}:/app:ro"
       - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # See BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
@@ -189,13 +207,13 @@ services:
     ports:
       - "9999"
     networks:
+      - proxy_net
       - blazegraph_net
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
     labels:
       - "traefik.enable=true"
-#      - "traefik.port=9999"
       - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/bigdata/;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 
@@ -212,6 +230,7 @@ services:
   # random_page_cost                https://www.postgresql.org/docs/9.6/runtime-config-query.html#GUC-RANDOM-PAGE-COST
   postgres:
     image: "openmaptiles/postgis:2.9"
+    # restart: always
     volumes:
       - "${POSTGRES_DATA_DIR}:/var/lib/postgresql/data:rw"
     environment:
@@ -242,3 +261,4 @@ services:
 networks:
   postgres_net:
   blazegraph_net:
+  proxy_net:

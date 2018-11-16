@@ -4,8 +4,6 @@ set -e
 # osm2pgsql expects password in this env var
 export PGPASSWORD="${POSTGRES_PASSWORD}"
 
-TOTAL_MEMORY_MB=$(( $(free | awk '/^Mem:/{print $2}') / 1024 ))
-
 # Note that TEMP may be the same disk as DATA
 NODES_CACHE="${OSM_PGSQL_DATA}/nodes.cache"
 NODES_CACHE_TMP="${OSM_PGSQL_TEMP}/nodes.cache"
@@ -21,7 +19,7 @@ if [[ ! -f "${FLAG_PG_IMPORTED}" ]]; then
     echo '########### Performing initial Postgres import with osm-to-pgsql ###########'
 
     # osm2pgsql cache memory is per CPU, not total
-    OSM_PGSQL_MEM_IMPORT=$(( ${TOTAL_MEMORY_MB} / 100 * ${OSM_PGSQL_MEM_IMPORT} / ${OSM_PGSQL_CPU_IMPORT} ))
+    OSM_PGSQL_MEM_IMPORT_PER_CPU=$(( ${OSM_PGSQL_MEM_IMPORT} / ${OSM_PGSQL_CPU_IMPORT} ))
 
     if [[ -f "${NODES_CACHE}" ]]; then
         rm "${NODES_CACHE}"
@@ -38,7 +36,7 @@ if [[ ! -f "${FLAG_PG_IMPORTED}" ]]; then
         --username "${POSTGRES_USER}" \
         --database "${POSTGRES_DB}" \
         --flat-nodes "${NODES_CACHE_TMP}" \
-        --cache "${OSM_PGSQL_MEM_IMPORT}" \
+        --cache "${OSM_PGSQL_MEM_IMPORT_PER_CPU}" \
         --number-processes "${OSM_PGSQL_CPU_IMPORT}" \
         --hstore \
         --style "${OSM_PGSQL_CODE}/wikidata.style" \
@@ -79,7 +77,7 @@ fi
 echo "########### Running osm-to-pgsql updates every ${LOOP_SLEEP} seconds ###########"
 
 # osm2pgsql cache memory is per CPU, not total
-OSM_PGSQL_MEM_UPDATE=$(( ${TOTAL_MEMORY_MB} / 100 * ${OSM_PGSQL_MEM_UPDATE} / ${OSM_PGSQL_CPU_IMPORT} ))
+OSM_PGSQL_MEM_UPDATE_PER_CPU=$(( ${OSM_PGSQL_MEM_UPDATE} / ${OSM_PGSQL_CPU_IMPORT} ))
 
 FIRST_LOOP=true
 while :; do
@@ -105,7 +103,7 @@ while :; do
         --username "${POSTGRES_USER}" \
         --database "${POSTGRES_DB}" \
         --flat-nodes "${NODES_CACHE}" \
-        --cache "${OSM_PGSQL_MEM_UPDATE}" \
+        --cache "${OSM_PGSQL_MEM_UPDATE_PER_CPU}" \
         --number-processes "${OSM_PGSQL_CPU_UPDATE}" \
         --hstore \
         --style "${OSM_PGSQL_CODE}/wikidata.style" \
