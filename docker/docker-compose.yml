@@ -158,6 +158,7 @@ services:
       OSM_RDF_TTLS: "/osm-rdf-ttls"
       OSM_RDF_WORKERS: 4
       OSM_RDF_MAX_STMTS: 10000
+      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
     networks:
       - blazegraph_net
     depends_on:

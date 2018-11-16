@@ -8,14 +8,16 @@ The server must have `bash`, `docker`, `curl`, and `git`.  Everything else is lo
 
 ### Google Cloud
 * Create a `custom-6-39936` VM (6 vCPUs, 36GB RAM) or better.
-* Set VM startup script to this line:
+* Set VM startup script to the following line, and the service should be ready in two to three days.  Insert any env var overrides right before `bash`, e.g. `curl ... | SOPHOX_HOST=example.org bash`
 ```
 curl https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.sh | bash
 ```
-The server should be ready in two to three days.
 
 To monitor the process, ssh into the server:
-* View the startup script output:  `sudo journalctl -u google-startup-scripts.service`
+* View the startup script output:
+```
+sudo journalctl -u google-startup-scripts.service
+```
 
 ### Monitoring
 * See docker statistics:  `docker stats`

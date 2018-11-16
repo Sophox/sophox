@@ -6,7 +6,6 @@ if [[ "$1" != 'osm2rdf.py' ]]; then
 else
 
 
-BIGDATA_URL=http://localhost:9999/bigdata/sparql
 UPDATE_URL=https://planet.openstreetmap.org/replication/minute
 MAX_DOWNLOAD=5120
 
@@ -96,7 +95,7 @@ while :; do
         --nodes-file "${NODES_CACHE}"    \
         --cache-strategy dense           \
         update                           \
-        --host "${BIGDATA_URL}"          \
+        --host "${SOPHOX_URL}"           \
         --max-download "${MAX_DOWNLOAD}" \
         --update-url "${UPDATE_URL}"
 
