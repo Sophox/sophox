@@ -21,11 +21,11 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
 
     echo '########### Performing initial OSM->RDF parsing with osm2rdf ###########'
 
-    if [[ -d "${OSM_RDF_TTLS}" ]]; then
-        echo "Removing partially parsed TTLs in ${OSM_RDF_TTLS}"
-        rm -rf "${OSM_RDF_TTLS}"
-    fi
     mkdir -p "${OSM_RDF_TTLS}"
+    if [[ ! -z "$(ls -A ${OSM_RDF_TTLS})" ]]; then
+        echo "Removing partially parsed TTLs in ${OSM_RDF_TTLS}"
+        rm -rf "${OSM_RDF_TTLS}/*"
+    fi
 
     if [[ -f "${NODES_CACHE}" ]]; then
         echo "Removing nodes cache ${NODES_CACHE}"
@@ -58,6 +58,8 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
     if ls ${FLAGS_TO_DELETE_OSM_FILE} > /dev/null ; then
         set -e
         echo "Deleting ${OSM_FILE_PATH}"
+
+        #  FIXME!!!!!!!!!!!!!!!!!!!!   UNCOMMENT
         # rm "${OSM_FILE_PATH}"
     fi
 

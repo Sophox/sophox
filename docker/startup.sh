@@ -88,6 +88,8 @@ function init_disk {
 init_disk "${DATA_DEV}" "${DATA_DIR}"
 init_disk "${TEMP_DEV}" "${TEMP_DIR}"
 
+mkdir -p "${STATUS_DIR}"
+
 #
 # #####################  Clone/update GIT repo
 #
