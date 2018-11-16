@@ -142,7 +142,8 @@ services:
     mem_limit: "${MEM_65_PRCNT_MB}m"
     memswap_limit: "${MEM_65_PRCNT_MB}m"
     mem_swappiness: 0
-    command: /app/osm2rdf.sh
+    working_dir: "/app"
+    command: osm2rdf.sh
     volumes:
       - "${REPO_DIR}/osm2rdf:/app:ro"
       - "${STATUS_DIR}:/app-status:rw"
@@ -217,7 +218,7 @@ services:
       options: {max-file: "3", max-size: "10m"}
     labels:
       - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/bigdata/;Method:GET"
+      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefix:/bigdata;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 
   # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS

@@ -1,9 +1,7 @@
 FROM debian:buster
 LABEL maintainer='Yuri Astrakhan <YuriAstrakhan@gmail.com>'
 
-WORKDIR /app
-
-COPY ./requirements.txt .
+COPY ./requirements.txt /
 
 ENV LANG=C.UTF-8
 
@@ -15,5 +13,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-python-dev \
     zlib1g-dev \
     libbz2-dev \
-    && pip3 install --no-cache-dir -r requirements.txt \
+    && pip3 install --no-cache-dir -r /requirements.txt \
     && rm -rf /var/lib/apt/lists/*
