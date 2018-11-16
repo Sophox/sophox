@@ -253,7 +253,7 @@ DETACH="" && [[ "${DEBUG}" == "" ]] && DETACH=true
 
 # In case there is a local SSD, use it as the temp storage, otherwise use data dir.
 OSM_PGSQL_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_PGSQL_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
-OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
+OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || echo "${TEMP_DIR}/osm-rdf-tmp" )
 
 # Keep the container around (no --rm) to simplify debugging
 echo "########### Starting Docker-compose ###########"
