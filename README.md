@@ -1,5 +1,46 @@
 # Sophox
 
+## Installation
+
+Sophox should be installed on a sufficiently large (40+ GB RAM, 1TB Disk) server, preferably SSD NVMe disk.  In some cases, e.g. Google Cloud, a local SSD scratch disk is recommended.
+
+The server must have `bash`, `docker`, `curl`, and `git`.  Everything else is loaded inside docker containers.
+
+### Google Cloud
+* Create a `custom-6-39936` VM (6 vCPUs, 36GB RAM) or better.
+* Set VM startup script to this line:
+```
+curl https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.sh | bash
+```
+The server should be ready in two to three days.
+
+To monitor the process, ssh into the server:
+* View the startup script output:  `sudo journalctl -u google-startup-scripts.service`
+
+### Monitoring
+* See docker statistics:  `docker stats`
+* View docker containers:  `docker ps`
+* See individual docker's log:  `docker logs <container-id>` _(ID can be just the first few digits)_
+
+## Automated Installation Steps
+These steps are done automatically by the startup scripts. Many of the steps create empty `status` files in the `data/status` directory, indicating that a specific step is complete. This prevents full rebuild when the server is restarted. 
+
+##### [startup.sh](docker/startup.sh)
+* Format and mount `/dev/sdb` as `/mnt/disks/data` _(Use env var `DATA_DEV` and `DATA_DIR` to override)_
+* If available, format and mount `/dev/nvme0n1` as `/mnt/disks/temp` _(Use `TEMP_DEV` and `TEMP_DIR` to override)_
+* Clone/pull Sophox git repo _(Use `REPO_URL` and `REPO_BRANCH` to override)_
+* Generate random Postgres password
+* Download OSM planet file and validate md5 sum   (creates _status/file.downloaded_)
+* Initialize Osmosis state configuration / timestamp
+* Compile Blazegraph from [/wikidata-query-rdf](wikidata-query-rdf)  (creates _status/blazegraph.build_)
+* Run docker containers with [docker-compose.yml](docker/docker-compose.yml)
+
+
+
+
+# TODO
+The following docs need to be updated
+
 ## Development
 
 Make sure to run this in order to autmotacally use ssh instead of https:

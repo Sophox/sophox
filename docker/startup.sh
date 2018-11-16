@@ -9,14 +9,19 @@ if [[ "$EUID" -ne 0 ]]; then echo "This script must run with sudo" && exit 1; fi
 #    sudo journalctl -u google-startup-scripts.service
 #
 
-DATA_DEV=/dev/sdb
-DATA_DIR=/mnt/disks/data
-TEMP_DEV=/dev/nvme0n1
-TEMP_DIR=/mnt/disks/temp
+# These vars could be customized:
+: "${DATA_DEV:=/dev/sdb}"
+: "${DATA_DIR:=/mnt/disks/data}"
+: "${TEMP_DEV:=/dev/nvme0n1}"
+: "${TEMP_DIR:=/mnt/disks/temp}"
+
+: "${SOPHOX_HOST:=staging.sophox.org}"
+: "${REPO_URL:=https://github.com/Sophox/sophox.git}"
+: "${REPO_BRANCH:=gcp}"
+
+
 STATUS_DIR=${DATA_DIR}/status
 COMPOSE_FILE=docker/docker-compose.yml
-REPO_URL=https://github.com/Sophox/sophox.git
-REPO_BRANCH=gcp
 REPO_DIR=${DATA_DIR}/git-repo
 BLAZEGRAPH_APP_DIR=${DATA_DIR}/blazegraph-app
 BLAZEGRAPH_DATA_DIR=${DATA_DIR}/blazegraph-data
@@ -24,7 +29,6 @@ ACME_FILE=${DATA_DIR}/acme.json
 POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
 POSTGRES_DATA_DIR=${DATA_DIR}/postgres
 DOWNLOAD_DIR=${DATA_DIR}/download
-SOPHOX_HOST=staging.sophox.org
 OSM_FILE=planet-latest.osm.pbf
 OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
 OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
@@ -94,7 +98,7 @@ mkdir -p "${STATUS_DIR}"
 # #####################  Clone/update GIT repo
 #
 
-echo "########### Updating git repo ${REPO_DIR} ###########"
+echo "########### Git repo ${REPO_URL} #${REPO_BRANCH} to ${REPO_DIR} ###########"
 set -e
 if [[ ! -d "${REPO_DIR}" ]]; then
   git clone -b "${REPO_BRANCH}" --recurse-submodules -j4 "${REPO_URL}" "${REPO_DIR}"
@@ -150,6 +154,7 @@ mkdir -p "${DOWNLOAD_DIR}"
 FLAG_DOWNLOADED="${STATUS_DIR}/${OSM_FILE}.downloaded"
 if [[ ! -f "${FLAG_DOWNLOADED}" ]]; then
     echo "########### Downloading ${OSM_FILE} ###########"
+    # md5 file should be downloaded before the much slower data file to reduce chances of a race condition
     set -x
     curl --silent --show-error --location --compressed \
         https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf.md5 \
