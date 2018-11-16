@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-if [[ "$1" != 'osm2rdf.py' ]]; then
-    exec "$@"
-else
-
-
 UPDATE_URL=https://planet.openstreetmap.org/replication/minute
 MAX_DOWNLOAD=5120
 
@@ -104,5 +99,3 @@ while :; do
     sleep 5
 
 done
-
-fi
