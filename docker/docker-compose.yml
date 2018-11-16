@@ -144,7 +144,7 @@ services:
     mem_swappiness: 0
     command: /app/osm2rdf.sh
     volumes:
-      - "${BUILD_DIR}/osm2rdf:/app:ro"
+      - "${REPO_DIR}/osm2rdf:/app:ro"
       - "${STATUS_DIR}:/app-status:rw"
       - "${DOWNLOAD_DIR}:/downloads:rw"
       - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
