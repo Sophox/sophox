@@ -120,7 +120,7 @@ services:
       OSM_PGSQL_TEMP: "/osm-pgsql-temp"
       OSM_PGSQL_CODE: "/osm-to-pgsql"
       # MEM is a percentage of total machine memory
-      OSM_PGSQL_MEM_IMPORT: "${MEM_30_PRCNT_MB}"
+      OSM_PGSQL_MEM_IMPORT: "${MEM_20_PRCNT_MB}"
       OSM_PGSQL_CPU_IMPORT: 4
       OSM_PGSQL_MEM_UPDATE: "${MEM_5_PRCNT_MB}"
       OSM_PGSQL_CPU_UPDATE: 2

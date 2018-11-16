@@ -77,7 +77,7 @@ fi
 echo "########### Running osm-to-pgsql updates every ${LOOP_SLEEP} seconds ###########"
 
 # osm2pgsql cache memory is per CPU, not total
-OSM_PGSQL_MEM_UPDATE_PER_CPU=$(( ${OSM_PGSQL_MEM_UPDATE} / ${OSM_PGSQL_CPU_IMPORT} ))
+OSM_PGSQL_MEM_UPDATE_PER_CPU=$(( ${OSM_PGSQL_MEM_UPDATE} / ${OSM_PGSQL_CPU_UPDATE} ))
 
 FIRST_LOOP=true
 while :; do
