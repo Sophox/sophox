@@ -37,11 +37,12 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
     fi
 
     set -x
-    python3 osm2rdf.py                           \
-        --nodes-file "${NODES_CACHE_TMP}"        \
-        --cache-strategy dense                   \
+    python3 osm2rdf.py                             \
+        --nodes-file "${NODES_CACHE_TMP}"          \
+        --cache-strategy dense                     \
         parse "${OSM_FILE_PATH}" "${OSM_RDF_TTLS}" \
-        --workers "${OSM_RDF_WORKERS}"
+        --workers "${OSM_RDF_WORKERS}"             \
+        --max-statements "${OSM_RDF_MAX_STMTS}"
     { set +x; } 2>/dev/null
 
     # If nodes.cache did not show up automatically in the data dir,

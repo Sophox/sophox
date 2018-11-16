@@ -28,3 +28,5 @@ defaultEntryPoints = ["https","http"]
 
 [api]
 #    debug = true
+
+[traefikLog]

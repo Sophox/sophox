@@ -2,21 +2,21 @@ version: '2.2'
 
 services:
 
-#  traefik:
-#    image: traefik
-#    restart: always
-#    ports:
-#      - "80:80"
-#      - "443:443"
-#      - "127.0.0.1:8080:8080"
-#    volumes:
-#      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-#      - "${REPO_DIR}/docker/traefik.toml:/traefik.toml:ro"
-#      - "${ACME_FILE}:/acme.json:rw"
-#    container_name: traefik
-#    logging:
-#      driver: json-file
-#      options: {max-file: "3", max-size: "10m"}
+  traefik:
+    image: traefik
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "${REPO_DIR}/docker/traefik.toml:/traefik.toml:ro"
+      - "${ACME_FILE}:/acme.json:rw"
+    container_name: traefik
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
 
 #  sophox-gui:
 #    build: https://github.com/nickpeihl/wikidata-query-gui.git#dockerize
@@ -29,72 +29,72 @@ services:
 #      driver: json-file
 #      options: {max-file: "3", max-size: "10m"}
 
-#  mapshaper:
-#    image: crazycapivara/docker-mapshaper
-#    ports:
-#      - "5555"
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/;Method:GET"
-#      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
-#    logging:
-#      driver: json-file
-#      options: {max-file: "3", max-size: "10m"}
+  mapshaper:
+    image: crazycapivara/docker-mapshaper
+    ports:
+      - "5555"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/;Method:GET"
+      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
 
 #  vote-server:
 #    build: "${BUILD_DIR}/vote-server"
 #    environment:
 #      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
 #    ports:
-#    - "9979"
+#      - "9979"
 #    networks:
-#    - blazegraph_net
+#      - blazegraph_net
 #    depends_on:
-#    - blazegraph
+#      - blazegraph
 #    labels:
-#    - "traefik.enable=true"
-#    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/store/;Method:POST"
-##    - "traefik.port=80"
+#      - "traefik.enable=true"
+#      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/store/;Method:POST"
+##      - "traefik.port=80"
 #    logging:
 #      driver: json-file
 #      options: {max-file: "3", max-size: "10m"}
 
-#  osm-regions:
-#    build: "${BUILD_DIR}/osm-regions-server"
-#    environment:
-#      POSTGRES_HOST: postgres
-#      POSTGRES_DB: gis
-#      POSTGRES_USER: sophox
-#      POSTGRES_PASSWORD:
-#      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
-#      WIKIBASE_URL: "https://wikibase.org/bigdata/namespace/wdq/sparql"
-#      REGIONS_TABLE: planet_osm_polygon
-#    ports:
-#    - "9978"
-#    networks:
-#    - postgres_net
-#    - blazegraph_net
-#    depends_on:
-#    - postgres
-#    - blazegraph
-#    labels:
-#    - "traefik.enable=true"
-#    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/;Method:GET"
-#      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
-#  #    - "traefik.port=80"
-#    logging:
-#      driver: json-file
-#      options: {max-file: "3", max-size: "10m"}
+  osm-regions:
+    build: "${BUILD_DIR}/osm-regions-server"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: gis
+      POSTGRES_USER: sophox
+      POSTGRES_PASSWORD:
+      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
+      WIKIBASE_URL: "https://wikibase.org/bigdata/namespace/wdq/sparql"
+      REGIONS_TABLE: planet_osm_polygon
+    ports:
+      - "9978"
+    networks:
+      - postgres_net
+      - blazegraph_net
+    depends_on:
+      - postgres
+      - blazegraph
+    labels:
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/;Method:GET"
+      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
+#      - "traefik.port=80"
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
 
 
   osm-to-postgres:
     image: sophox/osm2pgsql_osmium
     volumes:
-    - "${STATUS_DIR}:/app-status:rw"               # status files (e.g. file.downloaded)
-    - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql:ro"  # source code
-    - "${DOWNLOAD_DIR}:/downloads:rw"              # downloaded planet file
-    - "${OSM_PGSQL_DATA_DIR}:/osm-pgsql:rw"
-    - "${OSM_PGSQL_TEMP_DIR}:/osm-pgsql-temp:rw"
+      - "${STATUS_DIR}:/app-status:rw"               # status files (e.g. file.downloaded)
+      - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql:ro"  # source code
+      - "${DOWNLOAD_DIR}:/downloads:rw"              # downloaded planet file
+      - "${OSM_PGSQL_DATA_DIR}:/osm-pgsql:rw"
+      - "${OSM_PGSQL_TEMP_DIR}:/osm-pgsql-temp:rw"
     environment:
       FLAG_PG_IMPORTED: "/app-status/osm-pgsql.imported"
       FLAGS_TO_DELETE_OSM_FILE: "/app-status/osm-rdf.parsed /app-status/osm-pgsql.imported"
@@ -114,9 +114,9 @@ services:
       LOOP_SLEEP: 60
     command: /osm-to-pgsql/osm-to-pgsql.sh
     networks:
-    - postgres_net
+      - postgres_net
     depends_on:
-    - postgres
+      - postgres
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
@@ -128,11 +128,11 @@ services:
     memswap_limit: "${MEM_50_PRCNT_MB}m"
     mem_swappiness: 0
     volumes:
-    - "${STATUS_DIR}:/app-status:rw"
-    - "${DOWNLOAD_DIR}:/downloads:rw"
-    - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
-    - "${OSM_RDF_TEMP_DIR}:/osm-rdf-temp:rw"
-    - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"
+      - "${STATUS_DIR}:/app-status:rw"
+      - "${DOWNLOAD_DIR}:/downloads:rw"
+      - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
+      - "${OSM_RDF_TEMP_DIR}:/osm-rdf-temp:rw"
+      - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"
     environment:
       FLAG_TTL_PARSED: "/app-status/osm-rdf.parsed"     # Set this flag after parsing into TTLs
       FLAG_TTL_IMPORTED: "/app-status/osm-rdf.imported" # Wait for this flag before starting updates
@@ -141,11 +141,12 @@ services:
       OSM_RDF_DATA: "/osm-rdf"
       OSM_RDF_TEMP: "/osm-rdf-temp"
       OSM_RDF_TTLS: "/osm-rdf-ttls"
-      OSM_RDF_WORKERS: 2
+      OSM_RDF_WORKERS: 4
+      OSM_RDF_MAX_STMTS: 10000
     networks:
-    - blazegraph_net
+      - blazegraph_net
     depends_on:
-    - blazegraph
+      - blazegraph
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
@@ -154,10 +155,10 @@ services:
   blazegraph-updater:
     image: openjdk:8-jdk
     volumes:
-    - "${STATUS_DIR}:/app-status:rw"
-    - "${BLAZEGRAPH_APP_DIR}:/app:ro"
-    - "${REPO_DIR}/docker/blazegraph-updater:/app-script:ro"
-    - "${OSM_TTLS_DIR}:/osm-rdf-ttls:ro"
+      - "${STATUS_DIR}:/app-status:rw"
+      - "${BLAZEGRAPH_APP_DIR}:/app:ro"
+      - "${REPO_DIR}/docker/blazegraph-updater:/app-script:ro"
+      - "${OSM_TTLS_DIR}:/osm-rdf-ttls:ro"
     working_dir: /app-script
     command: "./bg-updater.sh"
     environment:
@@ -167,9 +168,9 @@ services:
       BLAZEGRAPH_APP: "/app"
       BLAZEGRAPH_HOST: "http://blazegraph:9999"
     networks:
-    - blazegraph_net
+      - blazegraph_net
     depends_on:
-    - blazegraph
+      - blazegraph
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
@@ -180,22 +181,23 @@ services:
     memswap_limit: "${MEM_50_PRCNT_MB}m"
     mem_swappiness: 0
     volumes:
-    - "${BLAZEGRAPH_APP_DIR}:/app:ro"
-    - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # See BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
-    - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
+      - "${BLAZEGRAPH_APP_DIR}:/app:ro"
+      - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # See BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
+      - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
     working_dir: /app
     command: "./runBlazegraph.sh -h 0.0.0.0 -o '-Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF'" # Disable upstream warnings
     ports:
-    - "9999"
+      - "9999"
     networks:
-    - blazegraph_net
+      - blazegraph_net
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
     labels:
-    - "traefik.enable=true"
-    - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/bigdata/;Method:GET"
-    - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
+      - "traefik.enable=true"
+#      - "traefik.port=9999"
+      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/bigdata/;Method:GET"
+      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 
   # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
   # work_mem                        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-WORK-MEM
@@ -211,7 +213,7 @@ services:
   postgres:
     image: "openmaptiles/postgis:2.9"
     volumes:
-    - "${POSTGRES_DATA_DIR}:/var/lib/postgresql/data:rw"
+      - "${POSTGRES_DATA_DIR}:/var/lib/postgresql/data:rw"
     environment:
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
@@ -230,9 +232,9 @@ services:
       -c 'checkpoint_completion_target=0.7'
       -c 'random_page_cost=1.1'
     ports:
-    - "5432"
+      - "5432"
     networks:
-    - postgres_net
+      - postgres_net
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
