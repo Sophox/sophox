@@ -143,7 +143,7 @@ services:
     memswap_limit: "${MEM_65_PRCNT_MB}m"
     mem_swappiness: 0
     working_dir: "/app"
-    command: osm2rdf.sh
+    command: "./osm2rdf.sh"
     volumes:
       - "${REPO_DIR}/osm2rdf:/app:ro"
       - "${STATUS_DIR}:/app-status:rw"
