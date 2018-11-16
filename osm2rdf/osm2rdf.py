@@ -42,7 +42,7 @@ class Osm2rdf(object):
         parser_init = subparsers.add_parser('parse', help='Parses a PBF file into multiple .ttl.gz (Turtle files)')
         parser_init.add_argument('input_file', help='OSM input PBF file')
         parser_init.add_argument('output_dir', help='Output directory')
-        parser_init.add_argument('--max-statements', dest='maxStatementsPerFile', action='store', type=int, default=20000,
+        parser_init.add_argument('--max-statements', dest='maxStatementsPerFile', action='store', type=int, default=10000,
                                  help='Maximum number of statements, in thousands, per output file. (default: %(default)s)')
         parser_init.add_argument('--workers', action='store', dest='worker_count', default=4, type=int,
                                  help='Number of worker threads to run (default: %(default)s)')
