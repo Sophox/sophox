@@ -52,7 +52,7 @@ class RdfFileHandler(RdfHandler):
         self.pendingStatements = 0
         self.options.file_header = '\n'.join(['@' + p + ' .' for p in osmutils.prefixes]) + '\n\n'
 
-        self.queue = Queue(options.worker_count * 2)
+        self.queue = Queue(int(options.worker_count * 1.4))
 
         self.writers = []
         for id in range(options.worker_count):
