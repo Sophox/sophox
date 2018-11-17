@@ -21,11 +21,13 @@ if [[ ! -f "${FLAG_PG_IMPORTED}" ]]; then
     # osm2pgsql cache memory is per CPU, not total
     OSM_PGSQL_MEM_IMPORT_PER_CPU=$(( ${OSM_PGSQL_MEM_IMPORT} / ${OSM_PGSQL_CPU_IMPORT} ))
 
-    if [[ -f "${NODES_CACHE}" ]]; then
-        rm "${NODES_CACHE}"
-    fi
-    if [[ -f "${NODES_CACHE_TMP}" ]]; then
-        rm "${NODES_CACHE_TMP}"
+    if [[ -n "${IS_FULL_PLANET}" ]]; then
+      if [[ -f "${NODES_CACHE}" ]]; then
+          rm "${NODES_CACHE}"
+      fi
+      if [[ -f "${NODES_CACHE_TMP}" ]]; then
+          rm "${NODES_CACHE_TMP}"
+      fi
     fi
 
     set -x
@@ -35,7 +37,7 @@ if [[ ! -f "${FLAG_PG_IMPORTED}" ]]; then
         --host "${POSTGRES_HOST}" \
         --username "${POSTGRES_USER}" \
         --database "${POSTGRES_DB}" \
-        --flat-nodes "${NODES_CACHE_TMP}" \
+        ${IS_FULL_PLANET:+ --flat-nodes "${NODES_CACHE_TMP}"} \
         --cache "${OSM_PGSQL_MEM_IMPORT_PER_CPU}" \
         --number-processes "${OSM_PGSQL_CPU_IMPORT}" \
         --hstore \
@@ -44,10 +46,12 @@ if [[ ! -f "${FLAG_PG_IMPORTED}" ]]; then
         "${OSM_FILE_PATH}"
     { set +x; } 2>/dev/null
 
-    # If nodes.cache did not show up automatically in the data dir,
-    # the temp dir is the different from the data dir, so need to move it
-    if [[ ! -f "${NODES_CACHE}" ]]; then
-        mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
+    if [[ -n "${IS_FULL_PLANET}" ]]; then
+      # If nodes.cache did not show up automatically in the data dir,
+      # the temp dir is the different from the data dir, so need to move it
+      if [[ ! -f "${NODES_CACHE}" ]]; then
+          mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
+      fi
     fi
 
     echo "########### Creating Indexes ###########"
@@ -66,6 +70,8 @@ if [[ ! -f "${FLAG_PG_IMPORTED}" ]]; then
     if ls ${FLAGS_TO_DELETE_OSM_FILE} > /dev/null ; then
         set -e
         echo "Deleting ${OSM_FILE_PATH}"
+
+        echo "FIXME!!!!!!!!!!!!!!!!!!!!   Uncomment   rm ${OSM_FILE_PATH}"
         # rm "${OSM_FILE_PATH}"
     fi
     set -e
@@ -102,7 +108,7 @@ while :; do
         --host "${POSTGRES_HOST}" \
         --username "${POSTGRES_USER}" \
         --database "${POSTGRES_DB}" \
-        --flat-nodes "${NODES_CACHE}" \
+        ${IS_FULL_PLANET:+ --flat-nodes "${NODES_CACHE_TMP}"} \
         --cache "${OSM_PGSQL_MEM_UPDATE_PER_CPU}" \
         --number-processes "${OSM_PGSQL_CPU_UPDATE}" \
         --hstore \

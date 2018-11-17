@@ -28,7 +28,7 @@ services:
 #      - "80"
 #    labels:
 #      - "traefik.enable=true"
-#      - "traefik.frontend.rule=Host:staging.sophox.org;Method:GET"
+#      - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET"
 #    logging:
 #      driver: json-file
 #      options: {max-file: "3", max-size: "10m"}
@@ -43,7 +43,7 @@ services:
       - proxy_net
     labels:
       - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/mapshaper/;Method:GET"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/mapshaper/;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
     logging:
       driver: json-file
@@ -64,7 +64,7 @@ services:
 #      - blazegraph
 #    labels:
 #      - "traefik.enable=true"
-#      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/store/;Method:POST"
+#      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/store/;Method:POST"
 #    logging:
 #      driver: json-file
 #      options: {max-file: "3", max-size: "10m"}
@@ -92,7 +92,7 @@ services:
       - blazegraph
     labels:
       - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefixStrip:/regions/;Method:GET"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/regions/;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
     logging:
       driver: json-file
@@ -111,6 +111,7 @@ services:
     environment:
       FLAG_PG_IMPORTED: "/app-status/osm-pgsql.imported"
       FLAGS_TO_DELETE_OSM_FILE: "/app-status/osm-rdf.parsed /app-status/osm-pgsql.imported"
+      IS_FULL_PLANET: "${IS_FULL_PLANET}"
       OSM_FILE_PATH: "/downloads/${OSM_FILE}"
       POSTGRES_HOST: postgres
       POSTGRES_DB: gis
@@ -155,12 +156,13 @@ services:
       FLAG_TTL_PARSED: "/app-status/osm-rdf.parsed"     # Set this flag after parsing into TTLs
       FLAG_TTL_IMPORTED: "/app-status/osm-rdf.imported" # Wait for this flag before starting updates
       FLAGS_TO_DELETE_OSM_FILE: "/app-status/osm-rdf.parsed /app-status/osm-pgsql.imported"
+      IS_FULL_PLANET: "${IS_FULL_PLANET}"
       OSM_FILE_PATH: "/downloads/${OSM_FILE}"
       OSM_RDF_DATA: "/osm-rdf"
       OSM_RDF_TEMP: "/osm-rdf-temp"
       OSM_RDF_TTLS: "/osm-rdf-ttls"
-      OSM_RDF_WORKERS: 2
-      OSM_RDF_MAX_STMTS: 5000
+      OSM_RDF_WORKERS: "${OSM_RDF_WORKERS}"
+      OSM_RDF_MAX_STMTS: "${OSM_RDF_MAX_STMTS}"
       SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
     networks:
       - blazegraph_net
@@ -173,7 +175,7 @@ services:
   blazegraph-updater:
     # This container waits for FLAG_TTL_PARSED, imports TTLs into Blazegraph & sets FLAG_TTL_IMPORTED,
     # and continuously updates from OSM wiki
-    image: openjdk:8-jdk
+    image: "${BLAZEGRAPH_IMAGE}"
     # restart: always
     volumes:
       - "${STATUS_DIR}:/app-status:rw"
@@ -218,7 +220,7 @@ services:
       options: {max-file: "3", max-size: "10m"}
     labels:
       - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:staging.sophox.org;PathPrefix:/bigdata;Method:GET"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefix:/bigdata;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 
   # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
@@ -245,7 +247,7 @@ services:
       postgres
       -c 'shared_buffers=${MEM_15_PRCNT_MB}MB'
       -c 'work_mem=${MEM_5_PRCNT_MB}MB'
-      -c 'maintenance_work_mem=${MEM_15_PRCNT_MB}MB'
+      -c 'maintenance_work_mem=${MEM_20_PRCNT_MB}MB'
       -c 'effective_io_concurrency=200'
       -c 'max_worker_processes=5'
       -c 'max_parallel_workers_per_gather=2'

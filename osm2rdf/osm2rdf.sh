@@ -8,6 +8,8 @@ MAX_DOWNLOAD=5120
 NODES_CACHE="${OSM_RDF_DATA}/nodes.cache"
 NODES_CACHE_TMP="${OSM_RDF_TEMP}/nodes.cache"
 
+[[ -n "${IS_FULL_PLANET}" ]] && CACHE_STRATEGY="dense" || CACHE_STRATEGY="sparse"
+
 mkdir -p "${OSM_RDF_DATA}"
 mkdir -p "${OSM_RDF_TEMP}"
 
@@ -21,28 +23,32 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
         rm -rf "${OSM_RDF_TTLS}/*"
     fi
 
-    if [[ -f "${NODES_CACHE}" ]]; then
-        echo "Removing nodes cache ${NODES_CACHE}"
-        rm "${NODES_CACHE}"
-    fi
-    if [[ -f "${NODES_CACHE_TMP}" ]]; then
-        echo "Removing temporary nodes cache ${NODES_CACHE_TMP}"
-        rm "${NODES_CACHE_TMP}"
+    if [[ -n "${IS_FULL_PLANET}" ]]; then
+      if [[ -f "${NODES_CACHE}" ]]; then
+          echo "Removing nodes cache ${NODES_CACHE}"
+          rm "${NODES_CACHE}"
+      fi
+      if [[ -f "${NODES_CACHE_TMP}" ]]; then
+          echo "Removing temporary nodes cache ${NODES_CACHE_TMP}"
+          rm "${NODES_CACHE_TMP}"
+      fi
     fi
 
     set -x
-    python3 osm2rdf.py                             \
-        --nodes-file "${NODES_CACHE_TMP}"          \
-        --cache-strategy dense                     \
-        parse "${OSM_FILE_PATH}" "${OSM_RDF_TTLS}" \
-        --workers "${OSM_RDF_WORKERS}"             \
+    python3 osm2rdf.py                                        \
+        ${IS_FULL_PLANET:+ --nodes-file "${NODES_CACHE_TMP}"} \
+        --cache-strategy "${CACHE_STRATEGY}"                  \
+        parse "${OSM_FILE_PATH}" "${OSM_RDF_TTLS}"            \
+        --workers "${OSM_RDF_WORKERS}"                        \
         --max-statements "${OSM_RDF_MAX_STMTS}"
     { set +x; } 2>/dev/null
 
-    # If nodes.cache did not show up automatically in the data dir,
-    # the temp dir is the different from the data dir, so need to move it
-    if [[ ! -f "${NODES_CACHE}" ]]; then
-        mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
+    if [[ -n "${IS_FULL_PLANET}" ]]; then
+      # If nodes.cache did not show up automatically in the data dir,
+      # the temp dir is the different from the data dir, so need to move it
+      if [[ ! -f "${NODES_CACHE}" ]]; then
+          mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
+      fi
     fi
 
     touch "${FLAG_TTL_PARSED}"
@@ -54,7 +60,7 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
         set -e
         echo "Deleting ${OSM_FILE_PATH}"
 
-        #  FIXME!!!!!!!!!!!!!!!!!!!!   UNCOMMENT
+        echo "FIXME!!!!!!!!!!!!!!!!!!!!   Uncomment   rm ${OSM_FILE_PATH}"
         # rm "${OSM_FILE_PATH}"
     fi
 
@@ -86,12 +92,12 @@ while :; do
         set -x
     fi
 
-    python3 osm2rdf.py                   \
-        --nodes-file "${NODES_CACHE}"    \
-        --cache-strategy dense           \
-        update                           \
-        --host "${SOPHOX_URL}"           \
-        --max-download "${MAX_DOWNLOAD}" \
+    python3 osm2rdf.py                                    \
+        ${IS_FULL_PLANET:+ --nodes-file "${NODES_CACHE}"} \
+        --cache-strategy "${CACHE_STRATEGY}"              \
+        update                                            \
+        --host "${SOPHOX_URL}"                            \
+        --max-download "${MAX_DOWNLOAD}"                  \
         --update-url "${UPDATE_URL}"
 
     { set +x; } 2>/dev/null
