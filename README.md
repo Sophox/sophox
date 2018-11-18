@@ -2,12 +2,12 @@
 
 ## Installation
 
-Sophox should be installed on a sufficiently large (40+ GB RAM, 1TB Disk) server, preferably SSD NVMe disk.  In some cases, e.g. Google Cloud, a local SSD scratch disk is recommended.
+Full planet Sophox should be installed on a sufficiently large (40+ GB RAM, 1TB Disk) server, preferably SSD NVMe disk.  In case of Google Cloud, a local SSD scratch disk is also recommended.  Use environment variables to override what data gets loaded - see [docker/startup.local.sh](docker/startup.local.sh) how to run Sophox locally and with a small OSM file.   If ran with `startup.local.sh`, use  http://sophox.localhost  to browse it.
 
 The server must have `bash`, `docker`, `curl`, and `git`.  Everything else is loaded inside docker containers.
 
 ### Google Cloud
-* Create a `custom-6-39936` VM (6 vCPUs, 36GB RAM) or better.
+* Create a `custom-6-39936` VM (6 vCPUs, 36GB RAM) or better with a 15GB boot disk, and attach a 1TB Persisted SSD disk.
 * Set VM startup script to the following line, and the service should be ready in two to three days.  Insert any env var overrides right before, e.g. `export SOPHOX_HOST=example.org; curl ... | bash`
 ```
 curl https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.sh | bash
@@ -23,9 +23,10 @@ sudo journalctl -u google-startup-scripts.service
 * See docker statistics:  `docker stats`
 * View docker containers:  `docker ps`
 * See individual docker's log:  `docker logs <container-id>` _(ID can be just the first few digits)_
+* localhost:8080 shows Traefik's configuration and statistics.
 
 ## Automated Installation Steps
-These steps are done automatically by the startup scripts. Many of the steps create empty `status` files in the `data/status` directory, indicating that a specific step is complete. This prevents full rebuild when the server is restarted. 
+These steps are done automatically by the startup scripts. Many of the steps create empty `status` files in the `data/status` directory, indicating that a specific step is complete. This prevents full rebuild when the server is restarted.
 
 ##### [startup.sh](docker/startup.sh)
 * Format and mount `/dev/sdb` as `/mnt/disks/data` _(Use env var `DATA_DEV` and `DATA_DIR` to override)_
@@ -38,15 +39,10 @@ These steps are done automatically by the startup scripts. Many of the steps cre
 * Run docker containers with [docker-compose.yml](docker/docker-compose.yml)
 
 ## Development
-Use [docker/startup.local.sh](docker/startup.local.sh) to run Sophox locally with a small OSM file.  You may want to change some parameters in it, e.g. the location of the data directory.
 
 
-# TODO
-The following docs need to be updated
 
-## Development
-
-Make sure to run this in order to autmotacally use ssh instead of https:
+If you have commit access to the Sophox repositor, make sure to run this in order to automatically use ssh instead of https for submodules.
 ```
 git config --global url.ssh://git@github.com/.insteadOf https://github.com/
 ```
