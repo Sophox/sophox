@@ -23,8 +23,8 @@ set -e
 : "${OSM_FILE_MD5_URL:=https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf.md5}"
 : "${BACKFILL_DAYS:=14}" # number of days to go back relative to today
 
-# Increase this value to adjust total available memory. E.g. 1.2 would reduce it by 20%
-: "${TOTAL_MEMORY_DIVIDER:=1}"
+# Percentage (integer) of the total memory to be used by Sophox, e.g. 80 for 80% of the total
+: "${TOTAL_MEMORY_PRCNT:=100}"
 
 if [[ "${IS_FULL_PLANET}" = "false" ]]; then
   IS_FULL_PLANET=""
@@ -49,11 +49,26 @@ BLAZEGRAPH_IMAGE=openjdk:8-jdk
 # This path must match docker-compose.yml - blazegraph volume
 BLAZEGRAPH_JNL_DATA_FILE=/app-data/osmdata.jnl
 
-TOTAL_MEMORY_MB=$(( $(free | awk '/^Mem:/{print $2}') / ${TOTAL_MEMORY_DIVIDER} / 1024 ))
+# If DEBUG env is not set, run docker compose in the detached (service) mode
+DETACH_DOCKER_COMPOSE=$( [[ "${DEBUG}" == "" ]] && echo "true" || echo "" )
+# Do not use https redirect and Let's Encrypt certs when debugging
+TRAEFIK_FILE=$( [[ "${DEBUG}" == "" ]] && echo "${REPO_DIR}/docker/traefik.toml" || echo "${REPO_DIR}/docker/traefik.debug.toml" )
+TRAEFIK_HOST=$( [[ "${DEBUG}" == "" ]] && echo "0.0.0.0" || echo "127.0.0.1" )
+
+# Get total system memory, reducing it by some optional percentage, in MB
+TOTAL_MEMORY_MB=$(( $(free | awk '/^Mem:/{print $2}') * ${TOTAL_MEMORY_PRCNT} / 100 / 1024 ))
 
 # MEM = 40000 MB ~~ max statements = 10000 / workers count
 OSM_RDF_WORKERS=2
 OSM_RDF_MAX_STMTS=$(( ${TOTAL_MEMORY_MB} / 4 / ${OSM_RDF_WORKERS} ))
+
+# Blazegraph - full should be maxed at 16g, partial can be maxed at 2g
+if [[ -n "${IS_FULL_PLANET}" ]]; then
+  MEM_BLAZEGRAPH_MB=$(( 16 * 1024 ))
+else
+  MEM_BLAZEGRAPH_MB=$(( 2 * 1024 ))
+fi
+MEM_BLAZEGRAPH_MB=$(( ${TOTAL_MEMORY_MB} / 2 > ${MEM_BLAZEGRAPH_MB} ? ${MEM_BLAZEGRAPH_MB} : ${TOTAL_MEMORY_MB} / 2 ))
 
 #
 # #####################  Initialize and Mount Persisted Disk
@@ -134,24 +149,24 @@ mkdir -p "${STATUS_DIR}"
 #
 
 if [[ "${REPO_URL}" = "-" ]]; then
-   echo "########### REPO_URL is not set, skipping git clone/update ###########"
+   echo "REPO_URL is not set, skipping git clone/update"
 else
-  echo "########### Git repo ${REPO_URL} #${REPO_BRANCH} to ${REPO_DIR} ###########"
   if [[ ! -d "${REPO_DIR}" ]]; then
+    echo "########### Cloning git repo ${REPO_URL} #${REPO_BRANCH} to ${REPO_DIR}"
     git clone -b "${REPO_BRANCH}" --recurse-submodules -j4 "${REPO_URL}" "${REPO_DIR}"
   fi
   if [[ ! -d "${REPO_DIR}/.git" ]]; then
-    echo "${REPO_DIR} has no .git directory"
+    echo "ERROR: ${REPO_DIR} has no .git directory"
     exit 1
   fi
 
   cd "${REPO_DIR}"
   if git diff-files --quiet; then
-      echo "Pulling latest from github"
+      echo "git pull and submodule opdate from ${REPO_URL} in ${REPO_DIR}"
       git pull
       git submodule update --init --recursive
   else
-      echo "GIT repo has local changes, skipping git pull..."
+      echo "git repo ${REPO_DIR} has local changes, update skipped"
       git status
   fi
 fi
@@ -243,7 +258,23 @@ init_state "${OSM_PGSQL_DATA_DIR}"
 # #####################  Compile Blazegraph
 #
 
-FLAG_BUILD_BLAZE="${STATUS_DIR}/blazegraph.build"
+function cleanup_git_repo {
+    # Cleanup the source code dir
+    if [[ "${REPO_URL}" = "-" ]]; then
+       echo "REPO_URL is not set, skipping git clean for ${PWD}"
+    else
+      if git diff-files --quiet; then
+        echo "Cleaning ${PWD}"
+        git clean -fdx
+      else
+        echo "GIT repo ${PWD} has local changes, skipping git clean..."
+        git status
+      fi
+    fi
+}
+
+cd "${REPO_DIR}/wikidata-query-rdf"
+FLAG_BUILD_BLAZE="${STATUS_DIR}/blazegraph.build.$(git rev-parse HEAD || echo 'no_git_dir')"
 if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
 
     # Extract the version number from the line right above the <packaging>pom</packaging>
@@ -251,16 +282,7 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
         | head --lines=1 \
         | sed 's/^[^>]*>\([^<]*\)<.*$/\1/g')
     echo "########### Building Blazegraph ${BLAZE_VERSION} ###########"
-
-    # Cleanup the source code dir
-    cd "${REPO_DIR}/wikidata-query-rdf"
-    if git diff-files --quiet; then
-        echo "Cleaning ${PWD}"
-        git clean -fdx
-    else
-        echo "GIT repo ${PWD} has local changes, skipping git clean..."
-        git status
-    fi
+    cleanup_git_repo
 
     # Compile & package Blazegraph, and extract result to the /blazegraph dir
     set -x
@@ -268,7 +290,8 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
         -v "${REPO_DIR}/wikidata-query-rdf:/app-src:rw" \
         -v "${BLAZEGRAPH_APP_DIR}:/app:rw" \
         -v "${BLAZEGRAPH_DATA_DIR}:/app-data:rw" \
-        -w /app-src maven:3.6.0-jdk-8 \
+        -w /app-src \
+        maven:3.6.0-jdk-8 \
         sh -c "\
             mvn package -DskipTests=true -DskipITs=true && \
             rm -rf /app/* && \
@@ -288,11 +311,38 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
 fi
 
 #
-# #####################  Run docker-compose from a docker container
+# #####################  Compile Wikibase GUI
 #
 
-# If DEBUG env is not set, run docker compose in the detached (service) mode
-DETACH="" && [[ "${DEBUG}" == "" ]] && DETACH=true
+cd "${REPO_DIR}/wikidata-query-gui"
+FLAG_BUILD_GUI="${STATUS_DIR}/gui.build.$(git rev-parse HEAD || echo 'no_git_dir')"
+if [[ ! -f "${FLAG_BUILD_GUI}" ]]; then
+
+    echo "########### Building GUI ###########"
+    cleanup_git_repo
+
+    # Compile & package wikibase-query-gui
+    set -x
+    docker run --rm \
+        -v "${REPO_DIR}:/app-src:rw" \
+        -v "${BLAZEGRAPH_APP_DIR}:/app:rw" \
+        -v "${BLAZEGRAPH_DATA_DIR}:/app-data:rw" \
+        -w /app-src \
+        node:10.11-alpine \
+        sh -c "\
+            apk add --no-cache git bash && \
+            cd /app-src/wikidata-query-gui && \
+            npm install && \
+            npm run build"
+
+        { set +x; } 2>/dev/null
+
+    touch "${FLAG_BUILD_GUI}"
+fi
+
+#
+# #####################  Run docker-compose from a docker container
+#
 
 # In case there is a local SSD, use it as the temp storage, otherwise use data dir.
 OSM_PGSQL_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_PGSQL_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
@@ -301,41 +351,49 @@ OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || e
 echo "########### Starting Docker-compose ###########"
 export POSTGRES_PASSWORD
 
+NETWORK_NAME=proxy_net
+if [[ -z $(docker network ls --filter "name=^${NETWORK_NAME}$" --format="{{ .Name }}") ]] ; then
+     docker network create "${NETWORK_NAME}"
+fi
+
 set -x
-docker run --rm                                           \
-    -e "REPO_DIR=${REPO_DIR}"                             \
-    -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"             \
-    -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"         \
-    -e "BLAZEGRAPH_DATA_DIR=${BLAZEGRAPH_DATA_DIR}"       \
-    -e "STATUS_DIR=${STATUS_DIR}"                         \
-    -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                     \
-    -e "ACME_FILE=${ACME_FILE}"                           \
-    -e "SOPHOX_HOST=${SOPHOX_HOST}"                       \
-    -e "POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR}"           \
-    -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                 \
-    -e "OSM_FILE=${OSM_FILE}"                             \
-    -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"         \
-    -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"         \
-    -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"             \
-    -e "OSM_RDF_TEMP_DIR=${OSM_RDF_TEMP_DIR}"             \
-    -e "OSM_RDF_WORKERS=${OSM_RDF_WORKERS}"               \
-    -e "OSM_RDF_MAX_STMTS=${OSM_RDF_MAX_STMTS}"           \
-    -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                     \
-    -e "MEM_5_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*5/100 ))"   \
-    -e "MEM_15_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*15/100 ))" \
-    -e "MEM_20_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*20/100 ))" \
-    -e "MEM_50_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*50/100 ))" \
-    -e "MEM_65_PRCNT_MB=$(( ${TOTAL_MEMORY_MB}*65/100 ))" \
-    -e BUILD_DIR=/git_repo                                \
-    -e POSTGRES_PASSWORD                                  \
-                                                          \
-    -v "${REPO_DIR}:/git_repo"                            \
-    -v /var/run/docker.sock:/var/run/docker.sock          \
-                                                          \
-    docker/compose:1.23.1                                 \
-    --file "/git_repo/${COMPOSE_FILE}"                    \
-    --project-name sophox                                 \
-    up ${DETACH:+ --detach}
+docker run --rm                                               \
+    -e "REPO_DIR=${REPO_DIR}"                                 \
+    -e "TRAEFIK_FILE=${TRAEFIK_FILE}"                         \
+    -e "TRAEFIK_HOST=${TRAEFIK_HOST}"                         \
+    -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                 \
+    -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"             \
+    -e "BLAZEGRAPH_DATA_DIR=${BLAZEGRAPH_DATA_DIR}"           \
+    -e "STATUS_DIR=${STATUS_DIR}"                             \
+    -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                         \
+    -e "ACME_FILE=${ACME_FILE}"                               \
+    -e "SOPHOX_HOST=${SOPHOX_HOST}"                           \
+    -e "POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR}"               \
+    -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                     \
+    -e "OSM_FILE=${OSM_FILE}"                                 \
+    -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"             \
+    -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"             \
+    -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"                 \
+    -e "OSM_RDF_TEMP_DIR=${OSM_RDF_TEMP_DIR}"                 \
+    -e "OSM_RDF_WORKERS=${OSM_RDF_WORKERS}"                   \
+    -e "OSM_RDF_MAX_STMTS=${OSM_RDF_MAX_STMTS}"               \
+    -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                         \
+    -e "MEM_BLAZEGRAPH_MB=${MEM_BLAZEGRAPH_MB}"               \
+    -e "MEM_5_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 5 / 100 ))"   \
+    -e "MEM_15_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 15 / 100 ))" \
+    -e "MEM_20_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 20 / 100 ))" \
+    -e "MEM_50_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 50 / 100 ))" \
+    -e "MEM_65_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 65 / 100 ))" \
+    -e BUILD_DIR=/git_repo                                    \
+    -e POSTGRES_PASSWORD                                      \
+                                                              \
+    -v "${REPO_DIR}:/git_repo"                                \
+    -v /var/run/docker.sock:/var/run/docker.sock              \
+                                                              \
+    docker/compose:1.23.1                                     \
+    --file "/git_repo/${COMPOSE_FILE}"                        \
+    --project-name sophox                                     \
+    up ${DETACH_DOCKER_COMPOSE:+ --detach}
 { set +x; } 2>/dev/null
 
 echo "########### Docker-compose finished, exiting ###########"

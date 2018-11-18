@@ -37,7 +37,8 @@ These steps are done automatically by the startup scripts. Many of the steps cre
 * Compile Blazegraph from [/wikidata-query-rdf](wikidata-query-rdf)  (creates _status/blazegraph.build_)
 * Run docker containers with [docker-compose.yml](docker/docker-compose.yml)
 
-
+## Development
+Use [docker/startup.local.sh](docker/startup.local.sh) to run Sophox locally with a small OSM file.  You may want to change some parameters in it, e.g. the location of the data directory.
 
 
 # TODO

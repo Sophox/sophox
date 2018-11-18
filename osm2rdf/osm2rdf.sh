@@ -23,32 +23,28 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
         rm -rf "${OSM_RDF_TTLS}/*"
     fi
 
-    if [[ -n "${IS_FULL_PLANET}" ]]; then
-      if [[ -f "${NODES_CACHE}" ]]; then
-          echo "Removing nodes cache ${NODES_CACHE}"
-          rm "${NODES_CACHE}"
-      fi
-      if [[ -f "${NODES_CACHE_TMP}" ]]; then
-          echo "Removing temporary nodes cache ${NODES_CACHE_TMP}"
-          rm "${NODES_CACHE_TMP}"
-      fi
+    if [[ -f "${NODES_CACHE}" ]]; then
+        echo "Removing nodes cache ${NODES_CACHE}"
+        rm "${NODES_CACHE}"
+    fi
+    if [[ -f "${NODES_CACHE_TMP}" ]]; then
+        echo "Removing temporary nodes cache ${NODES_CACHE_TMP}"
+        rm "${NODES_CACHE_TMP}"
     fi
 
     set -x
     python3 osm2rdf.py                                        \
-        ${IS_FULL_PLANET:+ --nodes-file "${NODES_CACHE_TMP}"} \
+        --nodes-file "${NODES_CACHE_TMP}"                     \
         --cache-strategy "${CACHE_STRATEGY}"                  \
         parse "${OSM_FILE_PATH}" "${OSM_RDF_TTLS}"            \
         --workers "${OSM_RDF_WORKERS}"                        \
         --max-statements "${OSM_RDF_MAX_STMTS}"
     { set +x; } 2>/dev/null
 
-    if [[ -n "${IS_FULL_PLANET}" ]]; then
-      # If nodes.cache did not show up automatically in the data dir,
-      # the temp dir is the different from the data dir, so need to move it
-      if [[ ! -f "${NODES_CACHE}" ]]; then
-          mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
-      fi
+    # If nodes.cache did not show up automatically in the data dir,
+    # the temp dir is the different from the data dir, so need to move it
+    if [[ ! -f "${NODES_CACHE}" ]]; then
+        mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
     fi
 
     touch "${FLAG_TTL_PARSED}"
@@ -84,6 +80,9 @@ echo "########### Running osm2rdf updater ###########"
 set +e
 FIRST_LOOP=true
 
+# Give a few seconds to Blazegraph to start if needed
+sleep 10
+
 while :; do
 
     # First iteration - log the osm2rdf.py command
@@ -93,7 +92,7 @@ while :; do
     fi
 
     python3 osm2rdf.py                                    \
-        ${IS_FULL_PLANET:+ --nodes-file "${NODES_CACHE}"} \
+        --nodes-file "${NODES_CACHE}"                     \
         --cache-strategy "${CACHE_STRATEGY}"              \
         update                                            \
         --host "${SOPHOX_URL}"                            \

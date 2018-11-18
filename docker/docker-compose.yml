@@ -7,31 +7,46 @@ services:
     image: traefik
     # restart: always
     ports:
-      - "80:80"
-      - "443:443"
+      - "${TRAEFIK_HOST}:80:80"
+      - "${TRAEFIK_HOST}:443:443"
       - "127.0.0.1:8080:8080"
     networks:
     - proxy_net
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "${REPO_DIR}/docker/traefik.toml:/traefik.toml:ro"
+      - "${TRAEFIK_FILE}:/traefik.toml:ro"
       - "${ACME_FILE}:/acme.json:rw"
+    environment:
+      SOPHOX_HOST: "${SOPHOX_HOST}"
     container_name: traefik
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
-#  sophox-gui:
-#    # Main web interface
-#    build: https://github.com/nickpeihl/wikidata-query-gui.git#dockerize
-#    ports:
-#      - "80"
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET"
-#    logging:
-#      driver: json-file
-#      options: {max-file: "3", max-size: "10m"}
+  sophox-gui:
+    # Main web interface
+    image: nginx:latest
+    restart: always
+    volumes:
+      - "${REPO_DIR}/wikidata-query-gui/build:/usr/share/nginx/html:ro"
+    #      - $(pwd)/nginx-cache:/var/cache/nginx
+    #      - $(pwd)/nginx-pid:/var/run
+    # - "${REPO_DIR}/wikidata-query-gui/dist:/var/www:ro"
+    # - /etc/nginx/nginx-pro/:/etc/nginx
+    ports:
+      - "80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET"
+#          -v "${REPO_DIR}:/app-src:rw" \
+#          -v "${BLAZEGRAPH_APP_DIR}:/app:rw" \
+#          -v "${BLAZEGRAPH_DATA_DIR}:/app-data:rw" \
+    networks:
+      - proxy_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
 
   mapshaper:
     # Extra web UI tool to process map geometry results
@@ -43,6 +58,7 @@ services:
       - proxy_net
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
       - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/mapshaper/;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
     logging:
@@ -64,6 +80,7 @@ services:
 #      - blazegraph
 #    labels:
 #      - "traefik.enable=true"
+#      - "traefik.docker.network=proxy_net"
 #      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/store/;Method:POST"
 #    logging:
 #      driver: json-file
@@ -92,6 +109,7 @@ services:
       - blazegraph
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
       - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/regions/;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
     logging:
@@ -187,6 +205,7 @@ services:
     environment:
       FLAG_TTL_PARSED: "/app-status/osm-rdf.parsed"      # Wait for this flag
       FLAG_TTL_IMPORTED: "/app-status/osm-rdf.imported"  # Set this flag after import and exit
+      FLAG_TTL_IMPORT_FAIL: "/app-status/osm-rdf.import.failed"  # In case of an import error - stops further ttl steps
       OSM_RDF_TTLS: "/osm-rdf-ttls" # Must match Blazegraph container's volume name
       BLAZEGRAPH_APP: "/app"
       BLAZEGRAPH_HOST: "http://blazegraph:9999"
@@ -209,7 +228,10 @@ services:
       - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # See BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
       - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
     working_dir: /app
-    command: "./runBlazegraph.sh -h 0.0.0.0 -o '-Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF'" # Disable upstream warnings
+    command: "./runBlazegraph.sh -o '-Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF'" # Disable upstream warnings
+    environment:
+      HEAP_SIZE: "${MEM_BLAZEGRAPH_MB}m"
+      HOST: "0.0.0.0"
     ports:
       - "9999"
     networks:
@@ -220,6 +242,7 @@ services:
       options: {max-file: "3", max-size: "10m"}
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
       - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefix:/bigdata;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 
@@ -265,6 +288,7 @@ services:
       options: {max-file: "3", max-size: "10m"}
 
 networks:
+  proxy_net:
+    external: true
   postgres_net:
   blazegraph_net:
-  proxy_net:

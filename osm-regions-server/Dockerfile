@@ -1,7 +1,6 @@
 FROM node:10.11-alpine
 LABEL maintainer='Nick Peihl <nick.peihl@elastic.co>, Yuri Astrakhan <YuriAstrakhan@gmail.com>'
 
-# RUN mkdir -p /app
 WORKDIR /app
 
 COPY package*.json ./
