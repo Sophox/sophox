@@ -29,19 +29,12 @@ services:
     restart: always
     volumes:
       - "${REPO_DIR}/wikidata-query-gui/build:/usr/share/nginx/html:ro"
-    #      - $(pwd)/nginx-cache:/var/cache/nginx
-    #      - $(pwd)/nginx-pid:/var/run
-    # - "${REPO_DIR}/wikidata-query-gui/dist:/var/www:ro"
-    # - /etc/nginx/nginx-pro/:/etc/nginx
     ports:
       - "80"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy_net"
       - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET"
-#          -v "${REPO_DIR}:/app-src:rw" \
-#          -v "${BLAZEGRAPH_APP_DIR}:/app:rw" \
-#          -v "${BLAZEGRAPH_DATA_DIR}:/app-data:rw" \
     networks:
       - proxy_net
     logging:
