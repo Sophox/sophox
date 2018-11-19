@@ -99,8 +99,15 @@ while :; do
         --max-download "${MAX_DOWNLOAD}"                  \
         --update-url "${UPDATE_URL}"
 
+    retCode=$?
     { set +x; } 2>/dev/null
-    echo "osm2rdf updater crashed with exit code $?.  Re-spawning in 5 seconds" >&2
+
+    if [[ ${retCode} = 0 ]]; then
+        echo "osm2rdf exited with code=0, stopping" >&2
+        exit
+    fi
+
+    echo "osm2rdf updater crashed with exit code $retCode.  Re-spawning in 5 seconds" >&2
     sleep 5
 
 done

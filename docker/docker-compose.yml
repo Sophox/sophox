@@ -65,26 +65,26 @@ services:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
-#  vote-server:
-#    # Records user votes for feature modification
-#    build: "${BUILD_DIR}/vote-server"
-#    # restart: always
-#    environment:
-#      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
-#    ports:
-#      - "9979"
-#    networks:
-#      - proxy_net
-#      - blazegraph_net
-#    depends_on:
-#      - blazegraph
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.docker.network=proxy_net"
-#      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/store/;Method:POST"
-#    logging:
-#      driver: json-file
-#      options: {max-file: "3", max-size: "10m"}
+  vote-server:
+    # Records user votes for feature modification
+    build: "${BUILD_DIR}/vote-server"
+    # restart: always
+    environment:
+      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
+    ports:
+      - "9979"
+    networks:
+      - proxy_net
+      - blazegraph_net
+    depends_on:
+      - blazegraph
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/store/;Method:PUT,DELETE,OPTIONS"
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
 
   osm-regions:
     # Serves geoshapes from Postgres, attaching them to the SPARQL query results
@@ -206,9 +206,11 @@ services:
       FLAG_TTL_PARSED: "/app-status/osm-rdf.parsed"      # Wait for this flag
       FLAG_TTL_IMPORTED: "/app-status/osm-rdf.imported"  # Set this flag after import and exit
       FLAG_TTL_IMPORT_FAIL: "/app-status/osm-rdf.import.failed"  # In case of an import error - stops further ttl steps
+      FLAG_WB_INITIALIZED: "/app-status/wikibase.initialized"  # Indicates that runUpdate has already been ran with old start date
       OSM_RDF_TTLS: "/osm-rdf-ttls" # Must match Blazegraph container's volume name
       BLAZEGRAPH_APP: "/app"
       BLAZEGRAPH_HOST: "http://blazegraph:9999"
+      WB_CONCEPT_URI: "${WB_CONCEPT_URI}"
     networks:
       - blazegraph_net
     depends_on:
@@ -228,10 +230,14 @@ services:
       - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # See BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
       - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
     working_dir: /app
-    command: "./runBlazegraph.sh -o '-Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF'" # Disable upstream warnings
+    command: "./runBlazegraph.sh"
     environment:
       HEAP_SIZE: "${MEM_BLAZEGRAPH_MB}m"
       HOST: "0.0.0.0"
+      BLAZEGRAPH_OPTS: >-
+        -Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF
+        -DwikibaseConceptUri=${WB_CONCEPT_URI}
+        -DwikibaseServiceEnableWhitelist=false
     ports:
       - "9999"
     networks:
@@ -246,17 +252,6 @@ services:
       - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefix:/bigdata;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 
-  # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
-  # work_mem                        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-WORK-MEM
-  # maintenance_work_mem            https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAINTENANCE-WORK-MEM
-  # effective_io_concurrency        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-EFFECTIVE-IO-CONCURRENCY
-  # max_worker_processes            https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAX-WORKER-PROCESSES
-  # max_parallel_workers_per_gather https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAX-PARALLEL-WORKERS-PER-GATHER
-  # checkpoint_timeout              https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-CHECKPOINT-TIMEOUT
-  # max_wal_size                    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-MAX-WAL-SIZE
-  # min_wal_size                    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-MIN-WAL-SIZE
-  # checkpoint_completion_target    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-CHECKPOINT-COMPLETION-TARGET
-  # random_page_cost                https://www.postgresql.org/docs/9.6/runtime-config-query.html#GUC-RANDOM-PAGE-COST
   postgres:
     image: "openmaptiles/postgis:2.9"
     # restart: always
@@ -266,6 +261,17 @@ services:
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
       POSTGRES_PASSWORD:
+    # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
+    # work_mem                        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-WORK-MEM
+    # maintenance_work_mem            https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAINTENANCE-WORK-MEM
+    # effective_io_concurrency        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-EFFECTIVE-IO-CONCURRENCY
+    # max_worker_processes            https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAX-WORKER-PROCESSES
+    # max_parallel_workers_per_gather https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAX-PARALLEL-WORKERS-PER-GATHER
+    # checkpoint_timeout              https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-CHECKPOINT-TIMEOUT
+    # max_wal_size                    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-MAX-WAL-SIZE
+    # min_wal_size                    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-MIN-WAL-SIZE
+    # checkpoint_completion_target    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-CHECKPOINT-COMPLETION-TARGET
+    # random_page_cost                https://www.postgresql.org/docs/9.6/runtime-config-query.html#GUC-RANDOM-PAGE-COST
     command: >-
       postgres
       -c 'shared_buffers=${MEM_15_PRCNT_MB}MB'

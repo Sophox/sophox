@@ -43,6 +43,7 @@ DOWNLOAD_DIR=${DATA_DIR}/download
 OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
 OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
 OSM_TTLS_DIR=${DATA_DIR}/osm-rdf-ttls
+WB_CONCEPT_URI="http://wiki.openstreetmap.org"
 BLAZEGRAPH_ENDPOINTS='"wiki.openstreetmap.org"'
 BLAZEGRAPH_IMAGE=openjdk:8-jdk
 
@@ -162,7 +163,7 @@ else
 
   cd "${REPO_DIR}"
   if git diff-files --quiet; then
-      echo "git pull and submodule opdate from ${REPO_URL} in ${REPO_DIR}"
+      echo "git pull and submodule update from ${REPO_URL} in ${REPO_DIR}"
       git pull
       git submodule update --init --recursive
   else
@@ -219,10 +220,14 @@ if [[ ! -f "${FLAG_DOWNLOADED}" ]]; then
 
     if [[ "${OSM_FILE_MD5_URL}" != "-" ]]; then
       pushd "${DOWNLOAD_DIR}" > /dev/null
-      echo "########### Validating download md5 for ${OSM_FILE} ###########"
-      set -x
-      md5sum --check "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
-      { set +x; } 2>/dev/null
+      echo "########### Validating ${OSM_FILE} md5 hash ###########"
+      if which md5sum; then
+        set -x
+        md5sum --check "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
+        { set +x; } 2>/dev/null
+      else
+        echo "WARNING:  You do not have md5sum installed, unable to verify md5 hash"
+      fi
       popd > /dev/null
     fi
 
@@ -378,6 +383,7 @@ docker run --rm                                               \
     -e "OSM_RDF_WORKERS=${OSM_RDF_WORKERS}"                   \
     -e "OSM_RDF_MAX_STMTS=${OSM_RDF_MAX_STMTS}"               \
     -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                         \
+    -e "WB_CONCEPT_URI=${WB_CONCEPT_URI}"                     \
     -e "MEM_BLAZEGRAPH_MB=${MEM_BLAZEGRAPH_MB}"               \
     -e "MEM_5_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 5 / 100 ))"   \
     -e "MEM_15_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 15 / 100 ))" \

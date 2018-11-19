@@ -6,6 +6,8 @@ Full planet Sophox should be installed on a sufficiently large (40+ GB RAM, 1TB 
 
 The server must have `bash`, `docker`, `curl`, and `git`.  Everything else is loaded inside docker containers.
 
+When cloning, make sure you get submodules (e.g. `git submodule update --init --recursive`)
+
 ### Google Cloud
 * Create a `custom-6-39936` VM (6 vCPUs, 36GB RAM) or better with a 15GB boot disk, and attach a 1TB Persisted SSD disk.
 * Set VM startup script to the following line, and the service should be ready in two to three days.  Insert any env var overrides right before, e.g. `export SOPHOX_HOST=example.org; curl ... | bash`
@@ -40,9 +42,9 @@ These steps are done automatically by the startup scripts. Many of the steps cre
 
 ## Development
 
+Clone the repo with submodules.
 
-
-If you have commit access to the Sophox repositor, make sure to run this in order to automatically use ssh instead of https for submodules.
+If you have commit access to the Sophox repository, make sure to run this in order to automatically use ssh instead of https for submodules.
 ```
 git config --global url.ssh://git@github.com/.insteadOf https://github.com/
 ```
