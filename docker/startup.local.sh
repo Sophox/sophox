@@ -1,33 +1,31 @@
 #!/usr/bin/env bash
 
 #
-# Use this script instead of startup.sh to run Sophox locally in the debug mode, with a much smaller file
+# Use this script to run Sophox locally in the debug mode, with a small OSM file
 #
 
-export REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null && pwd )"
-export REPO_URL=-
+# Assume this script is ran from the git repo
+REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null && pwd )"
+REPO_URL=-
 
-export DATA_DIR="${REPO_DIR}/_data_dir"
+# Create a data dir in /_data_dir, relative to the root of the repo
+DATA_DIR="${REPO_DIR}/_data_dir"
 mkdir -p "${DATA_DIR}"
 
-export TEMP_DIR="${DATA_DIR}"
+SOPHOX_HOST=sophox.localhost
 
-export DATA_DEV=-
-export TEMP_DEV=-
+IS_FULL_PLANET=false
+OSM_FILE=new-jersey-latest.osm.pbf
+OSM_FILE_URL=http://download.geofabrik.de/north-america/us/${OSM_FILE}
+OSM_FILE_MD5_URL="${OSM_FILE_URL}.md5"
 
-export SOPHOX_HOST=sophox.localhost
+# No need to backfill for testing
+BACKFILL_DAYS=0
 
-export OSM_FILE=new-jersey-latest.osm.pbf
-export OSM_FILE_URL=http://download.geofabrik.de/north-america/us/new-jersey-latest.osm.pbf
-export OSM_FILE_MD5_URL="${OSM_FILE_URL}.md5"
-export BACKFILL_DAYS=0
-export IS_FULL_PLANET=false
+TOTAL_MEMORY_PRCNT=30
+DEBUG=true
 
-export TOTAL_MEMORY_PRCNT=60
-export DEBUG=true
+STARTUP_SCRIPT=${REPO_DIR}/docker/startup.sh
 
-echo "Running in the local (debug) mode"
-echo "REPO_DIR=${REPO_DIR}"
-echo "DATA_DIR=${DATA_DIR}"
-
-"${REPO_DIR}/docker/startup.sh"
+echo "Starting up ${STARTUP_SCRIPT}"
+source "${STARTUP_SCRIPT}"

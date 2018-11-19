@@ -6,31 +6,73 @@ set -e
 #    sudo journalctl -u google-startup-scripts.service
 #
 
-# These vars could be customized.  Use "-" for the *_DEV to skip
-: "${DATA_DEV:=/dev/sdb}"
-: "${DATA_DIR:=/mnt/disks/data}"
-: "${TEMP_DEV:=/dev/nvme0n1}"
-: "${TEMP_DIR:=/mnt/disks/temp}"
+################ Input variables. Only DATA_DIR is required
 
-: "${SOPHOX_HOST:=staging.sophox.org}"
+if [[ -z "${DATA_DIR}" ]]; then
+  echo "Must set DATA_DIR before running this script"
+  exit 1
+fi
 
+#  If set, attempts to mount and format (if needed) these devices as DATA_DIR and TEMP_DIR
+: "${DATA_DEV:=}"
+: "${TEMP_DEV:=}"
+
+# Optional location of the temporary files.  Presumes to be ~350GB of SSD space
+: "${TEMP_DIR:=}"
+
+# Domain of this service
+: "${SOPHOX_HOST:=sophox.org}"
+
+# Sophox GIT repository clone - directory, git url, git branch
+# Set REPO_URL to "-" to prevent automatic git clone
 : "${REPO_DIR:=${DATA_DIR}/git-repo}"
 : "${REPO_URL:=https://github.com/Sophox/sophox.git}"
-: "${REPO_BRANCH:=gcp}"
+: "${REPO_BRANCH:=master}"
 
-: "${OSM_FILE:=planet-latest.osm.pbf}"
-: "${OSM_FILE_URL:=https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf}"
-: "${OSM_FILE_MD5_URL:=https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf.md5}"
-: "${BACKFILL_DAYS:=14}" # number of days to go back relative to today
+# Which OSM dump file to download, what to save it as, and the optional URL of the md5 hash (use '-' to skip)
+: "${OSM_FILE:=new-jersey-latest.osm.pbf}"
+: "${OSM_FILE_URL:=http://download.geofabrik.de/north-america/us/${OSM_FILE}}"
+: "${OSM_FILE_MD5_URL:=${OSM_FILE_URL}.md5}"
 
-# Percentage (integer) of the total memory to be used by Sophox, e.g. 80 for 80% of the total
-: "${TOTAL_MEMORY_PRCNT:=100}"
-
+# IS_FULL_PLANET (true/false) optimizes node storage. Set to "false" or empty for smaller imports.
+# Defaults to "false"
 if [[ "${IS_FULL_PLANET}" = "false" ]]; then
   IS_FULL_PLANET=""
-else
-  IS_FULL_PLANET=true
 fi
+
+# number of days to go back from today to backfill after the dump file
+: "${BACKFILL_DAYS:=7}"
+
+# Percentage (integer) of the total memory to be used by Sophox, e.g. 80 for 80% of the total RAM
+: "${TOTAL_MEMORY_PRCNT:=30}"
+
+# DEBUG (true/false) . Set to any non-empty string except "false" to run in debug mode:
+#  - disable https
+#  - do not detach from docker-compose until ctrl+C (stop all)
+#  - print all logs
+if [[ "${DEBUG}" = "false" ]]; then
+  DEBUG=""
+fi
+
+##############  NO USER-SERVICABLE VARIABLES BEYOND THIS POINT :)
+
+# Print parameters:
+echo "DATA_DIR='${DATA_DIR}'"
+echo "DATA_DEV='${DATA_DEV}'"
+echo "TEMP_DEV='${TEMP_DEV}'"
+echo "TEMP_DIR='${TEMP_DIR}'"
+echo "SOPHOX_HOST='${SOPHOX_HOST}'"
+echo "REPO_DIR='${REPO_DIR}'"
+echo "REPO_URL='${REPO_URL}'"
+echo "REPO_BRANCH='${REPO_BRANCH}'"
+echo "OSM_FILE='${OSM_FILE}'"
+echo "OSM_FILE_URL='${OSM_FILE_URL}'"
+echo "OSM_FILE_MD5_URL='${OSM_FILE_MD5_URL}'"
+echo "BACKFILL_DAYS='${BACKFILL_DAYS}'"
+echo "TOTAL_MEMORY_PRCNT='${TOTAL_MEMORY_PRCNT}'"
+echo "IS_FULL_PLANET='${IS_FULL_PLANET}'"
+echo "DEBUG='${DEBUG}'"
+
 
 STATUS_DIR=${DATA_DIR}/status
 COMPOSE_FILE=docker/docker-compose.yml
@@ -63,10 +105,13 @@ TOTAL_MEMORY_MB=$(( $(free | awk '/^Mem:/{print $2}') * ${TOTAL_MEMORY_PRCNT} / 
 OSM_RDF_WORKERS=2
 OSM_RDF_MAX_STMTS=$(( ${TOTAL_MEMORY_MB} / 4 / ${OSM_RDF_WORKERS} ))
 
+
 # Blazegraph - full should be maxed at 16g, partial can be maxed at 2g
 if [[ -n "${IS_FULL_PLANET}" ]]; then
+  echo "### Optimizing for full planet import"
   MEM_BLAZEGRAPH_MB=$(( 16 * 1024 ))
 else
+  echo "### Optimizing for a small OSM file import"
   MEM_BLAZEGRAPH_MB=$(( 2 * 1024 ))
 fi
 MEM_BLAZEGRAPH_MB=$(( ${TOTAL_MEMORY_MB} / 2 > ${MEM_BLAZEGRAPH_MB} ? ${MEM_BLAZEGRAPH_MB} : ${TOTAL_MEMORY_MB} / 2 ))
@@ -80,9 +125,10 @@ function init_disk {
     local mount_dir="$2"
     local is_optional="$3"
 
-    if [[ "${device_id}" = "-" ]]; then
+    # If no device id is given, make sure data/temp dirs exist
+    if [[ -z "${device_id}" ]]; then
       if [[ ! -d "${mount_dir}" ]]; then
-        echo "Directory ${mount_dir} does not exist, and device id is not given. Aborting."
+        echo "Directory ${mount_dir} does not exist, and device id is not set. Aborting."
         exit 1
       else
         return 0
@@ -138,10 +184,12 @@ function init_disk {
 }
 
 init_disk "${DATA_DEV}" "${DATA_DIR}"
-if ! init_disk "${TEMP_DEV}" "${TEMP_DIR}" true; then
-  TEMP_DIR=""
+if [[ -n "${TEMP_DEV}" ]]; then
+    # If TEMP_DEV is given, but does not exist on the machine, turn off the TEMP_DIR
+    if ! init_disk "${TEMP_DEV}" "${TEMP_DIR}" true; then
+      TEMP_DIR=""
+    fi
 fi
-
 
 mkdir -p "${STATUS_DIR}"
 
@@ -234,30 +282,24 @@ if [[ ! -f "${FLAG_DOWNLOADED}" ]]; then
     touch "${FLAG_DOWNLOADED}"
 fi
 
-# Create a state file for the planet download. The state file is generated for N weeks prior to now
+# Create a state file with the sync start time. The state file is generated for N weeks prior to now
 # in order not to miss any data changes. Since the planet dump is weekly and we generate this
 # file when we download the planet-latest.osm.pbf file, we should not miss any changes.
-function init_state {
-    local data_dir=$1
-    mkdir -p "${data_dir}"
-    if [[ ! -f "${data_dir}/state.txt" ]]; then
+mkdir -p "${OSM_PGSQL_DATA_DIR}"
+if [[ ! -f "${OSM_PGSQL_DATA_DIR}/state.txt" ]]; then
 
-        echo "########### Initializing ${data_dir} state files ########### ###########"
-        cp "${REPO_DIR}/docker/osmosis_configuration.txt" "${data_dir}/configuration.txt"
-        touch "${data_dir}/download.lock"
-        # Current date minus N days
-        local start_date=$(( `date +%s` - ${BACKFILL_DAYS}*24*60*60 ))
-        local start_date_fmt=$(date --utc --date="@${start_date}" +"%Y-%m-%dT00:00:00Z")
-        set -x
-        curl --silent --show-error --location --compressed \
-            "https://replicate-sequences.osm.mazdermind.de/?${start_date_fmt}" \
-            --output "${data_dir}/state.txt"
-        { set +x; } 2>/dev/null
-    fi
-}
-
-init_state "${OSM_PGSQL_DATA_DIR}"
-#init_state "${OSM_RDF_DATA_DIR}"
+    echo "########### Initializing ${OSM_PGSQL_DATA_DIR} state files ########### ###########"
+    cp "${REPO_DIR}/docker/osmosis_configuration.txt" "${OSM_PGSQL_DATA_DIR}/configuration.txt"
+    touch "${OSM_PGSQL_DATA_DIR}/download.lock"
+    # Current date minus N days
+    start_date=$(( `date +%s` - ${BACKFILL_DAYS}*24*60*60 ))
+    start_date_fmt=$(date --utc --date="@${start_date}" +"%Y-%m-%dT00:00:00Z")
+    set -x
+    curl --silent --show-error --location --compressed \
+        "https://replicate-sequences.osm.mazdermind.de/?${start_date_fmt}" \
+        --output "${OSM_PGSQL_DATA_DIR}/state.txt"
+    { set +x; } 2>/dev/null
+fi
 
 #
 # #####################  Compile Blazegraph
