@@ -2,7 +2,7 @@
 
 ## Installation
 
-Full planet Sophox should be installed on a sufficiently large (40+ GB RAM, 1TB Disk) server, preferably SSD NVMe disk.  In case of Google Cloud, a local SSD scratch disk is also recommended.  Use environment variables to override what data gets loaded - see [docker/startup.local.sh](docker/startup.local.sh) how to run Sophox locally and with a small OSM file.   If ran with `startup.local.sh`, use  http://sophox.localhost  to browse it.
+Full planet Sophox should be installed on a sufficiently large (40+ GB RAM, 1TB Disk) server, preferably SSD NVMe disk.  In case of Google Cloud, a local SSD scratch disk is also recommended.  Use environment variables to override what data gets loaded.  See also the [Development section](#development) below.
 
 The server must have `bash`, `docker`, `curl`, and `git`.  Everything else is loaded inside docker containers.
 
@@ -51,6 +51,8 @@ If you have commit access to the Sophox repository, make sure to run this in ord
 ```
 git config --global url.ssh://git@github.com/.insteadOf https://github.com/
 ```
+
+Run [docker/startup.local.sh](docker/startup.local.sh) to get Sophox locally and with a small OSM file.   Use  http://sophox.localhost  to browse it. On a Mac, you may need to add `127.0.0.1   sophox.localhost` to your `hosts` file.
 
 #### Notes for Mac users
 * Make sure to set MAX_MEMORY_MB (see sophox.local.sh)
