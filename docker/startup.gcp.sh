@@ -21,7 +21,7 @@
 : "${BACKFILL_DAYS:=14}"
 : "${TOTAL_MEMORY_PRCNT:=100}"
 
-: "${STARTUP_SCRIPT:=https://raw.githubusercontent.com/Sophox/sophox/blob/master/docker/startup.sh}"
+: "${STARTUP_SCRIPT:=https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.sh}"
 
 echo "Starting up ${STARTUP_SCRIPT} with curl"
 source <(curl --silent --show-error --location --compressed "${STARTUP_SCRIPT}")
