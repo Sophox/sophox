@@ -52,7 +52,9 @@ class RdfFileHandler(RdfHandler):
         self.pendingStatements = 0
         self.options.file_header = '\n'.join(['@' + p + ' .' for p in osmutils.prefixes]) + '\n\n'
 
-        self.queue = Queue(options.worker_count * 2)
+        # Queue should contain at most 1 item, making the total number of batches in memory to be
+        # number_of_workers + one_in_query + one_being_assembled_by_main_thread
+        self.queue = Queue(1)
 
         self.writers = []
         for id in range(options.worker_count):

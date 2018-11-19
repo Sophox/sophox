@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright Yuri Astrakhan <YuriAstrakhan@gmail.com>
 # Some ideas were taken from https://github.com/waymarkedtrails/osgende/blob/master/tools/osgende-import
 
@@ -40,7 +42,7 @@ class Osm2rdf(object):
         parser_init = subparsers.add_parser('parse', help='Parses a PBF file into multiple .ttl.gz (Turtle files)')
         parser_init.add_argument('input_file', help='OSM input PBF file')
         parser_init.add_argument('output_dir', help='Output directory')
-        parser_init.add_argument('--max-statements', dest='maxStatementsPerFile', action='store', type=int, default=20000,
+        parser_init.add_argument('--max-statements', dest='maxStatementsPerFile', action='store', type=int, default=10000,
                                  help='Maximum number of statements, in thousands, per output file. (default: %(default)s)')
         parser_init.add_argument('--workers', action='store', dest='worker_count', default=4, type=int,
                                  help='Number of worker threads to run (default: %(default)s)')
@@ -60,15 +62,14 @@ class Osm2rdf(object):
         parser_update.add_argument('-n', '--dry-run', action='store_true', dest='dry_run', default=False,
                                    help='Do not modify RDF database.')
 
-
         opts = parser.parse_args()
-
         if not opts.command:
             self.parse_fail(parser, 'Missing command parameter')
 
         if opts.command == 'update':
             # if opts.addWayLoc:
-            #     self.parse_fail(parser, 'Updating osmm:loc is not yet implemented, use --skip-way-geo parameter right after osm2rdf.py')
+            #     self.parse_fail(parser, 'Updating osmm:loc is not yet implemented, '
+            #                             'use --skip-way-geo parameter right after osm2rdf.py')
 
             if opts.addWayLoc and not opts.cacheFile:
                 self.parse_fail(parser, 'Node cache file must be specified when updating with way centroids')

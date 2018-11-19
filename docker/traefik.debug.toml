@@ -1,24 +1,13 @@
-# debug = true
-# logLevel = "INFO"
+debug = true
+logLevel = "DEBUG"
 defaultEntryPoints = ["https","http"]
 
 [entryPoints]
     [entryPoints.http]
         address = ":80"
-        [entryPoints.http.redirect]
-            entryPoint = "https"
     [entryPoints.https]
         address = ":443"
         [entryPoints.https.tls]
-
-# Enable ACME (Let's Encrypt): automatic SSL.
-[acme]
-    email = "YuriAstrakhan@gmail.com"
-    storage = "acme.json"
-    entryPoint = "https"
-    onHostRule = true
-    acmeLogging = true
-    [acme.tlsChallenge]
 
 [docker]
     endpoint = "unix:///var/run/docker.sock"
@@ -27,7 +16,7 @@ defaultEntryPoints = ["https","http"]
     exposedByDefault = false
 
 [api]
-#    debug = true
+    debug = true
 
 [traefikLog]
 [accessLog]

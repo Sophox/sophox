@@ -1,8 +1,10 @@
 -i https://pypi.org/simple
-certifi==2018.4.16
-chardet==3.0.4
-idna==2.6
-osmium==2.14.1
-requests>=2.20.0
-shapely==1.6.4.post1
-urllib3==1.22
+
+certifi>=2018.10.15
+chardet>=3.0.4
+idna==2.7
+
+osmium>=2.14.3
+requests>=2.20.1
+shapely>=1.6.4.post2
+urllib3>=1.24.1

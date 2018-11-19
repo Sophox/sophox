@@ -4,11 +4,11 @@ const request = require('request');
 const app = require('express')();
 
 const port = 9979;
-const rdfServerUrl = 'http://localhost:9999/bigdata/sparql';
+const rdfServerUrl = process.env.SOPHOX_URL;
 
 app.use(function (req, res, next) {
 	res.header('Access-Control-Allow-Origin', '*');
-	res.header('Access-Control-Allow-Methods', 'DELETE,PUT,OPTIONS');
+	res.header('Access-Control-Allow-Methods', 'PUT,DELETE,OPTIONS');
 	res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
 	next();
 });
@@ -179,6 +179,4 @@ function sparqlDeleteVote(taskId, osmType, osmId, userName) {
 	const taskURI = `<https://www.openstreetmap.org/task/${taskId}/${osmType}/${osmId}>`;
 
 	return `DELETE { ${taskURI} ${userURI} ?o } WHERE { ${taskURI} ${userURI} ?o . };`
-
 }
-

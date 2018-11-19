@@ -120,6 +120,8 @@ INSERT {{
             seqid = self.options.seqid
         else:
             seqid = self.get_osm_schema_ver(repserv)
+            if seqid is None:
+                raise Exception('Unable to determine sequence ID')
 
         log.info('Initial sequence id: {0}'.format(seqid))
         state = None
