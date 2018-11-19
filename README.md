@@ -10,7 +10,7 @@ When cloning, make sure you get submodules (e.g. `git submodule update --init --
 
 ### Google Cloud
 * Create a `custom-6-39936` VM (6 vCPUs, 36GB RAM) or better with a 15GB boot disk, and attach a 1TB Persisted SSD disk.
-* Set VM startup script to the following line, and the service should be ready in two to three days.  You may override   Insert any env var overrides right before, e.g. `export SOPHOX_HOST=example.org; curl ... | bash`
+* Set VM startup script to the following line, and the service should be ready in two to three days.  Insert any env var overrides right before, e.g. `export SOPHOX_HOST=example.org; curl ... | bash`
 ```
 curl --silent --show-error --location --compressed https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.gcp.sh | bash
 ```
@@ -51,6 +51,9 @@ If you have commit access to the Sophox repository, make sure to run this in ord
 ```
 git config --global url.ssh://git@github.com/.insteadOf https://github.com/
 ```
+
+#### Notes for Mac users
+* Make sure to set MAX_MEMORY_MB (see sophox.local.sh)
 
 ## Docker Usage
 

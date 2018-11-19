@@ -22,7 +22,13 @@ OSM_FILE_MD5_URL="${OSM_FILE_URL}.md5"
 # No need to backfill for testing
 BACKFILL_DAYS=0
 
+# Set maximum memory Sophox will use (in MB).
+# Use it if your system does not have a `free` utility (e.g. on a Mac)
+#   MAX_MEMORY_MB=6000
+
+# Use 30% of the system's memory. Will be ignored if MAX_MEMORY_MB is set
 TOTAL_MEMORY_PRCNT=30
+
 DEBUG=true
 
 STARTUP_SCRIPT=${REPO_DIR}/docker/startup.sh

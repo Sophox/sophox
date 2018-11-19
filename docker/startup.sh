@@ -43,7 +43,11 @@ fi
 # number of days to go back from today to backfill after the dump file
 : "${BACKFILL_DAYS:=7}"
 
+# Optionally override maximum memory (e.g. this is needed when testing on a Mac without `free` util)
+: "${MAX_MEMORY_MB:=}"
+
 # Percentage (integer) of the total memory to be used by Sophox, e.g. 80 for 80% of the total RAM
+# This param is not used if MAX_MEMORY_MB is set.
 : "${TOTAL_MEMORY_PRCNT:=30}"
 
 # DEBUG (true/false) . Set to any non-empty string except "false" to run in debug mode:
@@ -99,11 +103,20 @@ TRAEFIK_FILE=$( [[ "${DEBUG}" == "" ]] && echo "${REPO_DIR}/docker/traefik.toml"
 TRAEFIK_HOST=$( [[ "${DEBUG}" == "" ]] && echo "0.0.0.0" || echo "127.0.0.1" )
 
 # Get total system memory, reducing it by some optional percentage, in MB
-TOTAL_MEMORY_MB=$(( $(free | awk '/^Mem:/{print $2}') * ${TOTAL_MEMORY_PRCNT} / 100 / 1024 ))
+if [[ -z "${MAX_MEMORY_MB}" ]]; then
+#  // TODO: support Mac
+#  if [[ "$(uname -s)" = "Darwin" ]]; then
+#    TOTAL_MEMORY_KB=$(...)
+#  else
+    TOTAL_MEMORY_KB=$(free | awk '/^Mem:/{print $2}')
+#  fi
+  MAX_MEMORY_MB=$(( ${TOTAL_MEMORY_KB} * ${TOTAL_MEMORY_PRCNT} / 100 / 1024 ))
+fi
+echo "MAX_MEMORY_MB='${MAX_MEMORY_MB}'"
 
 # MEM = 40000 MB ~~ max statements = 10000 / workers count
 OSM_RDF_WORKERS=2
-OSM_RDF_MAX_STMTS=$(( ${TOTAL_MEMORY_MB} / 4 / ${OSM_RDF_WORKERS} ))
+OSM_RDF_MAX_STMTS=$(( ${MAX_MEMORY_MB} / 4 / ${OSM_RDF_WORKERS} ))
 
 
 # Blazegraph - full should be maxed at 16g, partial can be maxed at 2g
@@ -114,7 +127,7 @@ else
   echo "### Optimizing for a small OSM file import"
   MEM_BLAZEGRAPH_MB=$(( 2 * 1024 ))
 fi
-MEM_BLAZEGRAPH_MB=$(( ${TOTAL_MEMORY_MB} / 2 > ${MEM_BLAZEGRAPH_MB} ? ${MEM_BLAZEGRAPH_MB} : ${TOTAL_MEMORY_MB} / 2 ))
+MEM_BLAZEGRAPH_MB=$(( ${MAX_MEMORY_MB} / 2 > ${MEM_BLAZEGRAPH_MB} ? ${MEM_BLAZEGRAPH_MB} : ${MAX_MEMORY_MB} / 2 ))
 
 #
 # #####################  Initialize and Mount Persisted Disk
@@ -427,11 +440,11 @@ docker run --rm                                               \
     -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                         \
     -e "WB_CONCEPT_URI=${WB_CONCEPT_URI}"                     \
     -e "MEM_BLAZEGRAPH_MB=${MEM_BLAZEGRAPH_MB}"               \
-    -e "MEM_5_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 5 / 100 ))"   \
-    -e "MEM_15_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 15 / 100 ))" \
-    -e "MEM_20_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 20 / 100 ))" \
-    -e "MEM_50_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 50 / 100 ))" \
-    -e "MEM_65_PRCNT_MB=$(( ${TOTAL_MEMORY_MB} * 65 / 100 ))" \
+    -e "MEM_5_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))"   \
+    -e "MEM_15_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 15 / 100 ))" \
+    -e "MEM_20_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))" \
+    -e "MEM_50_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 50 / 100 ))" \
+    -e "MEM_65_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 65 / 100 ))" \
     -e BUILD_DIR=/git_repo                                    \
     -e POSTGRES_PASSWORD                                      \
                                                               \
