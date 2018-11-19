@@ -306,7 +306,11 @@ if [[ ! -f "${OSM_PGSQL_DATA_DIR}/state.txt" ]]; then
     touch "${OSM_PGSQL_DATA_DIR}/download.lock"
     # Current date minus N days
     start_date=$(( `date +%s` - ${BACKFILL_DAYS}*24*60*60 ))
-    start_date_fmt=$(date --utc --date="@${start_date}" +"%Y-%m-%dT00:00:00Z")
+    if [[ "$(uname -s)" = "Darwin" ]]; then
+      start_date_fmt=$(date -u -r "${start_date}" +"%Y-%m-%dT00:00:00Z")
+    else
+      start_date_fmt=$(date --utc --date="@${start_date}" +"%Y-%m-%dT00:00:00Z")
+    fi
     set -x
     curl --silent --show-error --location --compressed \
         "https://replicate-sequences.osm.mazdermind.de/?${start_date_fmt}" \
