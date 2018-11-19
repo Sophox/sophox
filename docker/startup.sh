@@ -326,7 +326,7 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
 
     # Extract the version number from the line right above the <packaging>pom</packaging>
     BLAZE_VERSION=$(grep --before-context=1 '<packaging>pom</packaging>' "${REPO_DIR}/wikidata-query-rdf/pom.xml" \
-        | head --lines=1 \
+        | head -n 1 \
         | sed 's/^[^>]*>\([^<]*\)<.*$/\1/g')
     echo "########### Building Blazegraph ${BLAZE_VERSION} ###########"
     cleanup_git_repo
