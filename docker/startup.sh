@@ -164,7 +164,7 @@ function init_disk {
     if ! lsblk --noheadings ${device_id}; then
         if [[ "${is_optional}" = true ]]; then
             echo "Optional disk ${device_id} does not exist, skipping"
-            return 9876
+            return 111
         else
             echo "Data disk ${device_id} does not exist"
             exit 1
