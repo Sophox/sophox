@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="blazegraph" />
+        <module name="blazegraph-service" />
+        <module name="common" />
+        <module name="testTools" />
+        <module name="tools" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="blazegraph" target="1.8" />
+      <module name="blazegraph-service" target="1.8" />
+      <module name="common" target="1.8" />
+      <module name="parent" target="1.8" />
+      <module name="service" target="1.8" />
+      <module name="testTools" target="1.8" />
+      <module name="tools" target="1.8" />
+    </bytecodeTargetLevel>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="blazegraph" options="-Xlint:all" />
+      <module name="blazegraph-service" options="-Xlint:all" />
+      <module name="common" options="-Xlint:all" />
+      <module name="testTools" options="-Xlint:all" />
+      <module name="tools" options="-Xlint:all" />
+    </option>
+  </component>
+</project>

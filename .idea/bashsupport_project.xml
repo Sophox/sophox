@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="BashSupportProjectSettings">
+    <option name="globalVariables">
+      <set>
+        <option value="BLAZEGRAPH_APP" />
+        <option value="BLAZEGRAPH_HOST" />
+        <option value="DATA_DIR" />
+        <option value="FLAGS_TO_DELETE_OSM_FILE" />
+        <option value="FLAG_IMPORTED" />
+        <option value="FLAG_PARSED" />
+        <option value="FLAG_PG_IMPORTED" />
+        <option value="FLAG_TTL_IMPORTED" />
+        <option value="FLAG_TTL_IMPORT_FAIL" />
+        <option value="FLAG_TTL_PARSED" />
+        <option value="IS_FULL_PLANET" />
+        <option value="LOOP_SLEEP" />
+        <option value="OSM_FILE" />
+        <option value="OSM_FILE_PATH" />
+        <option value="OSM_PGSQL_CODE" />
+        <option value="OSM_PGSQL_CPU_IMPORT" />
+        <option value="OSM_PGSQL_CPU_UPDATE" />
+        <option value="OSM_PGSQL_DATA" />
+        <option value="OSM_PGSQL_MEM_IMPORT" />
+        <option value="OSM_PGSQL_MEM_UPDATE" />
+        <option value="OSM_PGSQL_TEMP" />
+        <option value="OSM_RDF_DATA" />
+        <option value="OSM_RDF_MAX_STMTS" />
+        <option value="OSM_RDF_TEMP" />
+        <option value="OSM_RDF_TTLS" />
+        <option value="OSM_RDF_WORKERS" />
+        <option value="POSTGRES_DB" />
+        <option value="POSTGRES_HOST" />
+        <option value="POSTGRES_PASSWORD" />
+        <option value="POSTGRES_USER" />
+        <option value="SOPHOX_URL" />
+        <option value="STATUS_DIR" />
+        <option value="WIKIBASE_HOST" />
+      </set>
+    </option>
+  </component>
+</project>
