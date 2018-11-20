@@ -62,20 +62,17 @@ if [[ ! -f "${FLAG_PG_IMPORTED}" ]]; then
          "--file=${OSM_PGSQL_CODE}/create_indexes.sql"
     { set +x; } 2>/dev/null
 
-    touch "${FLAG_PG_IMPORTED}"
-
     # Once all status flag files are created, delete downloaded OSM file
     # Var must not be quoted (multiple files)
     set +e
     if ls ${FLAGS_TO_DELETE_OSM_FILE} > /dev/null ; then
         set -e
         echo "Deleting ${OSM_FILE_PATH}"
-
-        echo "FIXME!!!!!!!!!!!!!!!!!!!!   Uncomment   rm ${OSM_FILE_PATH}"
-        # rm "${OSM_FILE_PATH}"
+        rm "${OSM_FILE_PATH}"
     fi
     set -e
 
+    touch "${FLAG_PG_IMPORTED}"
     echo "########### Finished osm-to-pgsql initial import ###########"
 fi
 

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/wikidata-query-rdf/blazegraph/blazegraph.iml" filepath="$PROJECT_DIR$/wikidata-query-rdf/blazegraph/blazegraph.iml" />
+      <module fileurl="file://$PROJECT_DIR$/wikidata-query-rdf/war/blazegraph-service.iml" filepath="$PROJECT_DIR$/wikidata-query-rdf/war/blazegraph-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/wikidata-query-rdf/common/common.iml" filepath="$PROJECT_DIR$/wikidata-query-rdf/common/common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/docker/docker.iml" filepath="$PROJECT_DIR$/docker/docker.iml" />
+      <module fileurl="file://$PROJECT_DIR$/osm-regions-server/osm-regions-server.iml" filepath="$PROJECT_DIR$/osm-regions-server/osm-regions-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/osm-to-pgsql/osm-to-pgsql.iml" filepath="$PROJECT_DIR$/osm-to-pgsql/osm-to-pgsql.iml" />
+      <module fileurl="file://$PROJECT_DIR$/osm2rdf/osm2rdf.iml" filepath="$PROJECT_DIR$/osm2rdf/osm2rdf.iml" />
+      <module fileurl="file://$PROJECT_DIR$/wikidata-query-rdf/parent.iml" filepath="$PROJECT_DIR$/wikidata-query-rdf/parent.iml" />
+      <module fileurl="file://$PROJECT_DIR$/wikidata-query-rdf/dist/service.iml" filepath="$PROJECT_DIR$/wikidata-query-rdf/dist/service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/wikidata-query-rdf/testTools/testTools.iml" filepath="$PROJECT_DIR$/wikidata-query-rdf/testTools/testTools.iml" />
+      <module fileurl="file://$PROJECT_DIR$/wikidata-query-rdf/tools/tools.iml" filepath="$PROJECT_DIR$/wikidata-query-rdf/tools/tools.iml" />
+      <module fileurl="file://$PROJECT_DIR$/vote-server/vote-server.iml" filepath="$PROJECT_DIR$/vote-server/vote-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/wikidata-query-gui.iml" filepath="$PROJECT_DIR$/wikidata-query-gui.iml" />
+    </modules>
+  </component>
+</project>

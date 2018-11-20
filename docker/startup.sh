@@ -125,7 +125,7 @@ if [[ -n "${IS_FULL_PLANET}" ]]; then
   MEM_BLAZEGRAPH_MB=$(( 16 * 1024 ))
 else
   echo "### Optimizing for a small OSM file import"
-  MEM_BLAZEGRAPH_MB=$(( 2 * 1024 ))
+  MEM_BLAZEGRAPH_MB=$(( 1024 ))
 fi
 MEM_BLAZEGRAPH_MB=$(( ${MAX_MEMORY_MB} / 2 > ${MEM_BLAZEGRAPH_MB} ? ${MEM_BLAZEGRAPH_MB} : ${MAX_MEMORY_MB} / 2 ))
 
@@ -164,7 +164,7 @@ function init_disk {
     if ! lsblk --noheadings ${device_id}; then
         if [[ "${is_optional}" = true ]]; then
             echo "Optional disk ${device_id} does not exist, skipping"
-            return 9876
+            return 111
         else
             echo "Data disk ${device_id} does not exist"
             exit 1
@@ -448,7 +448,7 @@ docker run --rm                                               \
     -e "MEM_15_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 15 / 100 ))" \
     -e "MEM_20_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))" \
     -e "MEM_50_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 50 / 100 ))" \
-    -e "MEM_65_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 65 / 100 ))" \
+    -e "MEM_70_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))" \
     -e BUILD_DIR=/git_repo                                    \
     -e POSTGRES_PASSWORD                                      \
                                                               \

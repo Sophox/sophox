@@ -1,4 +1,4 @@
-version: '2.2'
+version: '2.3'
 
 services:
 
@@ -19,6 +19,13 @@ services:
     environment:
       SOPHOX_HOST: "${SOPHOX_HOST}"
     container_name: traefik
+    depends_on:
+      sophox-gui:
+        condition: service_started
+      blazegraph-updater:
+        condition: service_healthy
+      osm-to-postgres:
+        condition: service_healthy
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
@@ -142,6 +149,13 @@ services:
       - postgres_net
     depends_on:
       - postgres
+    healthcheck:
+      # Consider container healthy once the initial Postgres data have been imported
+      test: "[ -f /app-status/osm-pgsql.imported ]"
+      interval: 10s
+      timeout: 10s
+      retries: 1
+      start_period: 96h
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
@@ -151,8 +165,8 @@ services:
     # and continuously updates from OSM data
     build: "${BUILD_DIR}/osm2rdf"
     # restart: always
-    mem_limit: "${MEM_65_PRCNT_MB}m"
-    memswap_limit: "${MEM_65_PRCNT_MB}m"
+    mem_limit: "${MEM_70_PRCNT_MB}m"
+    memswap_limit: "${MEM_70_PRCNT_MB}m"
     mem_swappiness: 0
     working_dir: "/app"
     command: "./osm2rdf.sh"
@@ -208,14 +222,21 @@ services:
       - blazegraph_net
     depends_on:
       - blazegraph
+    healthcheck:
+      # Consider container healthy once the RDF TTL files have been imported
+      test: "[ -f /app-status/osm-rdf.imported ]"
+      interval: 10s
+      timeout: 10s
+      retries: 1
+      start_period: 96h
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
   blazegraph:
     image: "${BLAZEGRAPH_IMAGE}"
-    mem_limit: "${MEM_65_PRCNT_MB}m"
-    memswap_limit: "${MEM_65_PRCNT_MB}m"
+    mem_limit: "${MEM_70_PRCNT_MB}m"
+    memswap_limit: "${MEM_70_PRCNT_MB}m"
     mem_swappiness: 0
     # restart: always
     volumes:
@@ -242,7 +263,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy_net"
-      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefix:/bigdata;Method:GET"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefix:/bigdata/namespace/wdq/sparql;Method:GET"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 
   postgres:

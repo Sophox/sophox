@@ -47,19 +47,16 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
         mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
     fi
 
-    touch "${FLAG_TTL_PARSED}"
-
     # Once all status flag files are created, delete downloaded OSM file
     # Var must not be quoted (multiple files)
     set +e
     if ls ${FLAGS_TO_DELETE_OSM_FILE} > /dev/null ; then
         set -e
         echo "Deleting ${OSM_FILE_PATH}"
-
-        echo "FIXME!!!!!!!!!!!!!!!!!!!!   Uncomment   rm ${OSM_FILE_PATH}"
-        # rm "${OSM_FILE_PATH}"
+        rm "${OSM_FILE_PATH}"
     fi
 
+    touch "${FLAG_TTL_PARSED}"
     echo "########### Finished parsing with osm2rdf ###########"
 fi
 

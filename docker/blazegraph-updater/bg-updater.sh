@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+echo "Starting $0"
 
 cd "${BLAZEGRAPH_APP}"
 
@@ -27,13 +28,14 @@ elif [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; then
 
     if ls "${OSM_RDF_TTLS}" | grep -v '\.ttl\.gz$' ; then
         echo "ERROR: unable to start import because there are non .ttl.gz files in ${OSM_RDF_TTLS}"
-    elif "${BLAZEGRAPH_APP}/loadRestAPI.sh" -d "${OSM_RDF_TTLS}" -h "${BLAZEGRAPH_HOST}"; then
+    elif ! "${BLAZEGRAPH_APP}/loadRestAPI.sh" -d "${OSM_RDF_TTLS}" -h "${BLAZEGRAPH_HOST}"; then
+        echo
         echo "ERROR: loadRestAPI.sh failed"
-    elif ! ls "${OSM_RDF_TTLS}/*.good"; then
+    elif ! ls ${OSM_RDF_TTLS}/*.good; then
         echo "ERROR: there are no files matching ${OSM_RDF_TTLS}/*.good"
-    elif ls "${OSM_RDF_TTLS}/*.fail"; then
+    elif ls ${OSM_RDF_TTLS}/*.fail; then
         echo "ERROR: there are failed files - ${OSM_RDF_TTLS}/*.fail"
-    elif ls "${OSM_RDF_TTLS}/*.gz"; then
+    elif ls ${OSM_RDF_TTLS}/*.gz; then
         echo "ERROR: there are files that were not imported - ${OSM_RDF_TTLS}/*.gz"
     else
         echo "TTL file import was successful"
@@ -42,6 +44,8 @@ elif [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; then
 
     if [[ "${LOADING_FAILED}" = "true" ]]; then
         touch "${FLAG_TTL_IMPORT_FAIL}"
+        # No need to continue if the original import has failed
+        exit 1
     else
         touch "${FLAG_TTL_IMPORTED}"
     fi
