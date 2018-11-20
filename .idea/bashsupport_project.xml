@@ -13,6 +13,7 @@
         <option value="FLAG_TTL_IMPORTED" />
         <option value="FLAG_TTL_IMPORT_FAIL" />
         <option value="FLAG_TTL_PARSED" />
+        <option value="FLAG_WB_INITIALIZED" />
         <option value="IS_FULL_PLANET" />
         <option value="LOOP_SLEEP" />
         <option value="OSM_FILE" />

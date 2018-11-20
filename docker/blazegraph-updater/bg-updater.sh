@@ -16,40 +16,38 @@ fi
 
 # TODO: Loop until Blazegraph is live
 
-if [[ -f "${FLAG_TTL_IMPORT_FAIL}" ]]; then
-
-    echo '########### TTLs import into Blazegraph has failed. Stopping. ###########'
+FLAG_TTL_IMPORTED_PENDING="${FLAG_TTL_IMPORTED}-pending"
+if [[ -f "${FLAG_TTL_IMPORTED_PENDING}" ]]; then
+    echo "Blazegraph TTL import has crashed in the previous attempt.  Aborting"
     exit 1
+fi
 
-elif [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; then
+if [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; then
 
     echo '########### Importing TTLs into Blazegraph ###########'
-    LOADING_FAILED=true
+    touch "${FLAG_TTL_IMPORTED_PENDING}"
 
     if ls "${OSM_RDF_TTLS}" | grep -v '\.ttl\.gz$' ; then
         echo "ERROR: unable to start import because there are non .ttl.gz files in ${OSM_RDF_TTLS}"
+        exit 1
     elif ! "${BLAZEGRAPH_APP}/loadRestAPI.sh" -d "${OSM_RDF_TTLS}" -h "${BLAZEGRAPH_HOST}"; then
         echo
         echo "ERROR: loadRestAPI.sh failed"
+        exit 1
     elif ! ls ${OSM_RDF_TTLS}/*.good; then
         echo "ERROR: there are no files matching ${OSM_RDF_TTLS}/*.good"
+        exit 1
     elif ls ${OSM_RDF_TTLS}/*.fail; then
         echo "ERROR: there are failed files - ${OSM_RDF_TTLS}/*.fail"
+        exit 1
     elif ls ${OSM_RDF_TTLS}/*.gz; then
         echo "ERROR: there are files that were not imported - ${OSM_RDF_TTLS}/*.gz"
-    else
-        echo "TTL file import was successful"
-        LOADING_FAILED=""
-    fi
-
-    if [[ "${LOADING_FAILED}" = "true" ]]; then
-        touch "${FLAG_TTL_IMPORT_FAIL}"
-        # No need to continue if the original import has failed
         exit 1
     else
-        touch "${FLAG_TTL_IMPORTED}"
+        echo "TTL file import was successful"
     fi
 
+    mv "${FLAG_TTL_IMPORTED_PENDING}" "${FLAG_TTL_IMPORTED}"
     echo '########### Done importing TTLs into Blazegraph ###########'
 fi
 

@@ -212,7 +212,6 @@ services:
     environment:
       FLAG_TTL_PARSED: "/app-status/osm-rdf.parsed"      # Wait for this flag
       FLAG_TTL_IMPORTED: "/app-status/osm-rdf.imported"  # Set this flag after import and exit
-      FLAG_TTL_IMPORT_FAIL: "/app-status/osm-rdf.import.failed"  # In case of an import error - stops further ttl steps
       FLAG_WB_INITIALIZED: "/app-status/wikibase.initialized"  # Indicates that runUpdate has already been ran with old start date
       OSM_RDF_TTLS: "/osm-rdf-ttls" # Must match Blazegraph container's volume name
       BLAZEGRAPH_APP: "/app"

@@ -19,8 +19,8 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
 
     mkdir -p "${OSM_RDF_TTLS}"
     if [[ ! -z "$(ls -A ${OSM_RDF_TTLS})" ]]; then
-        echo "Removing partially parsed TTLs in ${OSM_RDF_TTLS}"
-        rm -rf "${OSM_RDF_TTLS}/*"
+        echo "WARNING: Removing partially parsed TTLs in ${OSM_RDF_TTLS}"
+        rm -rf "${OSM_RDF_TTLS:?}/*"
     fi
 
     if [[ -f "${NODES_CACHE}" ]]; then
@@ -44,6 +44,7 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
     # If nodes.cache did not show up automatically in the data dir,
     # the temp dir is the different from the data dir, so need to move it
     if [[ ! -f "${NODES_CACHE}" ]]; then
+        echo "Moving temporary node cache: ${NODES_CACHE_TMP} -> ${NODES_CACHE}"
         mv "${NODES_CACHE_TMP}" "${NODES_CACHE}"
     fi
 
