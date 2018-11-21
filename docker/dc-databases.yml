@@ -1,0 +1,83 @@
+version: '2.3'
+
+services:
+
+  blazegraph:
+    image: "${BLAZEGRAPH_IMAGE}"
+    mem_limit: "${MEM_BLAZE_LIMIT_MB}m"
+    memswap_limit: "${MEM_BLAZE_LIMIT_MB}m"
+    mem_swappiness: 0
+    # restart: always
+    volumes:
+      - "${BLAZEGRAPH_APP_DIR}:/app-blazegraph:ro"
+      - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # See BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
+      - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
+    working_dir: /app-blazegraph
+    command: "./runBlazegraph.sh"
+    environment:
+      HEAP_SIZE: "${MEM_BLAZE_HEAP_MB}m"
+      HOST: "0.0.0.0"
+      BLAZEGRAPH_OPTS: >-
+        -Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF
+        -DwikibaseConceptUri=${WB_CONCEPT_URI}
+        -DwikibaseServiceEnableWhitelist=false
+    ports:
+      - "9999"
+    networks:
+      - proxy_net
+      - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefix:/bigdata/namespace/wdq/sparql;Method:GET"
+      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
+
+  postgres:
+    image: "openmaptiles/postgis:2.9"
+    # restart: always
+    volumes:
+      - "${POSTGRES_DATA_DIR}:/var/lib/postgresql/data:rw"
+    environment:
+      POSTGRES_DB: gis
+      POSTGRES_USER: sophox
+      POSTGRES_PASSWORD:
+    # shared_buffers                  https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-SHARED-BUFFERS
+    # work_mem                        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-WORK-MEM
+    # maintenance_work_mem            https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAINTENANCE-WORK-MEM
+    # effective_io_concurrency        https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-EFFECTIVE-IO-CONCURRENCY
+    # max_worker_processes            https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAX-WORKER-PROCESSES
+    # max_parallel_workers_per_gather https://www.postgresql.org/docs/9.6/runtime-config-resource.html#GUC-MAX-PARALLEL-WORKERS-PER-GATHER
+    # checkpoint_timeout              https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-CHECKPOINT-TIMEOUT
+    # max_wal_size                    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-MAX-WAL-SIZE
+    # min_wal_size                    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-MIN-WAL-SIZE
+    # checkpoint_completion_target    https://www.postgresql.org/docs/9.6/runtime-config-wal.html#GUC-CHECKPOINT-COMPLETION-TARGET
+    # random_page_cost                https://www.postgresql.org/docs/9.6/runtime-config-query.html#GUC-RANDOM-PAGE-COST
+    command: >-
+      postgres
+      -c 'shared_buffers=${MEM_PG_SHARED_BUFFERS_MB}MB'
+      -c 'work_mem=${MEM_PG_WORK_MB}MB'
+      -c 'maintenance_work_mem=${MEM_PG_MAINTENANCE_MB}MB'
+      -c 'effective_io_concurrency=200'
+      -c 'max_worker_processes=5'
+      -c 'max_parallel_workers_per_gather=2'
+      -c 'checkpoint_timeout=1h'
+      -c 'max_wal_size=5GB'
+      -c 'min_wal_size=1GB'
+      -c 'checkpoint_completion_target=0.7'
+      -c 'random_page_cost=1.1'
+    ports:
+      - "5432"
+    networks:
+      - postgres_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+networks:
+  proxy_net:
+    external: true
+  postgres_net:
+  blazegraph_net:

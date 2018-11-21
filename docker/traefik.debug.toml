@@ -1,5 +1,6 @@
 debug = true
-logLevel = "DEBUG"
+#logLevel = "DEBUG"
+logLevel = "INFO"
 defaultEntryPoints = ["https","http"]
 
 [entryPoints]
@@ -11,12 +12,11 @@ defaultEntryPoints = ["https","http"]
 
 [docker]
     endpoint = "unix:///var/run/docker.sock"
-    # domain = "staging.sophox.org"
     watch = true
     exposedByDefault = false
 
 [api]
-    debug = true
+#    debug = true
 
 [traefikLog]
 [accessLog]

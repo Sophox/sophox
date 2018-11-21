@@ -6,6 +6,7 @@
         <option value="BLAZEGRAPH_APP" />
         <option value="BLAZEGRAPH_HOST" />
         <option value="DATA_DIR" />
+        <option value="DEBUG" />
         <option value="FLAGS_TO_DELETE_OSM_FILE" />
         <option value="FLAG_IMPORTED" />
         <option value="FLAG_PARSED" />
@@ -16,6 +17,7 @@
         <option value="FLAG_WB_INITIALIZED" />
         <option value="IS_FULL_PLANET" />
         <option value="LOOP_SLEEP" />
+        <option value="MAX_DOWNLOAD" />
         <option value="OSM_FILE" />
         <option value="OSM_FILE_PATH" />
         <option value="OSM_PGSQL_CODE" />
@@ -36,6 +38,8 @@
         <option value="POSTGRES_USER" />
         <option value="SOPHOX_URL" />
         <option value="STATUS_DIR" />
+        <option value="UPDATE_URL" />
+        <option value="WB_CONCEPT_URI" />
         <option value="WIKIBASE_HOST" />
       </set>
     </option>

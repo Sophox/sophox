@@ -79,9 +79,7 @@ echo "DEBUG='${DEBUG}'"
 
 
 STATUS_DIR=${DATA_DIR}/status
-COMPOSE_FILE=docker/docker-compose.yml
 BLAZEGRAPH_APP_DIR=${DATA_DIR}/blazegraph-app
-BLAZEGRAPH_DATA_DIR=${DATA_DIR}/blazegraph-data
 ACME_FILE=${DATA_DIR}/acme.json
 POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
 POSTGRES_DATA_DIR=${DATA_DIR}/postgres
@@ -104,12 +102,8 @@ TRAEFIK_HOST=$( [[ "${DEBUG}" == "" ]] && echo "0.0.0.0" || echo "127.0.0.1" )
 
 # Get total system memory, reducing it by some optional percentage, in MB
 if [[ -z "${MAX_MEMORY_MB}" ]]; then
-#  // TODO: support Mac
-#  if [[ "$(uname -s)" = "Darwin" ]]; then
-#    TOTAL_MEMORY_KB=$(...)
-#  else
-    TOTAL_MEMORY_KB=$(free | awk '/^Mem:/{print $2}')
-#  fi
+  # TODO: support Mac
+  TOTAL_MEMORY_KB=$(free | awk '/^Mem:/{print $2}')
   MAX_MEMORY_MB=$(( ${TOTAL_MEMORY_KB} * ${TOTAL_MEMORY_PRCNT} / 100 / 1024 ))
 fi
 echo "MAX_MEMORY_MB='${MAX_MEMORY_MB}'"
@@ -122,7 +116,7 @@ OSM_RDF_MAX_STMTS=$(( ${MAX_MEMORY_MB} / 4 / ${OSM_RDF_WORKERS} ))
 # Blazegraph - full should be maxed at 16g, partial can be maxed at 2g
 if [[ -n "${IS_FULL_PLANET}" ]]; then
   echo "### Optimizing for full planet import"
-  MEM_BLAZEGRAPH_MB=$(( 16 * 1024 ))
+  MEM_BLAZEGRAPH_MB=$(( 12 * 1024 ))
 else
   echo "### Optimizing for a small OSM file import"
   MEM_BLAZEGRAPH_MB=$(( 1024 ))
@@ -154,7 +148,7 @@ function init_disk {
       exit 1
     fi
 
-    echo "########### Setting up ${device_id} as ${mount_dir} ###########"
+    echo "########### Setting up ${device_id} as ${mount_dir}"
     if (mount | grep -q "${device_id} on ${mount_dir} type ext4"); then
       echo "${mount_dir} is already mounted"
       return 0
@@ -239,18 +233,18 @@ fi
 
 # File for the Let's encrypt certificate
 if [[ ! -f "${ACME_FILE}" ]]; then
-    echo "########### Creating ${ACME_FILE} ###########"
+    echo "########### Creating ${ACME_FILE}"
     touch "${ACME_FILE}"
     chmod 600 "${ACME_FILE}"
 fi
 
 # Generate a random Postgres password
 if [[ ! -f "${POSTGRES_PASSWORD_FILE}" ]]; then
-    echo "########### Creating ${POSTGRES_PASSWORD_FILE} ###########"
+    echo "########### Creating ${POSTGRES_PASSWORD_FILE}"
     openssl rand -base64 15 | head -c 12 > "${POSTGRES_PASSWORD_FILE}"
     chmod 400 "${POSTGRES_PASSWORD_FILE}"
 fi
-POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
+export POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
 
 
 #
@@ -265,23 +259,23 @@ mkdir -p "${DOWNLOAD_DIR}"
 
 FLAG_DOWNLOADED="${STATUS_DIR}/osm_data.downloaded"
 if [[ ! -f "${FLAG_DOWNLOADED}" ]]; then
-    echo "########### Downloading ${OSM_FILE} ###########"
+    echo "########### Downloading ${OSM_FILE}"
     # md5 file should be downloaded before the much slower data file to reduce chances of a race condition
     if [[ "${OSM_FILE_MD5_URL}" != "-" ]]; then
-      curl --silent --show-error --location --compressed \
+      curl --fail --silent --show-error --location --compressed \
           "${OSM_FILE_MD5_URL}" \
           --output "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
     fi
 
     set -x
-    curl --silent --show-error --location --compressed \
+    curl --fail --silent --show-error --location --compressed \
         "${OSM_FILE_URL}" \
         --output "${DOWNLOAD_DIR}/${OSM_FILE}"
     { set +x; } 2>/dev/null
 
     if [[ "${OSM_FILE_MD5_URL}" != "-" ]]; then
       pushd "${DOWNLOAD_DIR}" > /dev/null
-      echo "########### Validating ${OSM_FILE} md5 hash ###########"
+      echo "########### Validating ${OSM_FILE} md5 hash"
       if which md5sum; then
         set -x
         md5sum --check "${DOWNLOAD_DIR}/${OSM_FILE}.md5"
@@ -301,7 +295,7 @@ fi
 mkdir -p "${OSM_PGSQL_DATA_DIR}"
 if [[ ! -f "${OSM_PGSQL_DATA_DIR}/state.txt" ]]; then
 
-    echo "########### Initializing ${OSM_PGSQL_DATA_DIR} state files ########### ###########"
+    echo "########### Initializing ${OSM_PGSQL_DATA_DIR} state files ###########"
     cp "${REPO_DIR}/docker/osmosis_configuration.txt" "${OSM_PGSQL_DATA_DIR}/configuration.txt"
     touch "${OSM_PGSQL_DATA_DIR}/download.lock"
     # Current date minus N days
@@ -312,7 +306,7 @@ if [[ ! -f "${OSM_PGSQL_DATA_DIR}/state.txt" ]]; then
       start_date_fmt=$(date --utc --date="@${start_date}" +"%Y-%m-%dT00:00:00Z")
     fi
     set -x
-    curl --silent --show-error --location --compressed \
+    curl --fail --silent --show-error --location --compressed \
         "https://replicate-sequences.osm.mazdermind.de/?${start_date_fmt}" \
         --output "${OSM_PGSQL_DATA_DIR}/state.txt"
     { set +x; } 2>/dev/null
@@ -345,7 +339,7 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
     BLAZE_VERSION=$(grep --before-context=1 '<packaging>pom</packaging>' "${REPO_DIR}/wikidata-query-rdf/pom.xml" \
         | head -n 1 \
         | sed 's/^[^>]*>\([^<]*\)<.*$/\1/g')
-    echo "########### Building Blazegraph ${BLAZE_VERSION} ###########"
+    echo "########### Building Blazegraph ${BLAZE_VERSION}"
     cleanup_git_repo
 
     # Compile & package Blazegraph, and extract result to the /blazegraph dir
@@ -353,7 +347,6 @@ if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
     docker run --rm \
         -v "${REPO_DIR}/wikidata-query-rdf:/app-src:rw" \
         -v "${BLAZEGRAPH_APP_DIR}:/app:rw" \
-        -v "${BLAZEGRAPH_DATA_DIR}:/app-data:rw" \
         -w /app-src \
         maven:3.6.0-jdk-8 \
         sh -c "\
@@ -382,15 +375,13 @@ cd "${REPO_DIR}/wikidata-query-gui"
 FLAG_BUILD_GUI="${STATUS_DIR}/gui.build.$(git rev-parse HEAD || echo 'no_git_dir')"
 if [[ ! -f "${FLAG_BUILD_GUI}" ]]; then
 
-    echo "########### Building GUI ###########"
+    echo "########### Building GUI"
     cleanup_git_repo
 
     # Compile & package wikibase-query-gui
     set -x
     docker run --rm \
         -v "${REPO_DIR}:/app-src:rw" \
-        -v "${BLAZEGRAPH_APP_DIR}:/app:rw" \
-        -v "${BLAZEGRAPH_DATA_DIR}:/app-data:rw" \
         -w /app-src \
         node:10.11-alpine \
         sh -c "\
@@ -411,14 +402,104 @@ fi
 # In case there is a local SSD, use it as the temp storage, otherwise use data dir.
 OSM_PGSQL_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_PGSQL_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
 OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || echo "${TEMP_DIR}/osm-rdf-tmp" )
+BLAZEGRAPH_DATA_DIR="${TEMP_DIR:-$DATA_DIR}/blazegraph-data"
 
-echo "########### Starting Docker-compose ###########"
-export POSTGRES_PASSWORD
+echo "########### Starting Services"
 
 NETWORK_NAME=proxy_net
 if [[ -z $(docker network ls --filter "name=^${NETWORK_NAME}$" --format="{{ .Name }}") ]] ; then
      docker network create "${NETWORK_NAME}"
 fi
+
+set -x
+docker run --rm                                                      \
+    -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"                    \
+    -e "BLAZEGRAPH_DATA_DIR=${BLAZEGRAPH_DATA_DIR}"                  \
+    -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                        \
+    -e "MEM_BLAZE_HEAP_MB=${MEM_BLAZEGRAPH_MB}"                      \
+    -e "MEM_BLAZE_LIMIT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))"       \
+    -e "MEM_PG_MAINTENANCE_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))"    \
+    -e "MEM_PG_SHARED_BUFFERS_MB=$(( ${MAX_MEMORY_MB} * 15 / 100 ))" \
+    -e "MEM_PG_WORK_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))"            \
+    -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                                \
+    -e "POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR}"                      \
+    -e "SOPHOX_HOST=${SOPHOX_HOST}"                                  \
+    -e "WB_CONCEPT_URI=${WB_CONCEPT_URI}"                            \
+    -e POSTGRES_PASSWORD                                             \
+                                                                     \
+    -v "${REPO_DIR}:/git_repo"                                       \
+    -v /var/run/docker.sock:/var/run/docker.sock                     \
+                                                                     \
+    docker/compose:1.23.1                                            \
+    --file /git_repo/docker/dc-databases.yml                          \
+    --project-name sophox                                            \
+    up --detach
+{ set +x; } 2>/dev/null
+
+
+function wait_for {
+    local name=$1
+    local command=$2
+    local id
+
+    printf "Waiting for ${name} to start "
+    id=$(docker ps "--filter=label=com.docker.compose.service=${name}" --quiet)
+    if [[ -z $id ]]; then
+        echo "Unable to find docker service '${name}'"
+        exit 1
+    fi
+    while ! docker exec ${id} ${command} > /dev/null ; do
+        sleep 10
+        printf "."
+    done
+    echo
+}
+
+wait_for "blazegraph" "curl --fail --silent http://127.0.0.1:9999/bigdata/status"
+wait_for "postgres" "pg_isready --dbname=gis --quiet"
+sleep 3 # just in case :)
+
+echo "########### Starting Importers"
+
+set -x
+docker run --rm                                                     \
+    -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"                   \
+    -e "BUILD_DIR=/git_repo"                                        \
+    -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                               \
+    -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                           \
+    -e "MEM_OSM_PGSQL_IMPORT_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))" \
+    -e "MEM_OSM_RDF_LIMIT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))"    \
+    -e "OSM_FILE=${OSM_FILE}"                                       \
+    -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"                   \
+    -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"                   \
+    -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"                       \
+    -e "OSM_RDF_MAX_STMTS=${OSM_RDF_MAX_STMTS}"                     \
+    -e "OSM_RDF_TEMP_DIR=${OSM_RDF_TEMP_DIR}"                       \
+    -e "OSM_RDF_WORKERS=${OSM_RDF_WORKERS}"                         \
+    -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                               \
+    -e "REPO_DIR=${REPO_DIR}"                                       \
+    -e "STATUS_DIR=${STATUS_DIR}"                                   \
+    -e POSTGRES_PASSWORD                                            \
+                                                                    \
+    -v "${REPO_DIR}:/git_repo"                                      \
+    -v /var/run/docker.sock:/var/run/docker.sock                    \
+                                                                    \
+    docker/compose:1.23.1                                           \
+    --file /git_repo/docker/dc-importers.yml                        \
+    --project-name sophox                                           \
+    up
+{ set +x; } 2>/dev/null
+
+
+# Once all status flag files are created, delete downloaded OSM file
+if [[ -f "${DOWNLOAD_DIR}/${OSM_FILE}" ]]; then
+  if ls "${STATUS_DIR}/osm-rdf.parsed" "${STATUS_DIR}/osm-pgsql.imported" > /dev/null ; then
+    echo "Deleting ${DOWNLOAD_DIR}/${OSM_FILE}"
+    rm "${DOWNLOAD_DIR}/${OSM_FILE}"
+  fi
+fi
+
+echo "########### Starting Updaters"
 
 set -x
 docker run --rm                                               \
@@ -444,11 +525,11 @@ docker run --rm                                               \
     -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                         \
     -e "WB_CONCEPT_URI=${WB_CONCEPT_URI}"                     \
     -e "MEM_BLAZEGRAPH_MB=${MEM_BLAZEGRAPH_MB}"               \
-    -e "MEM_5_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))"   \
-    -e "MEM_15_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 15 / 100 ))" \
-    -e "MEM_20_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))" \
-    -e "MEM_50_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 50 / 100 ))" \
-    -e "MEM_70_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))" \
+    -e "MEM_5_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))"     \
+    -e "MEM_15_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 15 / 100 ))"   \
+    -e "MEM_20_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))"   \
+    -e "MEM_50_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 50 / 100 ))"   \
+    -e "MEM_70_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))"   \
     -e BUILD_DIR=/git_repo                                    \
     -e POSTGRES_PASSWORD                                      \
                                                               \
@@ -456,9 +537,10 @@ docker run --rm                                               \
     -v /var/run/docker.sock:/var/run/docker.sock              \
                                                               \
     docker/compose:1.23.1                                     \
-    --file "/git_repo/${COMPOSE_FILE}"                        \
+    --file /git_repo/docker/dc-services.yml                   \
+    --file /git_repo/docker/dc-updaters.yml                   \
     --project-name sophox                                     \
     up ${DETACH_DOCKER_COMPOSE:+ --detach}
 { set +x; } 2>/dev/null
 
-echo "########### Docker-compose finished, exiting ###########"
+echo "########### Startup is done, exiting"

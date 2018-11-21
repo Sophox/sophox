@@ -13,5 +13,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-python-dev \
     zlib1g-dev \
     libbz2-dev \
+    curl \
     && pip3 install --no-cache-dir -r /requirements.txt \
     && rm -rf /var/lib/apt/lists/*

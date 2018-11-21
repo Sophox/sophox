@@ -1,0 +1,111 @@
+version: '2.3'
+
+services:
+
+  traefik:
+    # Web proxy
+    image: traefik
+    # restart: always
+    ports:
+      - "${TRAEFIK_HOST}:80:80"
+      - "${TRAEFIK_HOST}:443:443"
+      - "127.0.0.1:8080:8080"
+    networks:
+      - proxy_net
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "${TRAEFIK_FILE}:/traefik.toml:ro"
+      - "${ACME_FILE}:/acme.json:rw"
+    environment:
+      SOPHOX_HOST: "${SOPHOX_HOST}"
+    container_name: traefik
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+  sophox-gui:
+    # Main web interface
+    image: nginx:latest
+    restart: always
+    volumes:
+      - "${REPO_DIR}/wikidata-query-gui/build:/usr/share/nginx/html:ro"
+    ports:
+      - "80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET"
+    networks:
+      - proxy_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+  mapshaper:
+    # Extra web UI tool to process map geometry results
+    image: crazycapivara/docker-mapshaper
+    # restart: always
+    ports:
+      - "5555"
+    networks:
+      - proxy_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/mapshaper/;Method:GET"
+      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+  vote-server:
+    # Records user votes for feature modification
+    build: "${BUILD_DIR}/vote-server"
+    # restart: always
+    environment:
+      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
+    ports:
+      - "9979"
+    networks:
+      - proxy_net
+      - blazegraph_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/store/;Method:PUT,DELETE,OPTIONS"
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+  osm-regions:
+    # Serves geoshapes from Postgres, attaching them to the SPARQL query results
+    build: "${BUILD_DIR}/osm-regions-server"
+    # restart: always
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: gis
+      POSTGRES_USER: sophox
+      POSTGRES_PASSWORD:
+      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
+      WIKIBASE_URL: "https://wikibase.org/bigdata/namespace/wdq/sparql"
+      REGIONS_TABLE: planet_osm_polygon
+    ports:
+      - "9978"
+    networks:
+      - proxy_net
+      - postgres_net
+      - blazegraph_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefixStrip:/regions/;Method:GET"
+      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+networks:
+  proxy_net:
+    external: true
+  postgres_net:
+  blazegraph_net:

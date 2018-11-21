@@ -41,7 +41,9 @@ These steps are done automatically by the startup scripts. Many of the steps cre
 * Download OSM dump file and validate md5 sum. (creates _status/file.downloaded_)
 * Initialize Osmosis state configuration / timestamp
 * Compile Blazegraph from [/wikidata-query-rdf](wikidata-query-rdf)  (creates _status/blazegraph.build_)
-* Run docker containers with [docker-compose.yml](docker/docker-compose.yml)
+* Start PostgreSQL and Blazegraph with [dc-databases.yml](docker/dc-databases.yml) and wait for them to activate
+* Run [dc-importers.yml](docker/dc-importers.yml) to parse downloaded file into RDF TTL files and into Postgres tables. The TTL files are then imported into Blazegraph.  This step runs without the `--detach`, and should take a few days to complete.  Running it a second time should not take any time. Note that if it crashes, you may have to do some manual cleanup steps (e.g. wipe it all clean)
+* Run [dc-updaters.yml](docker/dc-updaters.yml) and [dc-services.yml](docker/dc-services.yml). Updaters will update OSM data -> PostgreSQL tables (geoshapes), OSM data->Blazegraph, and OSM Wiki->Blazegraph. 
 
 ## Development
 

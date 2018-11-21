@@ -26,4 +26,4 @@
 : "${STARTUP_SCRIPT:=https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.sh}"
 
 echo "Starting up ${STARTUP_SCRIPT} with curl"
-source <(curl --silent --show-error --location --compressed "${STARTUP_SCRIPT}")
+source <(curl --fail --silent --show-error --location --compressed "${STARTUP_SCRIPT}")
