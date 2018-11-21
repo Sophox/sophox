@@ -160,7 +160,9 @@ BLAZEGRAPH_APP_DIR=${DATA_DIR}/blazegraph-app
 ACME_FILE=${DATA_DIR}/acme.json
 POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
 POSTGRES_DATA_DIR=${DATA_DIR}/postgres
-DOWNLOAD_DIR=${TEMP_DIR:-$DATA_DIR}/download
+# Ideally download should go to the temp, but it might not fit together with Blazegraph in 375GB
+# DOWNLOAD_DIR=${TEMP_DIR:-$DATA_DIR}/download
+DOWNLOAD_DIR=${DATA_DIR}/download
 OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
 OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
 OSM_TTLS_DIR=${DATA_DIR}/osm-rdf-ttls
