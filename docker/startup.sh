@@ -77,52 +77,6 @@ echo "TOTAL_MEMORY_PRCNT='${TOTAL_MEMORY_PRCNT}'"
 echo "IS_FULL_PLANET='${IS_FULL_PLANET}'"
 echo "DEBUG='${DEBUG}'"
 
-
-STATUS_DIR=${DATA_DIR}/status
-BLAZEGRAPH_APP_DIR=${DATA_DIR}/blazegraph-app
-ACME_FILE=${DATA_DIR}/acme.json
-POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
-POSTGRES_DATA_DIR=${DATA_DIR}/postgres
-DOWNLOAD_DIR=${DATA_DIR}/download
-OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
-OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
-OSM_TTLS_DIR=${DATA_DIR}/osm-rdf-ttls
-WB_CONCEPT_URI="http://wiki.openstreetmap.org"
-BLAZEGRAPH_ENDPOINTS='"wiki.openstreetmap.org"'
-BLAZEGRAPH_IMAGE=openjdk:8-jdk
-
-# This path must match docker-compose.yml - blazegraph volume
-BLAZEGRAPH_JNL_DATA_FILE=/app-data/osmdata.jnl
-
-# If DEBUG env is not set, run docker compose in the detached (service) mode
-DETACH_DOCKER_COMPOSE=$( [[ "${DEBUG}" == "" ]] && echo "true" || echo "" )
-# Do not use https redirect and Let's Encrypt certs when debugging
-TRAEFIK_FILE=$( [[ "${DEBUG}" == "" ]] && echo "${REPO_DIR}/docker/traefik.toml" || echo "${REPO_DIR}/docker/traefik.debug.toml" )
-TRAEFIK_HOST=$( [[ "${DEBUG}" == "" ]] && echo "0.0.0.0" || echo "127.0.0.1" )
-
-# Get total system memory, reducing it by some optional percentage, in MB
-if [[ -z "${MAX_MEMORY_MB}" ]]; then
-  # TODO: support Mac
-  TOTAL_MEMORY_KB=$(free | awk '/^Mem:/{print $2}')
-  MAX_MEMORY_MB=$(( ${TOTAL_MEMORY_KB} * ${TOTAL_MEMORY_PRCNT} / 100 / 1024 ))
-fi
-echo "MAX_MEMORY_MB='${MAX_MEMORY_MB}'"
-
-# MEM = 40000 MB ~~ max statements = 10000 / workers count
-OSM_RDF_WORKERS=2
-OSM_RDF_MAX_STMTS=$(( ${MAX_MEMORY_MB} / 4 / ${OSM_RDF_WORKERS} ))
-
-
-# Blazegraph - full should be maxed at 16g, partial can be maxed at 2g
-if [[ -n "${IS_FULL_PLANET}" ]]; then
-  echo "### Optimizing for full planet import"
-  MEM_BLAZEGRAPH_MB=$(( 12 * 1024 ))
-else
-  echo "### Optimizing for a small OSM file import"
-  MEM_BLAZEGRAPH_MB=$(( 1024 ))
-fi
-MEM_BLAZEGRAPH_MB=$(( ${MAX_MEMORY_MB} / 2 > ${MEM_BLAZEGRAPH_MB} ? ${MEM_BLAZEGRAPH_MB} : ${MAX_MEMORY_MB} / 2 ))
-
 #
 # #####################  Initialize and Mount Persisted Disk
 #
@@ -197,6 +151,62 @@ if [[ -n "${TEMP_DEV}" ]]; then
       TEMP_DIR=""
     fi
 fi
+
+#
+# #####################  Setup some internal vars (once we know if there is a temp drive)
+#
+STATUS_DIR=${DATA_DIR}/status
+BLAZEGRAPH_APP_DIR=${DATA_DIR}/blazegraph-app
+ACME_FILE=${DATA_DIR}/acme.json
+POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
+POSTGRES_DATA_DIR=${DATA_DIR}/postgres
+DOWNLOAD_DIR=${TEMP_DIR:-$DATA_DIR}/download
+OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
+OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
+OSM_TTLS_DIR=${DATA_DIR}/osm-rdf-ttls
+
+WB_CONCEPT_URI="http://wiki.openstreetmap.org"
+BLAZEGRAPH_ENDPOINTS='"wiki.openstreetmap.org"'
+BLAZEGRAPH_IMAGE=openjdk:8-jdk
+
+# This path must match docker-compose.yml - blazegraph volume
+BLAZEGRAPH_JNL_DATA_FILE=/app-data/osmdata.jnl
+
+# If DEBUG env is not set, run docker compose in the detached (service) mode
+DETACH_DOCKER_COMPOSE=$( [[ "${DEBUG}" == "" ]] && echo "true" || echo "" )
+# Do not use https redirect and Let's Encrypt certs when debugging
+TRAEFIK_FILE=$( [[ "${DEBUG}" == "" ]] && echo "${REPO_DIR}/docker/traefik.toml" || echo "${REPO_DIR}/docker/traefik.debug.toml" )
+TRAEFIK_HOST=$( [[ "${DEBUG}" == "" ]] && echo "0.0.0.0" || echo "127.0.0.1" )
+
+# Get total system memory, reducing it by some optional percentage, in MB
+if [[ -z "${MAX_MEMORY_MB}" ]]; then
+  # TODO: support Mac
+  TOTAL_MEMORY_KB=$(free | awk '/^Mem:/{print $2}')
+  MAX_MEMORY_MB=$(( ${TOTAL_MEMORY_KB} * ${TOTAL_MEMORY_PRCNT} / 100 / 1024 ))
+fi
+echo "MAX_MEMORY_MB='${MAX_MEMORY_MB}'"
+
+# MEM = 40000 MB ~~ max statements = 10000 / workers count
+OSM_RDF_WORKERS=2
+OSM_RDF_MAX_STMTS=$(( ${MAX_MEMORY_MB} / 4 / ${OSM_RDF_WORKERS} ))
+
+
+# Blazegraph - full should be maxed at 16g, partial can be maxed at 2g
+if [[ -n "${IS_FULL_PLANET}" ]]; then
+  echo "### Optimizing for full planet import"
+  MEM_BLAZEGRAPH_MB=$(( 12 * 1024 ))
+else
+  echo "### Optimizing for a small OSM file import"
+  MEM_BLAZEGRAPH_MB=$(( 1024 ))
+fi
+MEM_BLAZEGRAPH_MB=$(( ${MAX_MEMORY_MB} / 2 > ${MEM_BLAZEGRAPH_MB} ? ${MEM_BLAZEGRAPH_MB} : ${MAX_MEMORY_MB} / 2 ))
+
+# In case there is a local SSD, use it as the temp storage, otherwise use data dir.
+OSM_PGSQL_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_PGSQL_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
+OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || echo "${TEMP_DIR}/osm-rdf-tmp" )
+
+# TODO: For now, try to use Local SSD for RDF data
+BLAZEGRAPH_DATA_DIR="${TEMP_DIR:-$DATA_DIR}/blazegraph-data"
 
 mkdir -p "${STATUS_DIR}"
 
@@ -399,11 +409,6 @@ fi
 # #####################  Run docker-compose from a docker container
 #
 
-# In case there is a local SSD, use it as the temp storage, otherwise use data dir.
-OSM_PGSQL_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_PGSQL_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
-OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || echo "${TEMP_DIR}/osm-rdf-tmp" )
-BLAZEGRAPH_DATA_DIR="${TEMP_DIR:-$DATA_DIR}/blazegraph-data"
-
 echo "########### Starting Services"
 
 NETWORK_NAME=proxy_net
@@ -502,44 +507,30 @@ fi
 echo "########### Starting Updaters"
 
 set -x
-docker run --rm                                               \
-    -e "REPO_DIR=${REPO_DIR}"                                 \
-    -e "TRAEFIK_FILE=${TRAEFIK_FILE}"                         \
-    -e "TRAEFIK_HOST=${TRAEFIK_HOST}"                         \
-    -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                 \
-    -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"             \
-    -e "BLAZEGRAPH_DATA_DIR=${BLAZEGRAPH_DATA_DIR}"           \
-    -e "STATUS_DIR=${STATUS_DIR}"                             \
-    -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                         \
-    -e "ACME_FILE=${ACME_FILE}"                               \
-    -e "SOPHOX_HOST=${SOPHOX_HOST}"                           \
-    -e "POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR}"               \
-    -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                     \
-    -e "OSM_FILE=${OSM_FILE}"                                 \
-    -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"             \
-    -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"             \
-    -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"                 \
-    -e "OSM_RDF_TEMP_DIR=${OSM_RDF_TEMP_DIR}"                 \
-    -e "OSM_RDF_WORKERS=${OSM_RDF_WORKERS}"                   \
-    -e "OSM_RDF_MAX_STMTS=${OSM_RDF_MAX_STMTS}"               \
-    -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                         \
-    -e "WB_CONCEPT_URI=${WB_CONCEPT_URI}"                     \
-    -e "MEM_BLAZEGRAPH_MB=${MEM_BLAZEGRAPH_MB}"               \
-    -e "MEM_5_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))"     \
-    -e "MEM_15_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 15 / 100 ))"   \
-    -e "MEM_20_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))"   \
-    -e "MEM_50_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 50 / 100 ))"   \
-    -e "MEM_70_PRCNT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))"   \
-    -e BUILD_DIR=/git_repo                                    \
-    -e POSTGRES_PASSWORD                                      \
-                                                              \
-    -v "${REPO_DIR}:/git_repo"                                \
-    -v /var/run/docker.sock:/var/run/docker.sock              \
-                                                              \
-    docker/compose:1.23.1                                     \
-    --file /git_repo/docker/dc-services.yml                   \
-    --file /git_repo/docker/dc-updaters.yml                   \
-    --project-name sophox                                     \
+docker run --rm                                                    \
+    -e "ACME_FILE=${ACME_FILE}"                                    \
+    -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"                  \
+    -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                      \
+    -e "BUILD_DIR=/git_repo"                                       \
+    -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                          \
+    -e "MEM_OSM_PGSQL_UPDATE_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))" \
+    -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"                  \
+    -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"                      \
+    -e "REPO_DIR=${REPO_DIR}"                                      \
+    -e "SOPHOX_HOST=${SOPHOX_HOST}"                                \
+    -e "STATUS_DIR=${STATUS_DIR}"                                  \
+    -e "TRAEFIK_FILE=${TRAEFIK_FILE}"                              \
+    -e "TRAEFIK_HOST=${TRAEFIK_HOST}"                              \
+    -e "WB_CONCEPT_URI=${WB_CONCEPT_URI}"                          \
+    -e POSTGRES_PASSWORD                                           \
+                                                                   \
+    -v "${REPO_DIR}:/git_repo"                                     \
+    -v /var/run/docker.sock:/var/run/docker.sock                   \
+                                                                   \
+    docker/compose:1.23.1                                          \
+    --file /git_repo/docker/dc-services.yml                        \
+    --file /git_repo/docker/dc-updaters.yml                        \
+    --project-name sophox                                          \
     up ${DETACH_DOCKER_COMPOSE:+ --detach}
 { set +x; } 2>/dev/null
 

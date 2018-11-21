@@ -18,7 +18,7 @@ services:
       OSM_PGSQL_CODE: "/osm-to-pgsql"
       OSM_PGSQL_CPU_UPDATE: 2
       OSM_PGSQL_DATA: "/osm-pgsql"
-      OSM_PGSQL_MEM_UPDATE: "${MEM_5_PRCNT_MB}"
+      OSM_PGSQL_MEM_UPDATE: "${MEM_OSM_PGSQL_UPDATE_MB}"
       POSTGRES_DB: gis
       POSTGRES_HOST: postgres
       POSTGRES_PASSWORD:

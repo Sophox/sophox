@@ -21,6 +21,7 @@ services:
         -Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF
         -DwikibaseConceptUri=${WB_CONCEPT_URI}
         -DwikibaseServiceEnableWhitelist=false
+        -DwikibaseMaxDaysBack=720
     ports:
       - "9999"
     networks:
