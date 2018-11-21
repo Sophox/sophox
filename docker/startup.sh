@@ -405,6 +405,20 @@ if [[ ! -f "${FLAG_BUILD_GUI}" ]]; then
     touch "${FLAG_BUILD_GUI}"
 fi
 
+# Debugging helpers - if a disabled file exists, create all the other files to bypass the import/update
+if [[ -f "${STATUS_DIR}/osm-rdf.disabled" ]]; then
+  touch "${STATUS_DIR}/osm-rdf.parsed"
+  touch "${STATUS_DIR}/osm-rdf.imported"
+  touch "${STATUS_DIR}/osm-rdf.imported.disabled"
+fi
+if [[ -f "${STATUS_DIR}/osm-pgsql.disabled" ]]; then
+  touch "${STATUS_DIR}/osm-pgsql.imported"
+  touch "${STATUS_DIR}/osm-pgsql.imported.disabled"
+fi
+if [[ -f "${STATUS_DIR}/wikibase.disabled" ]]; then
+  touch "${STATUS_DIR}/wikibase.initialized.disabled"
+fi
+
 #
 # #####################  Run docker-compose from a docker container
 #
@@ -454,7 +468,7 @@ function wait_for {
         exit 1
     fi
     while ! docker exec ${id} ${command} > /dev/null ; do
-        sleep 10
+        sleep 2
         printf "."
     done
     echo
@@ -462,7 +476,7 @@ function wait_for {
 
 wait_for "blazegraph" "curl --fail --silent http://127.0.0.1:9999/bigdata/status"
 wait_for "postgres" "pg_isready --dbname=gis --quiet"
-sleep 3 # just in case :)
+sleep 5 # just in case :)
 
 echo "########### Starting Importers"
 

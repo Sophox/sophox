@@ -2,6 +2,12 @@
 set -e
 echo '########### Updating from OSM Wiki ###########'
 
+if [[ ! -f "${FLAG_WB_INITIALIZED}.disabled" ]]; then
+  echo "########### osm wiki importer is disabled"
+  exit 0
+fi
+
+
 cd "${BLAZEGRAPH_APP}"
 
 # TODO: INIT_TIME should be set from the value of
@@ -13,6 +19,8 @@ if [[ ! -f "${FLAG_WB_INITIALIZED}" ]]; then
 else
     INIT_TIME=""
 fi
+
+export UPDATER_OPTS="-DwikibaseMaxDaysBack=720"
 
 set -x
 # conceptUri must be http: to match with the OSM

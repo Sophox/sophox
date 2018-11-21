@@ -2,6 +2,11 @@
 set -e
 echo "########### Running osm-to-pgsql updates every '${LOOP_SLEEP}' seconds ###########"
 
+if [[ ! -f "${FLAG_PG_IMPORTED}.disabled" ]]; then
+  echo "########### osm2pgsql is disabled"
+  exit 0
+fi
+
 # osm2pgsql expects password in this env var
 export PGPASSWORD="${POSTGRES_PASSWORD}"
 NODES_CACHE="${OSM_PGSQL_DATA}/nodes.cache"

@@ -56,15 +56,31 @@ git config --global url.ssh://git@github.com/.insteadOf https://github.com/
 
 For quick testing, you may want to use [docker/startup.local.sh](docker/startup.local.sh) to get Sophox locally and with a small OSM file.   Use  http://sophox.localhost  to browse it. You may need to add `127.0.0.1   sophox.localhost` to your `hosts` file.
 
+To disable some of the services, create these files in the status dir:
+* `osm-rdf.disabled` - disable OSM data into Blazegraph parser/importer/updater
+* `osm-pgsql.disabled` - disable OSM data into PostgreSQL importer/updater
+* `wikibase.disabled` - disable OSM Wikibase into Blazegraph updater
+
 You can also override some of the parameters by creating a file in the docker directory, e.g. docker/_belize.sh with similar content. Make sure the filename begins with an underscore (ignored by git):
 
 ```bash
 #!/usr/bin/env bash
+
 OSM_FILE=belize-latest.osm.pbf
 OSM_FILE_URL=http://download.geofabrik.de/central-america/belize-latest.osm.pbf
 MAX_MEMORY_MB=4000
-source "$(dirname "$0")/startup.local.sh"
+
+current_dir=$(dirname "$0")
+status_dir="${current_dir}/../_data_dir/status/"
+mkdir -p "${status_dir}"
+
+# touch "${status_dir}/osm-rdf.disabled"
+# touch "${status_dir}/osm-pgsql.disabled"
+# touch "${status_dir}/wikibase.disabled"
+
+source "${current_dir}/startup.local.sh"
 ```
+
 
 #### Notes for Mac users
 * Make sure to set MAX_MEMORY_MB, because `free` util is not available.
