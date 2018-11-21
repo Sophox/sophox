@@ -13,11 +13,7 @@ if [[ -z "${DATA_DIR}" ]]; then
   exit 1
 fi
 
-#  If set, attempts to mount and format (if needed) these devices as DATA_DIR and TEMP_DIR
-: "${DATA_DEV:=}"
-: "${TEMP_DEV:=}"
-
-# Optional location of the temporary files.  Presumes to be ~350GB of SSD space
+# Optional location of the temporary files.
 : "${TEMP_DIR:=}"
 
 # Domain of this service
@@ -62,8 +58,6 @@ fi
 
 # Print parameters:
 echo "DATA_DIR='${DATA_DIR}'"
-echo "DATA_DEV='${DATA_DEV}'"
-echo "TEMP_DEV='${TEMP_DEV}'"
 echo "TEMP_DIR='${TEMP_DIR}'"
 echo "SOPHOX_HOST='${SOPHOX_HOST}'"
 echo "REPO_DIR='${REPO_DIR}'"
@@ -77,84 +71,8 @@ echo "TOTAL_MEMORY_PRCNT='${TOTAL_MEMORY_PRCNT}'"
 echo "IS_FULL_PLANET='${IS_FULL_PLANET}'"
 echo "DEBUG='${DEBUG}'"
 
-#
-# #####################  Initialize and Mount Persisted Disk
-#
+##############  Setup internal vars
 
-function init_disk {
-    local device_id="$1"
-    local mount_dir="$2"
-    local is_optional="$3"
-
-    # If no device id is given, make sure data/temp dirs exist
-    if [[ -z "${device_id}" ]]; then
-      if [[ ! -d "${mount_dir}" ]]; then
-        echo "Directory ${mount_dir} does not exist, and device id is not set. Aborting."
-        exit 1
-      else
-        return 0
-      fi
-    fi
-
-    if [[ "$EUID" -ne 0 ]]; then
-      # local execution?
-      echo "This script must run with sudo"
-      exit 1
-    fi
-
-    echo "########### Setting up ${device_id} as ${mount_dir}"
-    if (mount | grep -q "${device_id} on ${mount_dir} type ext4"); then
-      echo "${mount_dir} is already mounted"
-      return 0
-    fi
-
-    echo "Checking if device ${device_id} exists:"
-    if ! lsblk --noheadings ${device_id}; then
-        if [[ "${is_optional}" = true ]]; then
-            echo "Optional disk ${device_id} does not exist, skipping"
-            return 111
-        else
-            echo "Data disk ${device_id} does not exist"
-            exit 1
-        fi
-    fi
-
-    mkdir -p "${mount_dir}"
-    local ret_code=$(mount -o discard,defaults "${device_id}" "${mount_dir}"; echo $?)
-    if [[ ${ret_code} -eq 32 ]]; then
-      # Format new partition when mount exits with code 32. It usually prints this:
-      #   mount: /mnt/disks/data: wrong fs type, bad option, bad superblock on /dev/sdb, missing codepage or helper program, or other error.
-      echo "Formatting new partition..."
-      if ! mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard "${device_id}"; then
-        echo "Formatting failed for ${device_id}"
-        exit 1
-      fi
-      if ! mount -o discard,defaults "${device_id}" "${mount_dir}"; then
-        echo "Unable to mount ${mount_dir} on ${device_id}"
-        exit 1
-      fi
-    fi
-
-    chmod a+w "${mount_dir}"
-    if [[ ! -d "${mount_dir}/lost+found" ]]; then
-      echo "Unable to mount ${mount_dir} on ${device_id}"
-      exit 1
-    fi
-    echo "${device_id} has been mounted as ${mount_dir}"
-    return 0
-}
-
-init_disk "${DATA_DEV}" "${DATA_DIR}"
-if [[ -n "${TEMP_DEV}" ]]; then
-    # If TEMP_DEV is given, but does not exist on the machine, turn off the TEMP_DIR
-    if ! init_disk "${TEMP_DEV}" "${TEMP_DIR}" true; then
-      TEMP_DIR=""
-    fi
-fi
-
-#
-# #####################  Setup some internal vars (once we know if there is a temp drive)
-#
 STATUS_DIR=${DATA_DIR}/status
 BLAZEGRAPH_APP_DIR=${DATA_DIR}/blazegraph-app
 ACME_FILE=${DATA_DIR}/acme.json
