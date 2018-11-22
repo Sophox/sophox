@@ -25,11 +25,43 @@ $ gcloud compute ssh sophox-instance --zone=us-central1-b  -- -L 8080:localhost:
 sudo journalctl -u google-startup-scripts.service
 ```
 
+### Hetzner or similar server
+
+We have a machine with 12, 128GB RAM, and 3 SSDs: 2 small ones and a 1.8TB one.
+
+* Using [robot UI](https://robot.your-server.de/), rescue reboot with a public key, and add a firewall rule for ports 22,80,443 only. Reboot.
+* `ssh root@<IP>`
+* run `installimage`
+* Choose -ubuntu 18.04
+* In the config file, comment out the 3rd (large) disk, set `SWRAIDLEVEL 1`, and hit `F10`.  After done formatting, use `shutdown -r now` to reboot.
+* `ssh root@88.99.164.208` and run:
+```bash
+# Install utils and docker
+apt update && apt upgrade
+apt-get install -y apt-transport-https ca-certificates curl git software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+
+# You may need to use "bionic" instead of `lsb_release ...` 
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+apt-cache policy docker-ce
+apt update && apt-get install -y docker-ce
+
+# Format and mount the large disk, and make it auto-mount.  We use xfs, but ext4 is fine too.
+mkdir -p /mnt/data && mount -o discard,defaults /dev/sdc /mnt/data
+echo UUID=`blkid -s UUID -o value /dev/sdc` /mnt/data xfs discard,defaults,nofail 0 2 | tee -a /etc/fstab
+```
+
+* Install Sophox with this line:
+`nohup curl --fail --silent --show-error --location --compressed \
+   https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.full.sh \
+   | bash >> /mnt/data/startup.log 2>&1 &`
+
 ### Monitoring
 * See docker statistics:  `docker stats`
 * View docker containers:  `docker ps`
 * See individual docker's log:  `docker logs <container-id>` _(ID can be just the first few digits)_
-* localhost:8080 shows Traefik's configuration and statistics.
+* `localhost:8080` shows Traefik's configuration and statistics.
 
 ## Automated Installation Steps
 These steps are done automatically by the startup scripts. Many of the steps create empty `status` files in the `data/status` directory, indicating that a specific step is complete. This prevents full rebuild when the server is restarted.

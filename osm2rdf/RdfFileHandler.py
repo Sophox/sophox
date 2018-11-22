@@ -1,6 +1,5 @@
-import gzip
-import logging
-import os
+import gzip, logging, os
+from datetime import datetime
 from multiprocessing import Process, Queue
 from RdfHandler import RdfHandler
 import osmutils
@@ -19,12 +18,11 @@ def writerThread(id, queue, options):
 
 
 def write_file(workerId, options, fileId, data, last_timestamp, statsStr):
+    start = datetime.now()
+
     os.makedirs(options.output_dir, exist_ok=True)
     filename = os.path.join(options.output_dir, 'osm-{0:06}.ttl.gz'.format(fileId))
-
-    # TODO switch to 'xt'
-    log.info('Wrk #{0}: {1} started, {2}'.format(workerId, filename, statsStr))
-    output = gzip.open(filename, 'wt', compresslevel=5)
+    output = gzip.open(filename, 'xt', compresslevel=3)
 
     output.write(options.file_header)
     for item in data:
@@ -38,7 +36,9 @@ def write_file(workerId, options, fileId, data, last_timestamp, statsStr):
 
     output.flush()
     output.close()
-    log.info('Wrk #{0}: {1} done'.format(workerId, filename))
+
+    seconds = (datetime.now() - start).total_seconds()
+    log.info('{0} done in {1} s by wrkr #{2}: {3}'.format(filename, seconds, workerId, statsStr))
 
 
 class RdfFileHandler(RdfHandler):
