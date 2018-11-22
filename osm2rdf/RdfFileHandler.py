@@ -1,33 +1,35 @@
-import gzip, logging, os
-from datetime import datetime
+import gzip
+import logging
+import os
 from multiprocessing import Process, Queue
-from RdfHandler import RdfHandler
+from datetime import datetime
 import osmutils
+from RdfHandler import RdfHandler
 
 log = logging.getLogger('osm2rdf')
 
 
-def writerThread(id, queue, options):
+def writer_thread(worker_id, queue, options):
     while True:
-        fileId, data, last_timestamp, statsStr = queue.get()
-        if fileId is None:
-            log.debug('Wrk #{0} complete'.format(id))
+        file_id, data, last_timestamp, stats_str = queue.get()
+        if file_id is None:
+            log.debug('Exiting worker #{0}'.format(worker_id))
             return
 
-        write_file(id, options, fileId, data, last_timestamp, statsStr)
+        write_file(worker_id, options, file_id, data, last_timestamp, stats_str)
 
 
-def write_file(workerId, options, fileId, data, last_timestamp, statsStr):
+def write_file(worker_id, options, file_id, data, last_timestamp, stats_str):
     start = datetime.now()
 
     os.makedirs(options.output_dir, exist_ok=True)
-    filename = os.path.join(options.output_dir, 'osm-{0:06}.ttl.gz'.format(fileId))
+    filename = os.path.join(options.output_dir, 'osm-{0:06}.ttl.gz'.format(file_id))
     output = gzip.open(filename, 'xt', compresslevel=3)
 
     output.write(options.file_header)
     for item in data:
-        typ, id, statements = item
-        text = typ + str(id) + '\n' + ';\n'.join(osmutils.toStrings(statements)) + '.\n\n'
+        typ, qid, statements = item
+        text = typ + str(qid) + '\n' + ';\n'.join(osmutils.toStrings(statements)) + '.\n\n'
         output.write(text)
 
     if last_timestamp.year > 2000:  # Not min-year
@@ -38,7 +40,7 @@ def write_file(workerId, options, fileId, data, last_timestamp, statsStr):
     output.close()
 
     seconds = (datetime.now() - start).total_seconds()
-    log.info('{0} done in {1} s by wrkr #{2}: {3}'.format(filename, seconds, workerId, statsStr))
+    log.info('{0} done in {1}s by worker #{2}: {3}'.format(filename, seconds, worker_id, stats_str))
 
 
 class RdfFileHandler(RdfHandler):
@@ -57,8 +59,8 @@ class RdfFileHandler(RdfHandler):
         self.queue = Queue(1)
 
         self.writers = []
-        for id in range(options.worker_count):
-            process = Process(target=writerThread, args=(id, self.queue, self.options))
+        for worker_id in range(options.worker_count):
+            process = Process(target=writer_thread, args=(worker_id, self.queue, self.options))
             self.writers.append(process)
             process.start()
 
@@ -76,8 +78,8 @@ class RdfFileHandler(RdfHandler):
         if self.pendingStatements == 0:
             return
 
-        statsStr = self.format_stats()
-        self.queue.put((self.job_counter, self.pending, self.last_timestamp, statsStr))
+        stats_str = self.format_stats()
+        self.queue.put((self.job_counter, self.pending, self.last_timestamp, stats_str))
 
         self.job_counter += 1
         self.pending = []
@@ -92,7 +94,7 @@ class RdfFileHandler(RdfHandler):
         self.flush()
 
         # Send stop signal to each worker, and wait for all to stop
-        for p in self.writers:
+        for _ in self.writers:
             self.queue.put((None, None, None, None))
         self.queue.close()
         for p in self.writers:
