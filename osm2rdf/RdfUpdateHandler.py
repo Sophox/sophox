@@ -42,18 +42,17 @@ class RdfUpdateHandler(RdfHandler):
 
         if self.pending:
             # Remove all staetments with these subjects
-            sparql += '''
-    DELETE {{ ?s ?p ?o . }}
-    WHERE {{
-      VALUES ?s {{ {0} }}
-      ?s ?p ?o .
-      FILTER (osmm:task != ?p)
-    }};'''.format(' '.join(self.pending.keys()))
-
+            sparql += f'''
+DELETE {{ ?s ?p ?o . }}
+WHERE {{
+  VALUES ?s {{ {' '.join(self.pending.keys())} }}
+  ?s ?p ?o .
+  FILTER (osmm:task != ?p)
+}};'''
             # flatten list of lists, and if sublist is truthy, use it
             insertSparql = '\n'.join([v for sublist in self.pending.values() if sublist for v in sublist])
             if insertSparql:
-                sparql += 'INSERT {{ {0} }} WHERE {{}};\n'.format(insertSparql)
+                sparql += f'INSERT {{ {insertSparql} }} WHERE {{}};\n'
 
         if seqid > 0:
             sparql += self.set_osm_schema_ver(seqid)
@@ -65,7 +64,7 @@ class RdfUpdateHandler(RdfHandler):
             self.pending = {}
         elif self.pendingCounter != 0:
             # Safety check
-            raise Exception('pendingCounter={0}'.format(self.pendingCounter))
+            raise Exception(f'pendingCounter={self.pendingCounter}')
 
     def get_osm_schema_ver(self, repserv):
         sparql = '''
@@ -95,7 +94,7 @@ SELECT ?dummy ?ver ?mod WHERE {
 
         mod_date = osmutils.parse_date(ts)
 
-        log.info('schema:dateModified={0}, shifting back and getting sequence ID'.format(mod_date))
+        log.info(f'schema:dateModified={mod_date}, shifting back and getting sequence ID')
 
         mod_date -= dt.timedelta(minutes=60)
         return repserv.timestamp_to_sequence(mod_date)
@@ -104,14 +103,14 @@ SELECT ?dummy ?ver ?mod WHERE {
         if self.last_timestamp.year < 2000:  # Something majorly wrong
             raise Exception('last_timestamp was not updated')
 
-        return '''
+        return f'''
 DELETE {{ osmroot: schema:version ?v . }} WHERE {{ osmroot: schema:version ?v . }};
 DELETE {{ osmroot: schema:dateModified ?m . }} WHERE {{ osmroot: schema:dateModified ?m . }};
 INSERT {{
-  osmroot: schema:version {0} .
-  osmroot: schema:dateModified {1} .
+  osmroot: schema:version {ver} .
+  osmroot: schema:dateModified {osmutils.format_date(self.last_timestamp)} .
 }} WHERE {{}};
-'''.format(ver, osmutils.format_date(self.last_timestamp))
+'''
 
     def run(self):
         repserv = ReplicationServer(self.options.osm_updater_url)
@@ -123,7 +122,7 @@ INSERT {{
             if seqid is None:
                 raise Exception('Unable to determine sequence ID')
 
-        log.info('Initial sequence id: {0}'.format(seqid))
+        log.info(f'Initial sequence id: {seqid}')
         state = None
         last_seqid = seqid
 
@@ -136,7 +135,7 @@ INSERT {{
             if state is None:
                 state = repserv.get_state_info()
                 if state is not None and seqid + 2 < state.sequence:
-                    log.info('Replication server has data up to #{0}'.format(state.sequence))
+                    log.info(f'Replication server has data up to #{state.sequence}')
 
             if state is not None and seqid <= state.sequence:
                 try:
@@ -160,10 +159,8 @@ INSERT {{
 
             seconds_since_last = (datetime.utcnow() - last_time).total_seconds()
             if seconds_since_last > 60:
-                log.info('Processed {0}, todo {1};  {2}'.format(
-                    seqid - last_seqid - 1,
-                    (state.sequence - seqid + 1 if state else '???'),
-                    self.format_stats()))
+                log.info(f'Processed {seqid - last_seqid - 1}, ' +
+                         f'todo {(state.sequence - seqid + 1 if state else "???")};  {self.format_stats()}')
                 last_seqid = seqid - 1
                 last_time = datetime.utcnow()
 

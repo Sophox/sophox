@@ -11,19 +11,19 @@ log = logging.getLogger('osm2rdf')
 
 def writer_thread(worker_id, queue, options):
     while True:
-        file_id, data, last_timestamp, stats_str = queue.get()
-        if file_id is None:
-            log.debug('Exiting worker #{0}'.format(worker_id))
+        ts, file_id, data, last_timestamp, stats_str = queue.get()
+        if ts is None:
+            log.debug(f'Exiting worker #{worker_id}')
             return
 
-        write_file(worker_id, options, file_id, data, last_timestamp, stats_str)
+        write_file(ts, worker_id, options, file_id, data, last_timestamp, stats_str)
 
 
-def write_file(worker_id, options, file_id, data, last_timestamp, stats_str):
+def write_file(ts_enqueue, worker_id, options, file_id, data, last_timestamp, stats_str):
     start = datetime.now()
 
     os.makedirs(options.output_dir, exist_ok=True)
-    filename = os.path.join(options.output_dir, 'osm-{0:06}.ttl.gz'.format(file_id))
+    filename = os.path.join(options.output_dir, f'osm-{file_id:06}.ttl.gz')
     output = gzip.open(filename, 'xt', compresslevel=3)
 
     output.write(options.file_header)
@@ -33,14 +33,14 @@ def write_file(worker_id, options, file_id, data, last_timestamp, stats_str):
         output.write(text)
 
     if last_timestamp.year > 2000:  # Not min-year
-        output.write(
-            '\nosmroot: schema:dateModified {0} .'.format(osmutils.format_date(last_timestamp)))
+        output.write(f'\nosmroot: schema:dateModified {osmutils.format_date(last_timestamp)} .')
 
     output.flush()
     output.close()
 
     seconds = (datetime.now() - start).total_seconds()
-    log.info('{0} done in {1}s by worker #{2}: {3}'.format(filename, seconds, worker_id, stats_str))
+    waited = (start - ts_enqueue).total_seconds()
+    log.info(f'{filename} done in {seconds}s, {waited}s wait, by worker #{worker_id}: {stats_str}')
 
 
 class RdfFileHandler(RdfHandler):
@@ -79,7 +79,7 @@ class RdfFileHandler(RdfHandler):
             return
 
         stats_str = self.format_stats()
-        self.queue.put((self.job_counter, self.pending, self.last_timestamp, stats_str))
+        self.queue.put((datetime.now(), self.job_counter, self.pending, self.last_timestamp, stats_str))
 
         self.job_counter += 1
         self.pending = []
@@ -95,7 +95,7 @@ class RdfFileHandler(RdfHandler):
 
         # Send stop signal to each worker, and wait for all to stop
         for _ in self.writers:
-            self.queue.put((None, None, None, None))
+            self.queue.put((None, None, None, None, None))
         self.queue.close()
         for p in self.writers:
             p.join()

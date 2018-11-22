@@ -66,11 +66,11 @@ class UpdatePageViewStats(object):
                 # Calculate last valid file
                 ver = datetime.utcnow() + dt.timedelta(minutes=50)
                 ver = datetime(ver.year, ver.month, ver.day, ver.hour, tzinfo=dt.timezone.utc)
-            self.log.info('Processing {0} from {1}'.format(('backwards' if backwards else 'forward'), ver))
+            self.log.info(f'Processing {("backwards" if backwards else "forward")} from {ver}')
             stats, timestamp = await self.process_files(ver, backwards)
             backwards = False
             if timestamp is not None and len(stats) > 0:
-                self.log.info('Updating {0} stats'.format(len(stats)))
+                self.log.info(f'Updating {len(stats)} stats')
                 self.save_stats(stats, timestamp)
             self.log.info('Pausing...')
             time.sleep(1000)
@@ -85,7 +85,7 @@ class UpdatePageViewStats(object):
             for date in self.iterate_hours(last_processed, self.options.max_files, backwards):
                 new_last = date
                 url = self.stats_url.format(date)
-                self.log.info('Processing {0}'.format(url))
+                self.log.info(f'Processing {url}')
                 futures.append(self.process_file(session, url, stats))
             await asyncio.wait(futures)
 
@@ -115,14 +115,13 @@ class UpdatePageViewStats(object):
                     stats[page_url] += int(parts[2])
 
     def get_pv_schema_ver(self):
-        sparql = '''
-PREFIX pvstat: {0}
+        sparql = f'''
+PREFIX pvstat: {self.pvstat}
 SELECT ?dummy ?ver ?mod WHERE {{
  BIND( "42" as ?dummy )
  OPTIONAL {{ pvstat: schema:dateModified ?mod . }}
 }}
-'''.format(self.pvstat)
-
+'''
         result = self.rdf_server.run('query', sparql)[0]
 
         if result['dummy']['value'] != '42':
@@ -131,15 +130,15 @@ SELECT ?dummy ?ver ?mod WHERE {{
         try:
             return osmutils.parse_date(result['mod']['value'])
         except KeyError:
-            self.log.info('schema:dateModified is not set for {0}'.format(self.pvstat))
+            self.log.info(f'schema:dateModified is not set for {self.pvstat}')
             return None
 
     def set_pv_schema_ver(self, timestamp):
-        return '''
-PREFIX pvstat: {0}
+        return f'''
+PREFIX pvstat: {self.pvstat}
 DELETE {{ pvstat: schema:dateModified ?m . }} WHERE {{ pvstat: schema:dateModified ?m . }};
-INSERT {{ pvstat: schema:dateModified {1} . }} WHERE {{}};
-'''.format(self.pvstat, osmutils.format_date(timestamp))
+INSERT {{ pvstat: schema:dateModified {osmutils.format_date(timestamp)} . }} WHERE {{}};
+'''
 
     def page_url(self, prefix, title):
         parts = prefix.split('.', 1)
@@ -165,7 +164,7 @@ INSERT {{ pvstat: schema:dateModified {1} . }} WHERE {{}};
 
         if not reWikiLanguage.match(parts[0]):
             if parts[0] != 'test2': # This is the only number-containing prefix so far
-                self.log.error('Skipping unexpected language prefix "{0}"'.format(parts[0]))
+                self.log.error(f'Skipping unexpected language prefix "{parts[0]}"')
             return None
 
         return osmutils.make_wiki_url(parts[0], site, title)
@@ -174,20 +173,18 @@ INSERT {{ pvstat: schema:dateModified {1} . }} WHERE {{}};
 
         # From https://stackoverflow.com/questions/46030514/update-or-create-numeric-counters-in-sparql-upsert/46042692
 
-        unformatted_query = '''
-PREFIX pvstat: {0}
-DELETE {{ ?sitelink pvstat: ?outdated }}
-INSERT {{ ?sitelink pvstat: ?updated }}
-WHERE {{
-    VALUES (?sitelink ?increment) {{ {1} }}
-    OPTIONAL {{?sitelink pvstat: ?outdated}}
-    BIND ((IF(BOUND(?outdated), ?outdated + ?increment, ?increment)) AS ?updated)
-}}'''
-
         for keys in osmutils.chunks(stats.keys(), 2000):
             # (<...> 10) (<...> 15) ...
             values = ' '.join(['(' + k + ' ' + str(stats[k]) + ')' for k in keys])
-            sparql = unformatted_query.format(self.pvstat, values)
+            sparql = f'''
+PREFIX pvstat: {self.pvstat}
+DELETE {{ ?sitelink pvstat: ?outdated }}
+INSERT {{ ?sitelink pvstat: ?updated }}
+WHERE {{
+    VALUES (?sitelink ?increment) {{ {values} }}
+    OPTIONAL {{?sitelink pvstat: ?outdated}}
+    BIND ((IF(BOUND(?outdated), ?outdated + ?increment, ?increment)) AS ?updated)
+}}'''
             self.rdf_server.run('update', sparql)
 
         self.rdf_server.run('update', self.set_pv_schema_ver(timestamp))

@@ -41,9 +41,8 @@ class RdfHandler(osmium.SimpleHandler):
 
         for tag in tags:
             key = tag.k
-            if key == 'created_by':
-                continue
-            statements.append((Tag, key, tag.v))
+            if key != 'created_by':
+                statements.append((Tag, key, tag.v))
 
         return statements
 
@@ -61,10 +60,9 @@ class RdfHandler(osmium.SimpleHandler):
                         statements.append((Point, 'osmm:loc', geometry))
                     except:
                         statements.append(loc_err())
+                    self.added_nodes += 1
 
-            if statements:
-                self.added_nodes += 1
-            else:
+            if not statements:
                 self.skipped_nodes += 1
 
         self.finalize_object(obj, statements, 'n')
@@ -119,19 +117,18 @@ class RdfHandler(osmium.SimpleHandler):
         oldValueName = valueName + '_old'
         val = getattr(self, valueName)
         oldVal = getattr(self, oldValueName, 0)
-        result = '{0:+}={1}'.format(val - oldVal, val)
+        result = f'{val - oldVal:+}={val}'
         setattr(self, oldValueName, val)
         return result
 
     def format_stats(self):
         fmt = lambda val: self.format_old_value(val)
 
-        res = 'Statements: {0};  Added: {1}n {2}w {3}r;  Skipped: {4}n'.format(
-            fmt('new_statements'), fmt('added_nodes'), fmt('added_ways'), fmt('added_rels'), fmt('skipped_nodes'))
+        res = f"Statements: {fmt('new_statements')};  Added: {fmt('added_nodes')}n {fmt('added_ways')}w " + \
+              f"{fmt('added_rels')}r;  Skipped: {fmt('skipped_nodes')}n"
 
         if self.deleted_nodes or self.deleted_ways or self.deleted_rels:
-            res += ';  Deleted: {0}n {1}w {2}r'.format(
-                fmt('deleted_nodes'), fmt('deleted_ways'), fmt('deleted_rels'))
+            res += f";  Deleted: {fmt('deleted_nodes')}n {fmt('deleted_ways')}w {fmt('deleted_rels')}r"
 
         if self.last_stats == res:
             res = ''

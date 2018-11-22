@@ -71,13 +71,13 @@ SELECT ?rel WHERE {
             relIds = self.skipped
             self.skipped = []
             count = len(relIds)
-            self.log.info('** Processing {0} relations'.format(count))
+            self.log.info(f'** Processing {count} relations')
             self.run_list(relIds)
             if len(self.skipped) >= count:
-                self.log.info('** Unable to process {0} relations, exiting'.format(len(self.skipped), count))
+                self.log.info(f'** Unable to process {len(self.skipped)} relations, exiting')
                 break
             else:
-                self.log.info('** Processed {0} out of {1} relations'.format(count - len(self.skipped), count))
+                self.log.info(f'** Processed {count - len(self.skipped)} out of {count} relations')
 
         self.log.info('done')
 
@@ -95,22 +95,19 @@ SELECT ?rel WHERE {
 
         if len(insertStatements) > 0:
             sparql = '\n'.join(osmutils.prefixes) + '\n\n'
-            sparql += 'INSERT {{ {0} }} WHERE {{}};\n'.format('\n'.join(insertStatements))
+            sparql += f'INSERT {{ {0} }} WHERE {{}};\n'.format('\n'.join(insertStatements))
             self.rdf_server.run('update', sparql)
-            self.log.info('Updated {0} relations'.format(len(insertStatements)))
-
+            self.log.info(f'Updated {len(insertStatements)} relations')
 
     def get_relation_members(self, relIds):
-
-        query = '''# Get relation member's locations
+        query = f'''# Get relation member's locations
 SELECT
   ?rel ?member ?loc
 WHERE {{
-  VALUES ?rel {{ {0} }}
+  VALUES ?rel {{ {' '.join(relIds)} }}
   ?rel osmm:has ?member .
   OPTIONAL {{ ?member osmm:loc ?loc . }}
-}}'''.format(' '.join(relIds))
-
+}}'''
         result = self.rdf_server.run('query', query)
 
         return [(
@@ -146,7 +143,7 @@ WHERE {{
                             nodeId = ref[len('https://www.openstreetmap.org/node/'):]
                             try:
                                 point = self.nodeCache.get(int(nodeId))
-                                points.append('Point({0} {1})'.format(point.lon, point.lat))
+                                points.append(f'Point({point.lon} {point.lat})')
                             except osmium._osmium.NotFoundError:
                                 pass
                     elif ref.startswith('https://www.openstreetmap.org/way/'):
