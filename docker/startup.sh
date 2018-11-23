@@ -350,6 +350,7 @@ if [[ ! -f "${FLAG_BUILD_GUI}" ]]; then
 fi
 
 # Debugging helpers - if a disabled file exists, create all the other files to bypass the import/update
+# TODO: status file names should be simplified and some redundancies should be removed
 if [[ -f "${STATUS_DIR}/osm-rdf.disabled" ]]; then
   touch "${STATUS_DIR}/osm-rdf.parsed"
   touch "${STATUS_DIR}/osm-rdf.imported"
@@ -361,6 +362,9 @@ if [[ -f "${STATUS_DIR}/osm-pgsql.disabled" ]]; then
 fi
 if [[ -f "${STATUS_DIR}/wikibase.disabled" ]]; then
   touch "${STATUS_DIR}/wikibase.initialized.disabled"
+fi
+if [[ -f "${STATUS_DIR}/pageviews.disabled" ]]; then
+  touch "${STATUS_DIR}/pageviews.backfilled.disabled"
 fi
 
 #

@@ -40,7 +40,7 @@ class UpdatePageViewStats(object):
         )
 
         parser.add_argument('--host', action='store', dest='rdf_url',
-                            default='http://localhost:9999/bigdata/sparql',
+                            default='http://localhost:9999/bigdata/namespace/wdq/sparql',
                             help='Host URL to upload data. Default: %(default)s')
         parser.add_argument('-n', '--dry-run', action='store_true', dest='dry_run', default=False,
                             help='Do not modify RDF database.')
@@ -64,7 +64,7 @@ class UpdatePageViewStats(object):
             ver = osmutils.query_status(self.rdf_server, f'{self.pvstat}')
             if ver is None:
                 self.log.info(f'schema:dateModified is not set for {self.pvstat}')
-                # Calculate last valid file - start from yesterday just in case
+                # Calculate last valid file
                 ver = datetime.utcnow() + dt.timedelta(minutes=50)
                 ver = datetime(ver.year, ver.month, ver.day, ver.hour, tzinfo=dt.timezone.utc)
             self.log.info(f'Processing {"backwards" if backwards else "forward"} from {ver}')

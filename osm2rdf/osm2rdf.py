@@ -55,7 +55,7 @@ class Osm2rdf(object):
                                    default='http://planet.openstreetmap.org/replication/minute',
                                    help='Source of the minute data. Default: %(default)s')
         parser_update.add_argument('--host', action='store', dest='rdf_url',
-                                   default='http://localhost:9999/bigdata/sparql',
+                                   default='http://localhost:9999/bigdata/namespace/wdq/sparql',
                                    help='Host URL to upload data. Default: %(default)s')
         parser_update.add_argument('--max-download', action='store', dest='change_size', default=5 * 1024, type=int,
                                    help='Maxium size in kB for changes to download at once (default: %(default)s)')

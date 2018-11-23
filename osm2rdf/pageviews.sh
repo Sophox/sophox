@@ -9,15 +9,20 @@ echo '########### Running osm2rdf updatePageViewStats ###########'
 # If true, back-fills the data up to max files. Otherwise runs forward indefinitely
 : "${BACKFILL:=}"
 
-# Not
+
+if [[ -f "${FLAG_PV_BACKFILLED}.disabled" ]]; then
+  echo "########### pageviews is disabled"
+  exit 0
+fi
 
 if [[ -n "${BACKFILL}" ]] && [[ -f "${FLAG_PV_BACKFILLED}" ]]; then
-    exit 0
+  echo "########### pageviews have already been backfilled"
+  exit 0
 fi
 
 set -x
-python3 updatePageViewStats.py        \
-    --host "${BLAZEGRAPH_HOST}"       \
+python3 updatePageViewStats.py           \
+    --host "${BLAZEGRAPH_URL}"           \
     --maxfiles "${OSM_RDF_MAX_HR_FILES}" \
     ${BACKFILL:+ --go-backwards}
 { set +x; } 2>/dev/null

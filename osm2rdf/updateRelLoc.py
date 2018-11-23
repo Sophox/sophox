@@ -33,7 +33,7 @@ class UpdateRelLoc(object):
         )
 
         parser.add_argument('--host', action='store', dest='rdf_url',
-                            default='http://localhost:9999/bigdata/sparql',
+                            default='http://localhost:9999/bigdata/namespace/wdq/sparql',
                             help='Host URL to upload data. Default: %(default)s')
         parser.add_argument('-s', '--cache-strategy', action='store', dest='cacheType', choices=['sparse', 'dense'],
                             default='dense', help='Which node strategy to use (default: %(default)s)')
