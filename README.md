@@ -54,7 +54,7 @@ echo UUID=`blkid -s UUID -o value /dev/sdc` /mnt/data xfs discard,defaults,nofai
 
 * Install Sophox with this line:
 `nohup curl --fail --silent --show-error --location --compressed \
-   https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.full.sh \
+   https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.planet.sh \
    | bash >> /mnt/data/startup.log 2>&1 &`
 
 ### Monitoring
