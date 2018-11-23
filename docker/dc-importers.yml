@@ -66,6 +66,25 @@ services:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
 
+  osm2rdf-pv-import:
+    # This container backfills Wikipedia pageview data
+    build: "${BUILD_DIR}/osm2rdf"
+    working_dir: "/app-osm2rdf"
+    command: "./osm2rdf-pageviews.sh"
+    volumes:
+      - "${REPO_DIR}/osm2rdf:/app-osm2rdf:ro"
+      - "${STATUS_DIR}:/app-status:rw"
+    environment:
+      BACKFILL: "true"
+      BLAZEGRAPH_HOST: "http://blazegraph:9999"
+      FLAG_PV_BACKFILLED: "/app-status/osm-rdf-pageviews.backfilled"
+      OSM_RDF_MAX_HR_FILES: "200" # 200 hours back should be enough
+    networks:
+      - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
 networks:
   proxy_net:
     external: true

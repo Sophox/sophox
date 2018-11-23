@@ -44,10 +44,27 @@ services:
       IS_FULL_PLANET: "${IS_FULL_PLANET}"
       MAX_DOWNLOAD: 5120
       OSM_RDF_DATA: "/osm-rdf"
-      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
+      BLAZEGRAPH_URL: "${BLAZEGRAPH_URL}"
       UPDATE_URL: "https://planet.openstreetmap.org/replication/minute"
     networks:
       - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+  osm2rdf-pv-update:
+    # This container updates Wikipedia pageview data
+    build: "${BUILD_DIR}/osm2rdf"
+    working_dir: "/app-osm2rdf"
+    command: "./osm2rdf-pageviews.sh"
+    volumes:
+    - "${REPO_DIR}/osm2rdf:/app-osm2rdf:ro"
+    - "${STATUS_DIR}:/app-status:rw"
+    environment:
+      BLAZEGRAPH_HOST: "http://blazegraph:9999"
+      OSM_RDF_MAX_HR_FILES: "50"
+    networks:
+    - blazegraph_net
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}

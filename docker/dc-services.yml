@@ -63,7 +63,7 @@ services:
     build: "${BUILD_DIR}/vote-server"
     # restart: always
     environment:
-      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
+      BLAZEGRAPH_URL: "${BLAZEGRAPH_URL}"
     ports:
       - "9979"
     networks:
@@ -86,8 +86,8 @@ services:
       POSTGRES_DB: gis
       POSTGRES_USER: sophox
       POSTGRES_PASSWORD:
-      SOPHOX_URL: "http://blazegraph:9999/bigdata/sparql"
-      WIKIBASE_URL: "https://wikibase.org/bigdata/namespace/wdq/sparql"
+      BLAZEGRAPH_URL: "${BLAZEGRAPH_URL}"
+      WIKIBASE_URL: "https://wikibase.org/sparql"
       REGIONS_TABLE: planet_osm_polygon
     ports:
       - "9978"

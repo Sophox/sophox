@@ -10,6 +10,7 @@ from sparql import Sparql
 
 log = logging.getLogger('osm2rdf')
 
+
 class RdfUpdateHandler(RdfHandler):
     def __init__(self, options):
         super(RdfUpdateHandler, self).__init__(options)
@@ -55,7 +56,9 @@ WHERE {{
                 sparql += f'INSERT {{ {insertSparql} }} WHERE {{}};\n'
 
         if seqid > 0:
-            sparql += self.set_osm_schema_ver(seqid)
+            if self.last_timestamp.year < 2000:  # Something majorly wrong
+                raise Exception('last_timestamp was not updated')
+            sparql += osmutils.set_status_query('osmroot:', self.last_timestamp, 'version', seqid)
 
         if sparql:
             sparql = '\n'.join(osmutils.prefixes) + '\n\n' + sparql
@@ -67,50 +70,21 @@ WHERE {{
             raise Exception(f'pendingCounter={self.pendingCounter}')
 
     def get_osm_schema_ver(self, repserv):
-        sparql = '''
-PREFIX osmroot: <https://www.openstreetmap.org>
-SELECT ?dummy ?ver ?mod WHERE {
- BIND( "42" as ?dummy )
- OPTIONAL { osmroot: schema:version ?ver . }
- OPTIONAL { osmroot: schema:dateModified ?mod . }
-}
-'''
+        result = osmutils.query_status(self.rdf_server, '<https://www.openstreetmap.org>', 'version')
 
-        result = self.rdf_server.run('query', sparql)[0]
+        ver = result['version']
+        if ver is not None:
+            log.info(f'schema:version={ver}')
+            return int(ver)
 
-        if result['dummy']['value'] != '42':
-            raise Exception('Failed to get a dummy value from RDF DB')
+        mod_date = result['dateModified']
+        if mod_date is not None:
+            log.info(f'schema:dateModified={mod_date}, shifting back and getting sequence ID')
+            mod_date -= dt.timedelta(minutes=60)
+            return repserv.timestamp_to_sequence(mod_date)
 
-        try:
-            return int(result['ver']['value'])
-        except KeyError:
-            pass
-
-        try:
-            ts = result['mod']['value']
-        except KeyError:
-            log.error('Neither schema:version nor schema:dateModified are set for <https://www.openstreetmap.org>')
-            return None
-
-        mod_date = osmutils.parse_date(ts)
-
-        log.info(f'schema:dateModified={mod_date}, shifting back and getting sequence ID')
-
-        mod_date -= dt.timedelta(minutes=60)
-        return repserv.timestamp_to_sequence(mod_date)
-
-    def set_osm_schema_ver(self, ver):
-        if self.last_timestamp.year < 2000:  # Something majorly wrong
-            raise Exception('last_timestamp was not updated')
-
-        return f'''
-DELETE {{ osmroot: schema:version ?v . }} WHERE {{ osmroot: schema:version ?v . }};
-DELETE {{ osmroot: schema:dateModified ?m . }} WHERE {{ osmroot: schema:dateModified ?m . }};
-INSERT {{
-  osmroot: schema:version {ver} .
-  osmroot: schema:dateModified {osmutils.format_date(self.last_timestamp)} .
-}} WHERE {{}};
-'''
+        log.error('Neither schema:version nor schema:dateModified are set for <https://www.openstreetmap.org>')
+        return None
 
     def run(self):
         repserv = ReplicationServer(self.options.osm_updater_url)

@@ -84,6 +84,7 @@ DOWNLOAD_DIR=${DATA_DIR}/download
 OSM_PGSQL_DATA_DIR=${DATA_DIR}/osm-pgsql
 OSM_RDF_DATA_DIR=${DATA_DIR}/osm-rdf
 OSM_TTLS_DIR=${DATA_DIR}/osm-rdf-ttls
+BLAZEGRAPH_URL=http://blazegraph:9999/bigdata/namespace/wdq/sparql
 
 WB_CONCEPT_URI="http://wiki.openstreetmap.org"
 BLAZEGRAPH_ENDPOINTS='"wiki.openstreetmap.org"'
@@ -426,6 +427,7 @@ echo "########### Starting Importers"
 set -x
 docker run --rm                                                     \
     -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"                   \
+    -e "BLAZEGRAPH_URL=${BLAZEGRAPH_URL}"                          \
     -e "BUILD_DIR=/git_repo"                                        \
     -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                               \
     -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                           \
@@ -468,6 +470,7 @@ docker run --rm                                                    \
     -e "ACME_FILE=${ACME_FILE}"                                    \
     -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"                  \
     -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                      \
+    -e "BLAZEGRAPH_URL=${BLAZEGRAPH_URL}"                          \
     -e "BUILD_DIR=/git_repo"                                       \
     -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                          \
     -e "MEM_OSM_PGSQL_UPDATE_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))" \
@@ -488,7 +491,8 @@ docker run --rm                                                    \
     --file /git_repo/docker/dc-services.yml                        \
     --file /git_repo/docker/dc-updaters.yml                        \
     --project-name sophox                                          \
-    up ${DETACH_DOCKER_COMPOSE:+ --detach}
+    up                                                             \
+    ${DETACH_DOCKER_COMPOSE:+ --detach}
 { set +x; } 2>/dev/null
 
 echo "########### Startup is done, exiting"

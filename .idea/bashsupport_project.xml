@@ -11,6 +11,7 @@
         <option value="FLAG_IMPORTED" />
         <option value="FLAG_PARSED" />
         <option value="FLAG_PG_IMPORTED" />
+        <option value="FLAG_PV_BACKFILLED" />
         <option value="FLAG_TTL_IMPORTED" />
         <option value="FLAG_TTL_IMPORT_FAIL" />
         <option value="FLAG_TTL_PARSED" />
@@ -28,6 +29,7 @@
         <option value="OSM_PGSQL_MEM_UPDATE" />
         <option value="OSM_PGSQL_TEMP" />
         <option value="OSM_RDF_DATA" />
+        <option value="OSM_RDF_MAX_HR_FILES" />
         <option value="OSM_RDF_MAX_STMTS" />
         <option value="OSM_RDF_TEMP" />
         <option value="OSM_RDF_TTLS" />

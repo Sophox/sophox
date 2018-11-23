@@ -23,6 +23,6 @@ python3 osm2rdf.py                       \
     --nodes-file "${NODES_CACHE}"        \
     --cache-strategy "${CACHE_STRATEGY}" \
     update                               \
-    --host "${SOPHOX_URL}"               \
+    --host "${BLAZEGRAPH_URL}"               \
     --max-download "${MAX_DOWNLOAD}"     \
     --update-url "${UPDATE_URL}"
