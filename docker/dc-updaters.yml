@@ -6,7 +6,7 @@ services:
     # continuously update from live OSM data to PostgresSQL (geoshapes)
     image: sophox/osm2pgsql_osmium
     command: /osm-to-pgsql/osm2pgsql-update.sh
-    restart: on-failure
+    # restart: on-failure
     volumes:
       - "${STATUS_DIR}:/app-status:rw"               # status files (e.g. file.downloaded)
       - "${REPO_DIR}/osm-to-pgsql:/osm-to-pgsql:ro"  # osm2pgsql script
@@ -34,7 +34,7 @@ services:
     build: "${BUILD_DIR}/osm2rdf"
     working_dir: "/app-osm2rdf"
     command: "./osm2rdf-update.sh"
-    restart: on-failure
+    # restart: on-failure
     volumes:
       - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
       - "${REPO_DIR}/osm2rdf:/app-osm2rdf:ro"
