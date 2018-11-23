@@ -2,7 +2,7 @@
 set -e
 echo "########### Running osm2rdf updater ###########"
 
-if [[ ! -f "${FLAG_TTL_IMPORTED}.disabled" ]]; then
+if [[ -f "${FLAG_TTL_IMPORTED}.disabled" ]]; then
   echo "########### osm2rdf is disabled"
   exit 0
 fi

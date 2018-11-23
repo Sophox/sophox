@@ -29,7 +29,7 @@ sudo journalctl -u google-startup-scripts.service
 
 We have a machine with 12, 128GB RAM, and 3 SSDs: 2 small ones and a 1.8TB one.
 
-* Using [robot UI](https://robot.your-server.de/), rescue reboot with a public key, and add a firewall rule for ports 22,80,443 only. Reboot.
+* Using [robot UI](https://robot.your-server.de/), rescue reboot with a public key, and apply firewall template "Webserver". Reboot.
 * `ssh root@<IP>`
 * run `installimage`
 * Choose -ubuntu 18.04

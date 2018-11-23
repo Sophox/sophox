@@ -2,7 +2,7 @@
 set -e
 echo "########### Running osm-to-pgsql updates every '${LOOP_SLEEP}' seconds ###########"
 
-if [[ ! -f "${FLAG_PG_IMPORTED}.disabled" ]]; then
+if [[ -f "${FLAG_PG_IMPORTED}.disabled" ]]; then
   echo "########### osm2pgsql is disabled"
   exit 0
 fi

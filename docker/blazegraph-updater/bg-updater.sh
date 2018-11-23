@@ -2,7 +2,7 @@
 set -e
 echo '########### Updating from OSM Wiki ###########'
 
-if [[ ! -f "${FLAG_WB_INITIALIZED}.disabled" ]]; then
+if [[ -f "${FLAG_WB_INITIALIZED}.disabled" ]]; then
   echo "########### osm wiki importer is disabled"
   exit 0
 fi
