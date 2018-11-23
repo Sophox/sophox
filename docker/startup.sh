@@ -247,7 +247,7 @@ if [[ ! -f "${OSM_PGSQL_DATA_DIR}/state.txt" ]]; then
 fi
 
 #
-# #####################  Compile Blazegraph
+# #####################  Utility functions
 #
 
 function cleanup_git_repo {
@@ -265,9 +265,26 @@ function cleanup_git_repo {
     fi
 }
 
+function stop_service {
+    local name=$1
+    local id
+
+    id=$(docker ps "--filter=label=com.docker.compose.service=${name}" --quiet)
+    if [[ -n "$id" ]]; then
+        echo "Stopping ${name} service"
+        docker stop ${id}
+    fi
+}
+
+#
+# #####################  Compile Blazegraph
+#
+
 cd "${REPO_DIR}/wikidata-query-rdf"
 FLAG_BUILD_BLAZE="${STATUS_DIR}/blazegraph.build.$(git rev-parse HEAD || echo 'no_git_dir')"
 if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
+
+    stop_service "blazegraph"
 
     # Extract the version number from the line right above the <packaging>pom</packaging>
     BLAZE_VERSION=$(grep --before-context=1 '<packaging>pom</packaging>' "${REPO_DIR}/wikidata-query-rdf/pom.xml" \
@@ -308,6 +325,8 @@ fi
 cd "${REPO_DIR}/wikidata-query-gui"
 FLAG_BUILD_GUI="${STATUS_DIR}/gui.build.$(git rev-parse HEAD || echo 'no_git_dir')"
 if [[ ! -f "${FLAG_BUILD_GUI}" ]]; then
+
+    stop_service "sophox-gui"
 
     echo "########### Building GUI"
     cleanup_git_repo
