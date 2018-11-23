@@ -83,7 +83,8 @@ class UpdatePageViewStats(object):
         new_last = None
 
         conn = aiohttp.TCPConnector(limit=3)
-        async with aiohttp.ClientSession(connector=conn) as session:
+        timeout = aiohttp.ClientTimeout(total=None, connect=None, sock_read=60, sock_connect=60)
+        async with aiohttp.ClientSession(connector=conn, timeout=timeout) as session:
             futures = []
             for date in self.iterate_hours(last_processed, self.options.max_files, backwards):
                 futures.append(self.process_file(session, date, stats))
