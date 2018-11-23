@@ -32,7 +32,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy_net"
-      - "traefik.frontend.rule=Host:${SOPHOX_HOST};PathPrefix:/bigdata/namespace/wdq/sparql;Method:GET"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET;PathPrefix:/sparql;ReplacePathRegex:^/sparql(.*) /bigdata/namespace/wdq/sparql$$1"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 
   postgres:
