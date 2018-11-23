@@ -151,8 +151,10 @@ else
   cd "${REPO_DIR}"
   if git diff-files --quiet; then
       echo "git pull and submodule update from ${REPO_URL} in ${REPO_DIR}"
+      set -x
       git pull
       git submodule update --init --recursive
+      { set +x; } 2>/dev/null
   else
       echo "git repo ${REPO_DIR} has local changes, update skipped"
       git status

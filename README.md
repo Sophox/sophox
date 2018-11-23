@@ -52,10 +52,14 @@ mkdir -p /mnt/data && mount -o discard,defaults /dev/sdc /mnt/data
 echo UUID=`blkid -s UUID -o value /dev/sdc` /mnt/data xfs discard,defaults,nofail 0 2 | tee -a /etc/fstab
 ```
 
-* Install Sophox with this line:
-`nohup curl --fail --silent --show-error --location --compressed \
-   https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.planet.sh \
-   | bash >> /mnt/data/startup.log 2>&1 &`
+* Install Sophox:
+```
+export DATA_DIR=/mnt/data
+export REPO_BRANCH=master
+nohup curl --fail --silent --show-error --location --compressed \
+   https://raw.githubusercontent.com/Sophox/sophox/${REPO_BRANCH}/docker/startup.planet.sh \
+   | bash >> /mnt/data/startup.log 2>&1 &
+```
 
 ### Monitoring
 * See docker statistics:  `docker stats`
