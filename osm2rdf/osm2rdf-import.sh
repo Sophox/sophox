@@ -61,7 +61,7 @@ if [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; then
     if ls "${OSM_RDF_TTLS}" | grep -v '\.ttl\.gz$' >/dev/null 2>&1 ; then
         echo "ERROR: unable to start import because there are non .ttl.gz files in ${OSM_RDF_TTLS}"
         exit 1
-    elif ! "${BLAZEGRAPH_APP}/loadRestAPI.sh" -d "${OSM_RDF_TTLS}" -h "${BLAZEGRAPH_HOST}"; then
+    elif ! "./loadRestAPI.sh" -d "${OSM_RDF_TTLS}" -h "${BLAZEGRAPH_HOST}"; then
         echo
         echo "ERROR: loadRestAPI.sh failed"
         exit 1

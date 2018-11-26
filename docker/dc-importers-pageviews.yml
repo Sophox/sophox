@@ -1,0 +1,25 @@
+version: '2.3'
+
+services:
+
+  pageviews-import:
+    # This container backfills Wikipedia pageview data
+    build: "${BUILD_DIR}/osm2rdf"
+    working_dir: "/app-osm2rdf"
+    command: "./pageviews.sh"
+    volumes:
+      - "${REPO_DIR}/osm2rdf:/app-osm2rdf:ro"
+      - "${STATUS_DIR}:/app-status:rw"
+    environment:
+      BACKFILL: "true"
+      BLAZEGRAPH_URL: "${BLAZEGRAPH_URL}"
+      FLAG_PV_BACKFILLED: "/app-status/pageviews.backfilled"
+      PAGEVIEW_HR_FILES: "${PAGEVIEW_HR_FILES}"
+    networks:
+      - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+networks:
+  blazegraph_net:

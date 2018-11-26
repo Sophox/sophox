@@ -6,6 +6,7 @@
       <excludeFolder url="file://$MODULE_DIR$/wikidata-query-gui/.tmp" />
       <excludeFolder url="file://$MODULE_DIR$/wikidata-query-gui/build" />
       <excludeFolder url="file://$MODULE_DIR$/wikidata-query-gui/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/wikidata-query-gui/polestar" />
       <excludeFolder url="file://$MODULE_DIR$/wikidata-query-gui/polestar/scripts" />
       <excludeFolder url="file://$MODULE_DIR$/wikidata-query-gui/vendor" />
     </content>

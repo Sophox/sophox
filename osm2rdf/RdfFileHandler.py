@@ -20,7 +20,7 @@ def writer_thread(worker_id, queue, options):
 
 
 def write_file(ts_enqueue, worker_id, options, file_id, data, last_timestamp, stats_str):
-    start = datetime.now()
+    start = datetime.utcnow()
 
     os.makedirs(options.output_dir, exist_ok=True)
     filename = os.path.join(options.output_dir, f'osm-{file_id:06}.ttl.gz')
@@ -38,7 +38,7 @@ def write_file(ts_enqueue, worker_id, options, file_id, data, last_timestamp, st
     output.flush()
     output.close()
 
-    seconds = (datetime.now() - start).total_seconds()
+    seconds = (datetime.utcnow() - start).total_seconds()
     waited = (start - ts_enqueue).total_seconds()
     log.info(f'{filename} done in {seconds}s, {waited}s wait, by worker #{worker_id}: {stats_str}')
 
@@ -79,7 +79,7 @@ class RdfFileHandler(RdfHandler):
             return
 
         stats_str = self.format_stats()
-        self.queue.put((datetime.now(), self.job_counter, self.pending, self.last_timestamp, stats_str))
+        self.queue.put((datetime.utcnow(), self.job_counter, self.pending, self.last_timestamp, stats_str))
 
         self.job_counter += 1
         self.pending = []

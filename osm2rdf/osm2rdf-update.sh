@@ -2,11 +2,6 @@
 set -e
 echo "########### Running osm2rdf updater ###########"
 
-if [[ -f "${FLAG_TTL_IMPORTED}.disabled" ]]; then
-  echo "########### osm2rdf is disabled"
-  exit 0
-fi
-
 NODES_CACHE="${OSM_RDF_DATA}/nodes.cache"
 [[ -n "${IS_FULL_PLANET}" ]] && CACHE_STRATEGY="dense" || CACHE_STRATEGY="sparse"
 

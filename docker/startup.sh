@@ -13,6 +13,14 @@ if [[ -z "${DATA_DIR}" ]]; then
   exit 1
 fi
 
+# DEBUG (true/false) . Set to any non-empty string except "false" to run in debug mode:
+#  - disable https
+#  - do not detach from docker-compose until ctrl+C (stop all)
+#  - print all logs
+if [[ "${DEBUG}" = "false" ]]; then
+  DEBUG=""
+fi
+
 # Optional location of the temporary files.
 : "${TEMP_DIR:=}"
 
@@ -46,13 +54,24 @@ fi
 # This param is not used if MAX_MEMORY_MB is set.
 : "${TOTAL_MEMORY_PRCNT:=30}"
 
-# DEBUG (true/false) . Set to any non-empty string except "false" to run in debug mode:
-#  - disable https
-#  - do not detach from docker-compose until ctrl+C (stop all)
-#  - print all logs
-if [[ "${DEBUG}" = "false" ]]; then
-  DEBUG=""
-fi
+# Number of hours (1hr per file) to download at once from the Wikipedia pageviews statistics service
+# This number also affects how far back from "now" it will backfill
+#
+: "${PAGEVIEW_HR_FILES:=48}"
+
+# To disable any of these, set it to an empty value
+: "${ENABLE_IMPORT_OSM2PGSQL=true}"
+: "${ENABLE_IMPORT_OSM2RDF=true}"
+: "${ENABLE_IMPORT_PAGEVIEWS=true}"
+
+: "${ENABLE_UPDATE_METADATA=true}"
+: "${ENABLE_UPDATE_OSM2PGSQL=true}"
+: "${ENABLE_UPDATE_OSM2RDF=true}"
+: "${ENABLE_UPDATE_PAGEVIEWS=true}"
+
+# If DEBUG env is not set, run docker compose in the detached (service) mode
+DETACH_DOCKER_COMPOSE=$( [[ "${DEBUG}" == "" ]] && echo "true" || echo "" )
+
 
 ##############  NO USER-SERVICABLE VARIABLES BEYOND THIS POINT :)
 
@@ -74,7 +93,6 @@ echo "DEBUG='${DEBUG}'"
 ##############  Setup internal vars
 
 STATUS_DIR=${DATA_DIR}/status
-BLAZEGRAPH_APP_DIR=${DATA_DIR}/blazegraph-app
 ACME_FILE=${DATA_DIR}/acme.json
 POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
 POSTGRES_DATA_DIR=${DATA_DIR}/postgres
@@ -87,11 +105,7 @@ OSM_TTLS_DIR=${DATA_DIR}/osm-rdf-ttls
 BLAZEGRAPH_URL=http://blazegraph:9999/bigdata/namespace/wdq/sparql
 
 WB_CONCEPT_URI="http://wiki.openstreetmap.org"
-BLAZEGRAPH_ENDPOINTS='"wiki.openstreetmap.org"'
 BLAZEGRAPH_IMAGE=openjdk:8-jdk
-
-# This path must match docker-compose.yml - blazegraph volume
-BLAZEGRAPH_JNL_DATA_FILE=/app-data/osmdata.jnl
 
 # If DEBUG env is not set, run docker compose in the detached (service) mode
 DETACH_DOCKER_COMPOSE=$( [[ "${DEBUG}" == "" ]] && echo "true" || echo "" )
@@ -251,121 +265,23 @@ fi
 # #####################  Utility functions
 #
 
-function cleanup_git_repo {
-    # Cleanup the source code dir
-    if [[ "${REPO_URL}" = "-" ]]; then
-       echo "REPO_URL is not set, skipping git clean for ${PWD}"
-    else
-      if git diff-files --quiet; then
-        echo "Cleaning ${PWD}"
-        git clean -fdx
-      else
-        echo "GIT repo ${PWD} has local changes, skipping git clean..."
-        git status
-      fi
-    fi
-}
-
-function stop_service {
+function wait_for {
     local name=$1
+    local command=$2
     local id
 
+    printf "Waiting for ${name} to start "
     id=$(docker ps "--filter=label=com.docker.compose.service=${name}" --quiet)
-    if [[ -n "$id" ]]; then
-        echo "Stopping ${name} service"
-        docker stop ${id}
+    if [[ -z $id ]]; then
+        echo "Unable to find docker service '${name}'"
+        exit 1
     fi
+    while ! docker exec ${id} ${command} > /dev/null ; do
+        sleep 2
+        printf "."
+    done
+    echo
 }
-
-#
-# #####################  Compile Blazegraph
-#
-
-cd "${REPO_DIR}/wikidata-query-rdf"
-FLAG_BUILD_BLAZE="${STATUS_DIR}/blazegraph.build.$(git rev-parse HEAD || echo 'no_git_dir')"
-if [[ ! -f "${FLAG_BUILD_BLAZE}" ]]; then
-
-    stop_service "blazegraph"
-
-    # Extract the version number from the line right above the <packaging>pom</packaging>
-    BLAZE_VERSION=$(grep --before-context=1 '<packaging>pom</packaging>' "${REPO_DIR}/wikidata-query-rdf/pom.xml" \
-        | head -n 1 \
-        | sed 's/^[^>]*>\([^<]*\)<.*$/\1/g')
-    echo "########### Building Blazegraph ${BLAZE_VERSION}"
-    cleanup_git_repo
-
-    # Compile & package Blazegraph, and extract result to the /blazegraph dir
-    set -x
-    docker run --rm \
-        -v "${REPO_DIR}/wikidata-query-rdf:/app-src:rw" \
-        -v "${BLAZEGRAPH_APP_DIR}:/app:rw" \
-        -w /app-src \
-        maven:3.6.0-jdk-8 \
-        sh -c "\
-            mvn package -DskipTests=true -DskipITs=true && \
-            rm -rf /app/* && \
-            unzip -d /app /app-src/dist/target/service-${BLAZE_VERSION}-dist.zip && \
-            mv /app/service-${BLAZE_VERSION}/* /app && \
-            rmdir /app/service-${BLAZE_VERSION} && \
-            \
-            cd /app && \
-            sed 's|%BLAZEGRAPH_JNL_DATA_FILE%|'"${BLAZEGRAPH_JNL_DATA_FILE}"'|g' RWStore.properties > subst.temp && \
-            mv subst.temp RWStore.properties && \
-            sed 's|%BLAZEGRAPH_ENDPOINTS%|'"${BLAZEGRAPH_ENDPOINTS}"'|g' services.json > subst.temp && \
-            mv subst.temp services.json"
-
-        { set +x; } 2>/dev/null
-
-    touch "${FLAG_BUILD_BLAZE}"
-fi
-
-#
-# #####################  Compile Wikibase GUI
-#
-
-cd "${REPO_DIR}/wikidata-query-gui"
-FLAG_BUILD_GUI="${STATUS_DIR}/gui.build.$(git rev-parse HEAD || echo 'no_git_dir')"
-if [[ ! -f "${FLAG_BUILD_GUI}" ]]; then
-
-    stop_service "sophox-gui"
-
-    echo "########### Building GUI"
-    cleanup_git_repo
-
-    # Compile & package wikibase-query-gui
-    set -x
-    docker run --rm \
-        -v "${REPO_DIR}:/app-src:rw" \
-        -w /app-src \
-        node:10.11-alpine \
-        sh -c "\
-            apk add --no-cache git bash && \
-            cd /app-src/wikidata-query-gui && \
-            npm install && \
-            npm run build"
-
-        { set +x; } 2>/dev/null
-
-    touch "${FLAG_BUILD_GUI}"
-fi
-
-# Debugging helpers - if a disabled file exists, create all the other files to bypass the import/update
-# TODO: status file names should be simplified and some redundancies should be removed
-if [[ -f "${STATUS_DIR}/osm-rdf.disabled" ]]; then
-  touch "${STATUS_DIR}/osm-rdf.parsed"
-  touch "${STATUS_DIR}/osm-rdf.imported"
-  touch "${STATUS_DIR}/osm-rdf.imported.disabled"
-fi
-if [[ -f "${STATUS_DIR}/osm-pgsql.disabled" ]]; then
-  touch "${STATUS_DIR}/osm-pgsql.imported"
-  touch "${STATUS_DIR}/osm-pgsql.imported.disabled"
-fi
-if [[ -f "${STATUS_DIR}/wikibase.disabled" ]]; then
-  touch "${STATUS_DIR}/wikibase.initialized.disabled"
-fi
-if [[ -f "${STATUS_DIR}/pageviews.disabled" ]]; then
-  touch "${STATUS_DIR}/pageviews.backfilled.disabled"
-fi
 
 #
 # #####################  Run docker-compose from a docker container
@@ -380,7 +296,6 @@ fi
 
 set -x
 docker run --rm                                                      \
-    -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"                    \
     -e "BLAZEGRAPH_DATA_DIR=${BLAZEGRAPH_DATA_DIR}"                  \
     -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                        \
     -e "MEM_BLAZE_HEAP_MB=${MEM_BLAZEGRAPH_MB}"                      \
@@ -404,60 +319,47 @@ docker run --rm                                                      \
 { set +x; } 2>/dev/null
 
 
-function wait_for {
-    local name=$1
-    local command=$2
-    local id
-
-    printf "Waiting for ${name} to start "
-    id=$(docker ps "--filter=label=com.docker.compose.service=${name}" --quiet)
-    if [[ -z $id ]]; then
-        echo "Unable to find docker service '${name}'"
-        exit 1
-    fi
-    while ! docker exec ${id} ${command} > /dev/null ; do
-        sleep 2
-        printf "."
-    done
-    echo
-}
-
 wait_for "blazegraph" "curl --fail --silent http://127.0.0.1:9999/bigdata/status"
 wait_for "postgres" "pg_isready --dbname=gis --quiet"
 sleep 5 # just in case :)
 
 echo "########### Starting Importers"
 
-set -x
-docker run --rm                                                     \
-    -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"                   \
-    -e "BLAZEGRAPH_URL=${BLAZEGRAPH_URL}"                          \
-    -e "BUILD_DIR=/git_repo"                                        \
-    -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                               \
-    -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                           \
-    -e "MEM_OSM_PGSQL_IMPORT_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))" \
-    -e "MEM_OSM_RDF_LIMIT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))"    \
-    -e "OSM_FILE=${OSM_FILE}"                                       \
-    -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"                   \
-    -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"                   \
-    -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"                       \
-    -e "OSM_RDF_MAX_STMTS=${OSM_RDF_MAX_STMTS}"                     \
-    -e "OSM_RDF_TEMP_DIR=${OSM_RDF_TEMP_DIR}"                       \
-    -e "OSM_RDF_WORKERS=${OSM_RDF_WORKERS}"                         \
-    -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                               \
-    -e "REPO_DIR=${REPO_DIR}"                                       \
-    -e "STATUS_DIR=${STATUS_DIR}"                                   \
-    -e POSTGRES_PASSWORD                                            \
-                                                                    \
-    -v "${REPO_DIR}:/git_repo"                                      \
-    -v /var/run/docker.sock:/var/run/docker.sock                    \
-                                                                    \
-    docker/compose:1.23.1                                           \
-    --file /git_repo/docker/dc-importers.yml                        \
-    --project-name sophox                                           \
-    up
-{ set +x; } 2>/dev/null
-
+if [[ -n ${ENABLE_IMPORT_OSM2PGSQL} || -n ${ENABLE_IMPORT_OSM2RDF} || -n ${ENABLE_IMPORT_PAGEVIEWS} ]]; then
+    set -x
+    docker run --rm                                                     \
+        -e "BLAZEGRAPH_URL=${BLAZEGRAPH_URL}"                           \
+        -e "BUILD_DIR=/git_repo"                                        \
+        -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                               \
+        -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                           \
+        -e "MEM_OSM_PGSQL_IMPORT_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))" \
+        -e "MEM_OSM_RDF_LIMIT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))"    \
+        -e "OSM_FILE=${OSM_FILE}"                                       \
+        -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"                   \
+        -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"                   \
+        -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"                       \
+        -e "OSM_RDF_MAX_STMTS=${OSM_RDF_MAX_STMTS}"                     \
+        -e "OSM_RDF_TEMP_DIR=${OSM_RDF_TEMP_DIR}"                       \
+        -e "OSM_RDF_WORKERS=${OSM_RDF_WORKERS}"                         \
+        -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                               \
+        -e "PAGEVIEW_HR_FILES=${PAGEVIEW_HR_FILES}"                     \
+        -e "REPO_DIR=${REPO_DIR}"                                       \
+        -e "STATUS_DIR=${STATUS_DIR}"                                   \
+        -e POSTGRES_PASSWORD                                            \
+                                                                        \
+        -v "${REPO_DIR}:/git_repo"                                      \
+        -v /var/run/docker.sock:/var/run/docker.sock                    \
+                                                                        \
+        docker/compose:1.23.1                                           \
+        ${ENABLE_IMPORT_OSM2PGSQL:+ --file /git_repo/docker/dc-importers-osm2pgsql.yml}  \
+        ${ENABLE_IMPORT_OSM2RDF:+ --file /git_repo/docker/dc-importers-osm2rdf.yml}      \
+        ${ENABLE_IMPORT_PAGEVIEWS:+ --file /git_repo/docker/dc-importers-pageviews.yml}  \
+        --project-name sophox                                           \
+        up
+    { set +x; } 2>/dev/null
+else
+    echo "All import services have been disabled, skipping"
+fi
 
 # Once all status flag files are created, delete downloaded OSM file
 if [[ -f "${DOWNLOAD_DIR}/${OSM_FILE}" ]]; then
@@ -472,7 +374,6 @@ echo "########### Starting Updaters"
 set -x
 docker run --rm                                                    \
     -e "ACME_FILE=${ACME_FILE}"                                    \
-    -e "BLAZEGRAPH_APP_DIR=${BLAZEGRAPH_APP_DIR}"                  \
     -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                      \
     -e "BLAZEGRAPH_URL=${BLAZEGRAPH_URL}"                          \
     -e "BUILD_DIR=/git_repo"                                       \
@@ -493,7 +394,10 @@ docker run --rm                                                    \
                                                                    \
     docker/compose:1.23.1                                          \
     --file /git_repo/docker/dc-services.yml                        \
-    --file /git_repo/docker/dc-updaters.yml                        \
+    ${ENABLE_UPDATE_METADATA:+ --file /git_repo/docker/dc-updaters-metadata.yml}   \
+    ${ENABLE_UPDATE_OSM2PGSQL:+ --file /git_repo/docker/dc-updaters-osm2pgsql.yml} \
+    ${ENABLE_UPDATE_OSM2RDF:+ --file /git_repo/docker/dc-updaters-osm2rdf.yml}     \
+    ${ENABLE_UPDATE_PAGEVIEWS:+ --file /git_repo/docker/dc-updaters-pageviews.yml} \
     --project-name sophox                                          \
     up                                                             \
     ${DETACH_DOCKER_COMPOSE:+ --detach}

@@ -2,14 +2,6 @@
 set -e
 echo '########### Updating from OSM Wiki ###########'
 
-if [[ -f "${FLAG_WB_INITIALIZED}.disabled" ]]; then
-  echo "########### osm wiki importer is disabled"
-  exit 0
-fi
-
-
-cd "${BLAZEGRAPH_APP}"
-
 # TODO: INIT_TIME should be set from the value of
 #  <http://wiki.openstreetmap.org>  schema:dateModified  ?????
 
@@ -24,7 +16,7 @@ export UPDATER_OPTS="-DwikibaseMaxDaysBack=720"
 
 set -x
 # conceptUri must be http: to match with the OSM
-"${BLAZEGRAPH_APP}/runUpdate.sh" \
+./runUpdate.sh" \
     -h "${BLAZEGRAPH_HOST}" \
     -- \
     ${INIT_TIME} \

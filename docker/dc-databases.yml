@@ -3,16 +3,15 @@ version: '2.3'
 services:
 
   blazegraph:
-    image: "${BLAZEGRAPH_IMAGE}"
+    image: sophox/wikidata-query-rdf
     mem_limit: "${MEM_BLAZE_LIMIT_MB}m"
     memswap_limit: "${MEM_BLAZE_LIMIT_MB}m"
     mem_swappiness: 0
     # restart: always
     volumes:
-      - "${BLAZEGRAPH_APP_DIR}:/app-blazegraph:ro"
-      - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # See BLAZEGRAPH_JNL_DATA_FILE var in startup.sh
+      - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # Used by com.bigdata.journal.AbstractJournal.file in RWStore.properties
       - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
-    working_dir: /app-blazegraph
+      - "${BLAZEGRAPH_DATA_DIR}/logs:/var/log/wdqs:rw" # WDQS puts GC logs here
     command: "./runBlazegraph.sh"
     environment:
       HEAP_SIZE: "${MEM_BLAZE_HEAP_MB}m"

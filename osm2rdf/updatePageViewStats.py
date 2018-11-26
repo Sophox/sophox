@@ -92,7 +92,8 @@ class UpdatePageViewStats(object):
 
         for fut in done:
             date, ok = fut.result()
-            if ok and (new_last is None or (backwards == (date < new_last))):
+            # always find the latest possible timestamp even if going backwards
+            if ok and (new_last is None or date > new_last):
                 new_last = date
 
         return stats, new_last
@@ -112,18 +113,21 @@ class UpdatePageViewStats(object):
             current += delta
 
     async def process_file(self, session, date, stats):
-        # with async_timeout.timeout(30):
         url = self.stats_url.format(date)
-        self.log.info(f'Processing {url}')
         async with session.get(url) as response:
+            start = datetime.utcnow()
             if response.status != 200:
                 self.log.warning(f'Url {url} returned {response.status}')
                 return date, False
             for line in gzip.decompress(await response.read()).splitlines():
-                parts = line.decode('utf-8', 'strict').split(' ')
-                page_url = self.page_url(parts[0], parts[1])
-                if page_url:
-                    stats[page_url] += int(parts[2])
+                try:
+                    parts = line.decode('utf-8', 'strict').split(' ')
+                    page_url = self.page_url(parts[0], parts[1])
+                    if page_url:
+                        stats[page_url] += int(parts[2])
+                except:
+                    self.log.error(f'Error parsing {url} line "{line}"')
+            self.log.info(f'Finished processing {url} in {(datetime.utcnow() - start).total_seconds()} seconds')
         return date, True
 
     def page_url(self, prefix, title):

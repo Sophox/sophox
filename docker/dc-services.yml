@@ -25,10 +25,8 @@ services:
 
   sophox-gui:
     # Main web interface
-    image: nginx:latest
+    image: sophox/wikidata-query-gui
     restart: always
-    volumes:
-      - "${REPO_DIR}/wikidata-query-gui/build:/usr/share/nginx/html:ro"
     ports:
       - "80"
     labels:
@@ -60,7 +58,7 @@ services:
 
   vote-server:
     # Records user votes for feature modification
-    build: "${BUILD_DIR}/vote-server"
+    image: sophox/vote-server
     # restart: always
     environment:
       BLAZEGRAPH_URL: "${BLAZEGRAPH_URL}"
@@ -79,7 +77,7 @@ services:
 
   osm-regions:
     # Serves geoshapes from Postgres, attaching them to the SPARQL query results
-    build: "${BUILD_DIR}/osm-regions-server"
+    image: sophox/osm-regions-server
     # restart: always
     environment:
       POSTGRES_HOST: postgres
