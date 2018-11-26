@@ -1,0 +1,39 @@
+version: '2.3'
+
+services:
+
+  osm2rdf-import:
+    # This container parses data into TTL files (sets FLAG_TTL_PARSED),
+    # and imports them into Blazegraph (sets FLAG_TTL_IMPORTED)
+    build: "${BUILD_DIR}/osm2rdf"
+    mem_limit: "${MEM_OSM_RDF_LIMIT_MB}m"
+    memswap_limit: "${MEM_OSM_RDF_LIMIT_MB}m"
+    mem_swappiness: 0
+    working_dir: "/app-osm2rdf"
+    command: "./osm2rdf-import.sh"
+    volumes:
+      - "${DOWNLOAD_DIR}:/downloads:rw"
+      - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
+      - "${OSM_RDF_TEMP_DIR}:/osm-rdf-temp:rw"
+      - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"
+      - "${REPO_DIR}/osm2rdf:/app-osm2rdf:ro"
+      - "${STATUS_DIR}:/app-status:rw"
+    environment:
+      BLAZEGRAPH_HOST: "http://blazegraph:9999"
+      FLAG_TTL_IMPORTED: "/app-status/osm-rdf.imported" # Set this flag after importing TTLs into Blazegraph
+      FLAG_TTL_PARSED: "/app-status/osm-rdf.parsed"     # Set this flag after parsing into TTLs
+      IS_FULL_PLANET: "${IS_FULL_PLANET}"
+      OSM_FILE_PATH: "/downloads/${OSM_FILE}"
+      OSM_RDF_DATA: "/osm-rdf"
+      OSM_RDF_MAX_STMTS: "${OSM_RDF_MAX_STMTS}"
+      OSM_RDF_TEMP: "/osm-rdf-temp"
+      OSM_RDF_TTLS: "/osm-rdf-ttls"
+      OSM_RDF_WORKERS: "${OSM_RDF_WORKERS}"
+    networks:
+      - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+networks:
+  blazegraph_net:

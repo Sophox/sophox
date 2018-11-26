@@ -1,0 +1,25 @@
+version: '2.3'
+
+services:
+
+  metadata-updater:
+    # This container waits for FLAG_TTL_PARSED, imports TTLs into Blazegraph & sets FLAG_TTL_IMPORTED,
+    # and continuously updates from OSM wiki
+    image: sophox/wikidata-query-rdf
+    command: "/app-script/bg-updater.sh"
+    # restart: always
+    volumes:
+    - "${STATUS_DIR}:/app-status:rw"
+    - "${REPO_DIR}/docker/blazegraph-updater:/app-script:ro"
+    environment:
+      BLAZEGRAPH_HOST: "http://blazegraph:9999"
+      FLAG_WB_INITIALIZED: "/app-status/wikibase.initialized"  # runUpdate was already init-ed with a constant start date
+      WB_CONCEPT_URI: "${WB_CONCEPT_URI}"
+    networks:
+    - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+networks:
+  blazegraph_net:

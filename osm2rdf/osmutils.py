@@ -8,21 +8,42 @@ import shapely.speedups
 import sys
 from shapely.wkb import loads
 
-
 UTC_DATE_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 UTC_DATE_FORMAT2 = '%Y-%m-%dT%H:%M:%S.%fZ'
 XSD_DATE_TIME = '"{0:%Y-%m-%dT%H:%M:%S}Z"^^xsd:dateTime'
 
-
 if shapely.speedups.available:
     shapely.speedups.enable()
 
+# Total length of the maximum "valid" local name
+maxKeyLength = 60
+
 # May contain letters, numbers anywhere, and -:_ symbols anywhere except first and last position
-reSimpleLocalName = re.compile(r'^[0-9a-zA-Z_]([-:0-9a-zA-Z_]{0,30}[0-9a-zA-Z_])?$')
+reSimpleLocalName = re.compile(r'^[0-9a-zA-Z_]([-:0-9a-zA-Z_]{0,' + str(maxKeyLength - 2) + r'}[0-9a-zA-Z_])?$')
 reWikidataKey = re.compile(r'(.:)?wikidata$')
 reWikidataValue = re.compile(r'^Q[1-9][0-9]{0,18}$')
 reWikidataMultiValue = re.compile(r'^Q[1-9][0-9]{0,18}(;Q[1-9][0-9]{0,18})+$')
 reWikipediaValue = re.compile(r'^([-a-z]+):(.+)$')
+
+types = {
+    'n': 'osmnode:',
+    'w': 'osmway:',
+    'r': 'osmrel:',
+}
+
+prefixes = [
+    'prefix wd: <http://www.wikidata.org/entity/>',
+    'prefix xsd: <http://www.w3.org/2001/XMLSchema#>',
+    'prefix geo: <http://www.opengis.net/ont/geosparql#>',
+    'prefix schema: <http://schema.org/>',
+
+    'prefix osmroot: <https://www.openstreetmap.org>',
+    'prefix osmnode: <https://www.openstreetmap.org/node/>',
+    'prefix osmway: <https://www.openstreetmap.org/way/>',
+    'prefix osmrel: <https://www.openstreetmap.org/relation/>',
+    'prefix osmt: <https://wiki.openstreetmap.org/wiki/Key:>',
+    'prefix osmm: <https://www.openstreetmap.org/meta/>',
+]
 
 
 def format_date(datetime):
@@ -98,6 +119,7 @@ def loc_err():
     except:
         return (Str, 'osmm:loc:error', 'Unable to parse location data')
 
+
 def wayToStr(k, v):
     try:
         return formatPoint(k, loads(v, hex=True).representative_point())
@@ -156,22 +178,49 @@ def toStrings(statements):
 def tupleToStr(s):
     return statementToStr[s[0]](s[1], s[2])
 
-types = {
-    'n': 'osmnode:',
-    'w': 'osmway:',
-    'r': 'osmrel:',
-}
 
-prefixes = [
-    'prefix wd: <http://www.wikidata.org/entity/>',
-    'prefix xsd: <http://www.w3.org/2001/XMLSchema#>',
-    'prefix geo: <http://www.opengis.net/ont/geosparql#>',
-    'prefix schema: <http://schema.org/>',
+def query_status(rdf_server, uri, field=None):
+    extra_cond = ''
+    if field:
+        extra_cond = f'OPTIONAL {{ {uri} schema:version ?{field} . }}'
 
-    'prefix osmroot: <https://www.openstreetmap.org>',
-    'prefix osmnode: <https://www.openstreetmap.org/node/>',
-    'prefix osmway: <https://www.openstreetmap.org/way/>',
-    'prefix osmrel: <https://www.openstreetmap.org/relation/>',
-    'prefix osmt: <https://wiki.openstreetmap.org/wiki/Key:>',
-    'prefix osmm: <https://www.openstreetmap.org/meta/>',
-]
+    sparql = f'''
+SELECT ?dummy ?dateModified {'?' + field if field else ''} WHERE {{
+ BIND( "42" as ?dummy )
+ OPTIONAL {{ {uri} schema:dateModified ?dateModified . }}
+ {extra_cond if extra_cond else ''}
+}}
+'''
+
+    result = rdf_server.run('query', sparql)[0]
+
+    if result['dummy']['value'] != '42':
+        raise Exception('Failed to get a dummy value from RDF DB')
+
+    try:
+        ts = parse_date(result['dateModified']['value'])
+    except KeyError:
+        ts = None
+
+    if field:
+        try:
+            field_value = result[field]['value']
+        except KeyError:
+            field_value = None
+
+        return {'dateModified': ts, field: field_value}
+    else:
+        return ts
+
+
+def set_status_query(uri, timestamp, field=None, value=None):
+    sparql = f'DELETE {{ {uri} schema:dateModified ?m . }} WHERE {{ {uri} schema:dateModified ?m . }};\n'
+    if field:
+        sparql += f'DELETE {{ {uri} schema:{field} ?v . }} WHERE {{ {uri} schema:{field} ?v . }};\n'
+    sparql += 'INSERT {\n'
+    sparql += f' {uri} schema:dateModified {format_date(timestamp)} .\n'
+    if field:
+        sparql += f' {uri} schema:{field} {value} .\n'
+    sparql += '} WHERE {};'
+
+    return sparql

@@ -40,12 +40,12 @@ class UpdatePageViewStats(object):
         )
 
         parser.add_argument('--host', action='store', dest='rdf_url',
-                            default='http://localhost:9999/bigdata/sparql',
+                            default='http://localhost:9999/bigdata/namespace/wdq/sparql',
                             help='Host URL to upload data. Default: %(default)s')
         parser.add_argument('-n', '--dry-run', action='store_true', dest='dry_run', default=False,
                             help='Do not modify RDF database.')
         parser.add_argument('-b', '--go-backwards', action='store_true', dest='go_backwards', default=False,
-                            help='At first, go back up to (maxfiles).')
+                            help='Go back up to (maxfiles) and exit')
         parser.add_argument('-m', '--maxfiles', action='store', dest='max_files', default=1, type=int,
                             help='Maximum number of pageview stat files to process at once')
         opts = parser.parse_args()
@@ -61,17 +61,20 @@ class UpdatePageViewStats(object):
     async def run(self):
         backwards = self.options.go_backwards
         while True:
-            ver = self.get_pv_schema_ver()
+            ver = osmutils.query_status(self.rdf_server, f'{self.pvstat}')
             if ver is None:
+                self.log.info(f'schema:dateModified is not set for {self.pvstat}')
                 # Calculate last valid file
                 ver = datetime.utcnow() + dt.timedelta(minutes=50)
                 ver = datetime(ver.year, ver.month, ver.day, ver.hour, tzinfo=dt.timezone.utc)
-            self.log.info('Processing {0} from {1}'.format(('backwards' if backwards else 'forward'), ver))
+            self.log.info(f'Processing {"backwards" if backwards else "forward"} from {ver}')
             stats, timestamp = await self.process_files(ver, backwards)
-            backwards = False
             if timestamp is not None and len(stats) > 0:
-                self.log.info('Updating {0} stats'.format(len(stats)))
+                self.log.info(f'Updating {len(stats)} stats')
                 self.save_stats(stats, timestamp)
+            if backwards:
+                # Do a single iteration only
+                return
             self.log.info('Pausing...')
             time.sleep(1000)
 
@@ -80,14 +83,18 @@ class UpdatePageViewStats(object):
         new_last = None
 
         conn = aiohttp.TCPConnector(limit=3)
-        async with aiohttp.ClientSession(connector=conn) as session:
+        timeout = aiohttp.ClientTimeout(total=None, connect=None, sock_read=60, sock_connect=60)
+        async with aiohttp.ClientSession(connector=conn, timeout=timeout) as session:
             futures = []
             for date in self.iterate_hours(last_processed, self.options.max_files, backwards):
+                futures.append(self.process_file(session, date, stats))
+            done, _ = await asyncio.wait(futures)
+
+        for fut in done:
+            date, ok = fut.result()
+            # always find the latest possible timestamp even if going backwards
+            if ok and (new_last is None or date > new_last):
                 new_last = date
-                url = self.stats_url.format(date)
-                self.log.info('Processing {0}'.format(url))
-                futures.append(self.process_file(session, url, stats))
-            await asyncio.wait(futures)
 
         return stats, new_last
 
@@ -98,48 +105,30 @@ class UpdatePageViewStats(object):
         if not backwards:
             # Inclusive when going backwards, exclusive when going forward
             current += delta
-        while (current > self.minimum_data_ts if backwards else current < datetime.now(dt.timezone.utc)):
+        while current > self.minimum_data_ts if backwards else current < datetime.now(dt.timezone.utc):
             if done >= max_count:
                 break
             yield current
             done += 1
             current += delta
 
-    async def process_file(self, session, url, stats):
-        # with async_timeout.timeout(30):
+    async def process_file(self, session, date, stats):
+        url = self.stats_url.format(date)
         async with session.get(url) as response:
+            start = datetime.utcnow()
+            if response.status != 200:
+                self.log.warning(f'Url {url} returned {response.status}')
+                return date, False
             for line in gzip.decompress(await response.read()).splitlines():
-                parts = line.decode('utf-8', 'strict').split(' ')
-                page_url = self.page_url(parts[0], parts[1])
-                if page_url:
-                    stats[page_url] += int(parts[2])
-
-    def get_pv_schema_ver(self):
-        sparql = '''
-PREFIX pvstat: {0}
-SELECT ?dummy ?ver ?mod WHERE {{
- BIND( "42" as ?dummy )
- OPTIONAL {{ pvstat: schema:dateModified ?mod . }}
-}}
-'''.format(self.pvstat)
-
-        result = self.rdf_server.run('query', sparql)[0]
-
-        if result['dummy']['value'] != '42':
-            raise Exception('Failed to get a dummy value from RDF DB')
-
-        try:
-            return osmutils.parse_date(result['mod']['value'])
-        except KeyError:
-            self.log.info('schema:dateModified is not set for {0}'.format(self.pvstat))
-            return None
-
-    def set_pv_schema_ver(self, timestamp):
-        return '''
-PREFIX pvstat: {0}
-DELETE {{ pvstat: schema:dateModified ?m . }} WHERE {{ pvstat: schema:dateModified ?m . }};
-INSERT {{ pvstat: schema:dateModified {1} . }} WHERE {{}};
-'''.format(self.pvstat, osmutils.format_date(timestamp))
+                try:
+                    parts = line.decode('utf-8', 'strict').split(' ')
+                    page_url = self.page_url(parts[0], parts[1])
+                    if page_url:
+                        stats[page_url] += int(parts[2])
+                except:
+                    self.log.error(f'Error parsing {url} line "{line}"')
+            self.log.info(f'Finished processing {url} in {(datetime.utcnow() - start).total_seconds()} seconds')
+        return date, True
 
     def page_url(self, prefix, title):
         parts = prefix.split('.', 1)
@@ -164,8 +153,8 @@ INSERT {{ pvstat: schema:dateModified {1} . }} WHERE {{}};
             return None
 
         if not reWikiLanguage.match(parts[0]):
-            if parts[0] != 'test2': # This is the only number-containing prefix so far
-                self.log.error('Skipping unexpected language prefix "{0}"'.format(parts[0]))
+            if parts[0] != 'test2':  # This is the only number-containing prefix so far
+                self.log.error(f'Skipping unexpected language prefix "{parts[0]}"')
             return None
 
         return osmutils.make_wiki_url(parts[0], site, title)
@@ -174,23 +163,21 @@ INSERT {{ pvstat: schema:dateModified {1} . }} WHERE {{}};
 
         # From https://stackoverflow.com/questions/46030514/update-or-create-numeric-counters-in-sparql-upsert/46042692
 
-        unformatted_query = '''
-PREFIX pvstat: {0}
-DELETE {{ ?sitelink pvstat: ?outdated }}
-INSERT {{ ?sitelink pvstat: ?updated }}
-WHERE {{
-    VALUES (?sitelink ?increment) {{ {1} }}
-    OPTIONAL {{?sitelink pvstat: ?outdated}}
-    BIND ((IF(BOUND(?outdated), ?outdated + ?increment, ?increment)) AS ?updated)
-}}'''
-
         for keys in osmutils.chunks(stats.keys(), 2000):
             # (<...> 10) (<...> 15) ...
             values = ' '.join(['(' + k + ' ' + str(stats[k]) + ')' for k in keys])
-            sparql = unformatted_query.format(self.pvstat, values)
+            sparql = f'''
+PREFIX pvstat: {self.pvstat}
+DELETE {{ ?sitelink pvstat: ?outdated }}
+INSERT {{ ?sitelink pvstat: ?updated }}
+WHERE {{
+    VALUES (?sitelink ?increment) {{ {values} }}
+    OPTIONAL {{?sitelink pvstat: ?outdated}}
+    BIND ((IF(BOUND(?outdated), ?outdated + ?increment, ?increment)) AS ?updated)
+}}'''
             self.rdf_server.run('update', sparql)
 
-        self.rdf_server.run('update', self.set_pv_schema_ver(timestamp))
+        self.rdf_server.run('update', osmutils.set_status_query(f'{self.pvstat}', timestamp))
 
 
 if __name__ == '__main__':

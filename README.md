@@ -25,11 +25,47 @@ $ gcloud compute ssh sophox-instance --zone=us-central1-b  -- -L 8080:localhost:
 sudo journalctl -u google-startup-scripts.service
 ```
 
+### Hetzner or similar server
+
+We have a machine with 12, 128GB RAM, and 3 SSDs: 2 small ones and a 1.8TB one.
+
+* Using [robot UI](https://robot.your-server.de/), rescue reboot with a public key, and apply firewall template "Webserver". Reboot.
+* `ssh root@<IP>`
+* run `installimage`
+* Choose -ubuntu 18.04
+* In the config file, comment out the 3rd (large) disk, set `SWRAIDLEVEL 1`, and hit `F10`.  After done formatting, use `shutdown -r now` to reboot.
+* `ssh root@88.99.164.208` and run:
+```bash
+# Install utils and docker
+apt update && apt upgrade
+apt-get install -y apt-transport-https ca-certificates curl git software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+
+# You may need to use "bionic" instead of `lsb_release ...` 
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+apt-cache policy docker-ce
+apt update && apt-get install -y docker-ce
+
+# Format and mount the large disk, and make it auto-mount.  We use xfs, but ext4 is fine too.
+mkdir -p /mnt/data && mount -o discard,defaults /dev/sdc /mnt/data
+echo UUID=`blkid -s UUID -o value /dev/sdc` /mnt/data xfs discard,defaults,nofail 0 2 | tee -a /etc/fstab
+```
+
+* Install Sophox:
+```
+export DATA_DIR=/mnt/data
+export REPO_BRANCH=master
+nohup curl --fail --silent --show-error --location --compressed \
+   https://raw.githubusercontent.com/Sophox/sophox/${REPO_BRANCH}/docker/startup.planet.sh \
+   | bash >> /mnt/data/startup.log 2>&1 &
+```
+
 ### Monitoring
 * See docker statistics:  `docker stats`
 * View docker containers:  `docker ps`
 * See individual docker's log:  `docker logs <container-id>` _(ID can be just the first few digits)_
-* localhost:8080 shows Traefik's configuration and statistics.
+* `localhost:8080` shows Traefik's configuration and statistics.
 
 ## Automated Installation Steps
 These steps are done automatically by the startup scripts. Many of the steps create empty `status` files in the `data/status` directory, indicating that a specific step is complete. This prevents full rebuild when the server is restarted.
@@ -41,7 +77,9 @@ These steps are done automatically by the startup scripts. Many of the steps cre
 * Download OSM dump file and validate md5 sum. (creates _status/file.downloaded_)
 * Initialize Osmosis state configuration / timestamp
 * Compile Blazegraph from [/wikidata-query-rdf](wikidata-query-rdf)  (creates _status/blazegraph.build_)
-* Run docker containers with [docker-compose.yml](docker/docker-compose.yml)
+* Start PostgreSQL and Blazegraph with [dc-databases.yml](docker/dc-databases.yml) and wait for them to activate
+* Run [dc-importers.yml](docker/dc-importers.yml) to parse downloaded file into RDF TTL files and into Postgres tables. The TTL files are then imported into Blazegraph.  This step runs without the `--detach`, and should take a few days to complete.  Running it a second time should not take any time. Note that if it crashes, you may have to do some manual cleanup steps (e.g. wipe it all clean)
+* Run [dc-updaters.yml](docker/dc-updaters.yml) and [dc-services.yml](docker/dc-services.yml). Updaters will update OSM data -> PostgreSQL tables (geoshapes), OSM data->Blazegraph, and OSM Wiki->Blazegraph. 
 
 ## Development
 
@@ -54,15 +92,31 @@ git config --global url.ssh://git@github.com/.insteadOf https://github.com/
 
 For quick testing, you may want to use [docker/startup.local.sh](docker/startup.local.sh) to get Sophox locally and with a small OSM file.   Use  http://sophox.localhost  to browse it. You may need to add `127.0.0.1   sophox.localhost` to your `hosts` file.
 
+To disable some of the services, create these files in the status dir:
+* `osm-rdf.disabled` - disable OSM data into Blazegraph parser/importer/updater
+* `osm-pgsql.disabled` - disable OSM data into PostgreSQL importer/updater
+* `wikibase.disabled` - disable OSM Wikibase into Blazegraph updater
+
 You can also override some of the parameters by creating a file in the docker directory, e.g. docker/_belize.sh with similar content. Make sure the filename begins with an underscore (ignored by git):
 
 ```bash
 #!/usr/bin/env bash
+
 OSM_FILE=belize-latest.osm.pbf
 OSM_FILE_URL=http://download.geofabrik.de/central-america/belize-latest.osm.pbf
 MAX_MEMORY_MB=4000
-source "$(dirname "$0")/startup.local.sh"
+
+current_dir=$(dirname "$0")
+status_dir="${current_dir}/../_data_dir/status/"
+mkdir -p "${status_dir}"
+
+# touch "${status_dir}/osm-rdf.disabled"
+# touch "${status_dir}/osm-pgsql.disabled"
+# touch "${status_dir}/wikibase.disabled"
+
+source "${current_dir}/startup.local.sh"
 ```
+
 
 #### Notes for Mac users
 * Make sure to set MAX_MEMORY_MB, because `free` util is not available.

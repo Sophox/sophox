@@ -27,7 +27,7 @@ const sparqlSvcOpts = {
   Accept: `application/sparql-results+json`,
 };
 const wikibaseSparqlService = new SparqlService({url: process.env.WIKIBASE_URL, ...sparqlSvcOpts});
-const sophoxSparqlService = new SparqlService({url: process.env.SOPHOX_URL, ...sparqlSvcOpts});
+const sophoxSparqlService = new SparqlService({url: process.env.BLAZEGRAPH_URL, ...sparqlSvcOpts});
 
 const pgServerOpts = {
   queries: directQueries,

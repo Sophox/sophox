@@ -2,43 +2,45 @@ import gzip
 import logging
 import os
 from multiprocessing import Process, Queue
-from RdfHandler import RdfHandler
+from datetime import datetime
 import osmutils
+from RdfHandler import RdfHandler
 
 log = logging.getLogger('osm2rdf')
 
 
-def writerThread(id, queue, options):
+def writer_thread(worker_id, queue, options):
     while True:
-        fileId, data, last_timestamp, statsStr = queue.get()
-        if fileId is None:
-            log.debug('Wrk #{0} complete'.format(id))
+        ts, file_id, data, last_timestamp, stats_str = queue.get()
+        if ts is None:
+            log.debug(f'Exiting worker #{worker_id}')
             return
 
-        write_file(id, options, fileId, data, last_timestamp, statsStr)
+        write_file(ts, worker_id, options, file_id, data, last_timestamp, stats_str)
 
 
-def write_file(workerId, options, fileId, data, last_timestamp, statsStr):
+def write_file(ts_enqueue, worker_id, options, file_id, data, last_timestamp, stats_str):
+    start = datetime.utcnow()
+
     os.makedirs(options.output_dir, exist_ok=True)
-    filename = os.path.join(options.output_dir, 'osm-{0:06}.ttl.gz'.format(fileId))
-
-    # TODO switch to 'xt'
-    log.info('Wrk #{0}: {1} started, {2}'.format(workerId, filename, statsStr))
-    output = gzip.open(filename, 'wt', compresslevel=5)
+    filename = os.path.join(options.output_dir, f'osm-{file_id:06}.ttl.gz')
+    output = gzip.open(filename, 'xt', compresslevel=3)
 
     output.write(options.file_header)
     for item in data:
-        typ, id, statements = item
-        text = typ + str(id) + '\n' + ';\n'.join(osmutils.toStrings(statements)) + '.\n\n'
+        typ, qid, statements = item
+        text = typ + str(qid) + '\n' + ';\n'.join(osmutils.toStrings(statements)) + '.\n\n'
         output.write(text)
 
     if last_timestamp.year > 2000:  # Not min-year
-        output.write(
-            '\nosmroot: schema:dateModified {0} .'.format(osmutils.format_date(last_timestamp)))
+        output.write(f'\nosmroot: schema:dateModified {osmutils.format_date(last_timestamp)} .')
 
     output.flush()
     output.close()
-    log.info('Wrk #{0}: {1} done'.format(workerId, filename))
+
+    seconds = (datetime.utcnow() - start).total_seconds()
+    waited = (start - ts_enqueue).total_seconds()
+    log.info(f'{filename} done in {seconds}s, {waited}s wait, by worker #{worker_id}: {stats_str}')
 
 
 class RdfFileHandler(RdfHandler):
@@ -57,8 +59,8 @@ class RdfFileHandler(RdfHandler):
         self.queue = Queue(1)
 
         self.writers = []
-        for id in range(options.worker_count):
-            process = Process(target=writerThread, args=(id, self.queue, self.options))
+        for worker_id in range(options.worker_count):
+            process = Process(target=writer_thread, args=(worker_id, self.queue, self.options))
             self.writers.append(process)
             process.start()
 
@@ -76,8 +78,8 @@ class RdfFileHandler(RdfHandler):
         if self.pendingStatements == 0:
             return
 
-        statsStr = self.format_stats()
-        self.queue.put((self.job_counter, self.pending, self.last_timestamp, statsStr))
+        stats_str = self.format_stats()
+        self.queue.put((datetime.utcnow(), self.job_counter, self.pending, self.last_timestamp, stats_str))
 
         self.job_counter += 1
         self.pending = []
@@ -92,8 +94,8 @@ class RdfFileHandler(RdfHandler):
         self.flush()
 
         # Send stop signal to each worker, and wait for all to stop
-        for p in self.writers:
-            self.queue.put((None, None, None, None))
+        for _ in self.writers:
+            self.queue.put((None, None, None, None, None))
         self.queue.close()
         for p in self.writers:
             p.join()

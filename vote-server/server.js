@@ -4,7 +4,7 @@ const request = require('request');
 const app = require('express')();
 
 const port = 9979;
-const rdfServerUrl = process.env.SOPHOX_URL;
+const rdfServerUrl = process.env.BLAZEGRAPH_URL;
 
 app.use(function (req, res, next) {
 	res.header('Access-Control-Allow-Origin', '*');
