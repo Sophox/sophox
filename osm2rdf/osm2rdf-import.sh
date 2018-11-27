@@ -21,7 +21,7 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
     mkdir -p "${OSM_RDF_TTLS}"
     if [[ ! -z "$(ls -A ${OSM_RDF_TTLS})" ]]; then
         echo "WARNING: Removing partially parsed TTLs in ${OSM_RDF_TTLS}"
-        rm -rf "${OSM_RDF_TTLS:?}/*"
+        rm -rf ${OSM_RDF_TTLS:?}/*
     fi
     if [[ -f "${NODES_CACHE}" ]]; then
         echo "Removing nodes cache ${NODES_CACHE}"
