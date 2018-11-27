@@ -4,7 +4,7 @@ services:
 
   pageviews-import:
     # This container backfills Wikipedia pageview data
-    build: "${BUILD_DIR}/osm2rdf"
+    image: sophox/osm2rdf
     working_dir: "/app-osm2rdf"
     command: "./pageviews.sh"
     volumes:

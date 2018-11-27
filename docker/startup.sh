@@ -363,7 +363,7 @@ fi
 
 # Once all status flag files are created, delete downloaded OSM file
 if [[ -f "${DOWNLOAD_DIR}/${OSM_FILE}" ]]; then
-  if ls "${STATUS_DIR}/osm-rdf.parsed" "${STATUS_DIR}/osm-pgsql.imported" > /dev/null ; then
+  if ls "${STATUS_DIR}/osm-rdf.parsed" "${STATUS_DIR}/osm-pgsql.imported" > /dev/null 2>&1 ; then
     echo "Deleting ${DOWNLOAD_DIR}/${OSM_FILE}"
     rm "${DOWNLOAD_DIR}/${OSM_FILE}"
   fi

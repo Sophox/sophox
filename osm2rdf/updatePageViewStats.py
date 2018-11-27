@@ -64,8 +64,8 @@ class UpdatePageViewStats(object):
             ver = osmutils.query_status(self.rdf_server, f'{self.pvstat}')
             if ver is None:
                 self.log.info(f'schema:dateModified is not set for {self.pvstat}')
-                # Calculate last valid file
-                ver = datetime.utcnow() + dt.timedelta(minutes=50)
+                # Calculate last valid file. Assume current data will not be available for at least a few hours
+                ver = datetime.utcnow() + dt.timedelta(minutes=50) - dt.timedelta(hours=5)
                 ver = datetime(ver.year, ver.month, ver.day, ver.hour, tzinfo=dt.timezone.utc)
             self.log.info(f'Processing {"backwards" if backwards else "forward"} from {ver}')
             stats, timestamp = await self.process_files(ver, backwards)

@@ -5,7 +5,7 @@ services:
   osm2rdf-import:
     # This container parses data into TTL files (sets FLAG_TTL_PARSED),
     # and imports them into Blazegraph (sets FLAG_TTL_IMPORTED)
-    build: "${BUILD_DIR}/osm2rdf"
+    image: sophox/osm2rdf
     mem_limit: "${MEM_OSM_RDF_LIMIT_MB}m"
     memswap_limit: "${MEM_OSM_RDF_LIMIT_MB}m"
     mem_swappiness: 0

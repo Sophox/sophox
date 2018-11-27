@@ -4,7 +4,7 @@ services:
 
   osm2rdf-update:
     # This container continuously updates from OSM data to Blazegraph
-    build: "${BUILD_DIR}/osm2rdf"
+    image: sophox/osm2rdf
     working_dir: "/app-osm2rdf"
     command: "./osm2rdf-update.sh"
     # restart: on-failure

@@ -52,7 +52,6 @@ if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
     echo "########### Finished parsing with osm2rdf ###########"
 fi
 
-
 if [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; then
     echo '########### Importing TTLs into Blazegraph ###########'
 
@@ -61,7 +60,29 @@ if [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; then
     if ls "${OSM_RDF_TTLS}" | grep -v '\.ttl\.gz$' >/dev/null 2>&1 ; then
         echo "ERROR: unable to start import because there are non .ttl.gz files in ${OSM_RDF_TTLS}"
         exit 1
-    elif ! "./loadRestAPI.sh" -d "${OSM_RDF_TTLS}" -h "${BLAZEGRAPH_HOST}"; then
+    fi
+
+    # Create curl data blob without using temporary files
+    # This blob assumes that RWStore.properties is located in the same dir as Blazegraph itself
+    read -d '' LOAD_PROPS << EOT || true
+quiet=false
+verbose=0
+closure=false
+durableQueues=true
+#Needed for quads
+#defaultGraph=
+com.bigdata.rdf.store.DataLoader.flush=false
+com.bigdata.rdf.store.DataLoader.bufferCapacity=100000
+com.bigdata.rdf.store.DataLoader.queueCapacity=10
+#Namespace to load
+namespace=wdq
+#Files to load
+fileOrDirs=${OSM_RDF_TTLS}
+#Property file (if creating a new namespace)
+propertyFile=RWStore.properties
+EOT
+
+    if ! echo -e "${LOAD_PROPS}" | curl -X POST --data-binary @- --header 'Content-Type:text/plain' --silent --show-error "${BLAZEGRAPH_HOST}/bigdata/dataloader"; then
         echo
         echo "ERROR: loadRestAPI.sh failed"
         exit 1

@@ -16,10 +16,10 @@ export UPDATER_OPTS="-DwikibaseMaxDaysBack=720"
 
 set -x
 # conceptUri must be http: to match with the OSM
-./runUpdate.sh" \
+./runUpdate.sh \
     -h "${BLAZEGRAPH_HOST}" \
     -- \
     ${INIT_TIME} \
     --wikibaseUrl "https://wiki.openstreetmap.org" \
     --conceptUri "${WB_CONCEPT_URI}" \
-    --entityNamespaces 120,122 \
+    --entityNamespaces 120,122
