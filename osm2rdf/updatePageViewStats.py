@@ -128,7 +128,7 @@ class UpdatePageViewStats(object):
                             stats[page_url] += int(parts[2])
                     except:
                         self.log.error(f'Error parsing {url} line "{line}"')
-                self.log.info(f'Finished processing {url} in {(datetime.utcnow() - start).total_seconds()} seconds')
+                self.log.info(f'Finished processing {url} in {(datetime.utcnow() - start).total_seconds():.1f} seconds')
             return date, True
         except:
             print(f'Failed to process {url}')

@@ -55,9 +55,9 @@ fi
 : "${TOTAL_MEMORY_PRCNT:=30}"
 
 # Number of hours (1hr per file) to download at once from the Wikipedia pageviews statistics service
-# This number also affects how far back from "now" it will backfill
+# This number also affects how far back from "now" it will back-fill
 #
-: "${PAGEVIEW_HR_FILES:=48}"
+: "${PAGEVIEW_HR_FILES:=24}"
 
 # To disable any of these, set it to an empty value
 : "${ENABLE_IMPORT_OSM2PGSQL=true}"
