@@ -40,7 +40,7 @@ def write_file(ts_enqueue, worker_id, options, file_id, data, last_timestamp, st
 
     seconds = (datetime.utcnow() - start).total_seconds()
     waited = (start - ts_enqueue).total_seconds()
-    log.info(f'{filename} done in {seconds}s, {waited}s wait, by worker #{worker_id}: {stats_str}')
+    log.info(f'{filename} done in {seconds}s, {waited:.1f}s wait, by worker #{worker_id}: {stats_str}')
 
 
 class RdfFileHandler(RdfHandler):

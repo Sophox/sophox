@@ -122,7 +122,7 @@ fi
 echo "MAX_MEMORY_MB='${MAX_MEMORY_MB}'"
 
 # WORKERS = 1..4, per each ~30GB of the total
-OSM_RDF_WORKERS=$(( ${MAX_MEMORY_MB} / 30000 ))
+OSM_RDF_WORKERS=$(( ${MAX_MEMORY_MB} / 25000 + 1 ))
 OSM_RDF_WORKERS=$(( ${OSM_RDF_WORKERS} < 1 ? 1 : ( ${OSM_RDF_WORKERS} > 4 ? 4 : ${OSM_RDF_WORKERS} ) ))
 # MEM = 40000 MB ~~ max statements = 10000 / workers count
 OSM_RDF_MAX_STMTS=$(( ${MAX_MEMORY_MB} / 4 / ${OSM_RDF_WORKERS} ))

@@ -114,21 +114,26 @@ class UpdatePageViewStats(object):
 
     async def process_file(self, session, date, stats):
         url = self.stats_url.format(date)
-        async with session.get(url) as response:
-            start = datetime.utcnow()
-            if response.status != 200:
-                self.log.warning(f'Url {url} returned {response.status}')
-                return date, False
-            for line in gzip.decompress(await response.read()).splitlines():
-                try:
-                    parts = line.decode('utf-8', 'strict').split(' ')
-                    page_url = self.page_url(parts[0], parts[1])
-                    if page_url:
-                        stats[page_url] += int(parts[2])
-                except:
-                    self.log.error(f'Error parsing {url} line "{line}"')
-            self.log.info(f'Finished processing {url} in {(datetime.utcnow() - start).total_seconds()} seconds')
-        return date, True
+        try:
+            async with session.get(url) as response:
+                start = datetime.utcnow()
+                if response.status != 200:
+                    self.log.warning(f'Url {url} returned {response.status}')
+                    return date, False
+                for line in gzip.decompress(await response.read()).splitlines():
+                    try:
+                        parts = line.decode('utf-8', 'strict').split(' ')
+                        page_url = self.page_url(parts[0], parts[1])
+                        if page_url:
+                            stats[page_url] += int(parts[2])
+                    except:
+                        self.log.error(f'Error parsing {url} line "{line}"')
+                self.log.info(f'Finished processing {url} in {(datetime.utcnow() - start).total_seconds()} seconds')
+            return date, True
+        except:
+            print(f'Failed to process {url}')
+            return date, False
+
 
     def page_url(self, prefix, title):
         parts = prefix.split('.', 1)
