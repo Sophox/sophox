@@ -168,6 +168,8 @@ class UpdatePageViewStats(object):
 
         # From https://stackoverflow.com/questions/46030514/update-or-create-numeric-counters-in-sparql-upsert/46042692
 
+        done = 0
+        last_print = datetime.utcnow()
         for keys in osmutils.chunks(stats.keys(), 2000):
             # (<...> 10) (<...> 15) ...
             values = ' '.join(['(' + k + ' ' + str(stats[k]) + ')' for k in keys])
@@ -181,8 +183,13 @@ WHERE {{
     BIND ((IF(BOUND(?outdated), ?outdated + ?increment, ?increment)) AS ?updated)
 }}'''
             self.rdf_server.run('update', sparql)
+            done += len(keys)
+            if (datetime.utcnow() - last_print).total_seconds() > 60:
+                print('Imported {done} pageview stats')
+                last_print = datetime.utcnow()
 
         self.rdf_server.run('update', osmutils.set_status_query(f'{self.pvstat}', timestamp))
+        print('Finished importing {done} pageview stats')
 
 
 if __name__ == '__main__':

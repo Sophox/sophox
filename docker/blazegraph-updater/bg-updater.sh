@@ -14,8 +14,9 @@ fi
 
 export UPDATER_OPTS="-DwikibaseMaxDaysBack=720"
 
-set -x
 # conceptUri must be http: to match with the OSM
+# pollDelay in seconds - how long to wait between polling Wikibase
+set -x
 ./runUpdate.sh \
     -h "${BLAZEGRAPH_HOST}" \
     -- \
@@ -23,3 +24,4 @@ set -x
     --wikibaseUrl "https://wiki.openstreetmap.org" \
     --conceptUri "${WB_CONCEPT_URI}" \
     --entityNamespaces 120,122
+    --pollDelay 120
