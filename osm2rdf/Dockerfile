@@ -12,4 +12,4 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # This script uses curl to initiate RDF data loading
-COPY --from=sophox/wikibase-osm-rdf:latest /app/loadRestAPI.sh /
+COPY --from=sophox/wikidata-query-rdf:latest /app/loadRestAPI.sh /
