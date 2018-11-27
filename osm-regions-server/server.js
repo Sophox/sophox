@@ -20,7 +20,7 @@ app.options(`/*`, function (req, resp) {
 
 app.use(compression());
 
-app.get(`/regions/:format`, handleRequest);
+app.get(`/:format`, handleRequest);
 
 const sparqlSvcOpts = {
   userAgent: `osm-regions`,

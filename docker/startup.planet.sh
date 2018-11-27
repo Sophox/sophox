@@ -5,11 +5,11 @@
 #   * Setup the machine's data dir, e.g. /mnt/data
 #   * Run this command (adjust params as needed). Default branch is "master"
 #
-#   export REPO_BRANCH=rewrite && \
+#   export REPO_BRANCH=master && \
 #   export DATA_DIR=/mnt/data && \
 #   nohup curl --fail --silent --show-error --location --compressed \
 #     https://raw.githubusercontent.com/Sophox/sophox/${REPO_BRANCH}/docker/startup.planet.sh | \
-#     bash >> "${DATA_DIR}/startup.log" 2>&1 &
+#     sudo --preserve-env bash >> "${DATA_DIR}/startup.log" 2>&1 &
 
 
 : "${IS_FULL_PLANET:=true}"
