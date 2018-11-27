@@ -18,6 +18,3 @@ RUN apt-get update \
             bash \
     && pip3 install --no-cache-dir -r /requirements.txt \
     && rm -rf /var/lib/apt/lists/*
-
-# This script uses curl to initiate RDF data loading
-COPY --from=sophox/wikidata-query-rdf:latest /app/loadRestAPI.sh /
