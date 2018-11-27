@@ -88,13 +88,13 @@ class UpdatePageViewStats(object):
             futures = []
             for date in self.iterate_hours(last_processed, self.options.max_files, backwards):
                 futures.append(self.process_file(session, date, stats))
-            done, _ = await asyncio.wait(futures)
-
-        for fut in done:
-            date, ok = fut.result()
-            # always find the latest possible timestamp even if going backwards
-            if ok and (new_last is None or date > new_last):
-                new_last = date
+            if futures:
+                done, _ = await asyncio.wait(futures)
+                for fut in done:
+                    date, ok = fut.result()
+                    # always find the latest possible timestamp even if going backwards
+                    if ok and (new_last is None or date > new_last):
+                        new_last = date
 
         return stats, new_last
 
