@@ -17,7 +17,7 @@
 : "${OSM_FILE_URL:=https://planet.openstreetmap.org/pbf/${OSM_FILE}}"
 : "${OSM_FILE_MD5_URL:=${OSM_FILE_URL}.md5}"
 
-: "${BACKFILL_DAYS:=14}"
+: "${SHAPES_BACKFILL_DAYS:=14}"
 : "${TOTAL_MEMORY_PRCNT:=100}"
 
 : "${REPO_BRANCH:=master}"

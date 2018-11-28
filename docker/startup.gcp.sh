@@ -20,8 +20,11 @@
 : "${OSM_FILE_URL:=https://planet.openstreetmap.org/pbf/${OSM_FILE}}"
 : "${OSM_FILE_MD5_URL:=${OSM_FILE_URL}.md5}"
 
-: "${BACKFILL_DAYS:=14}"
+: "${SHAPES_BACKFILL_DAYS:=14}"
 : "${TOTAL_MEMORY_PRCNT:=100}"
+
+# Reduce the size of the initial pageviews data (so it would fit on 375GB)
+: "${PAGEVIEW_HR_FILES:=0}"
 
 : "${REPO_BRANCH:=master}"
 : "${STARTUP_SCRIPT:=https://raw.githubusercontent.com/Sophox/sophox/${REPO_BRANCH}/docker/startup.sh}"

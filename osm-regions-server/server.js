@@ -1,7 +1,7 @@
 'use strict';
 
 const compression = require(`compression`);
-const {SparqlService, PostgresService, directQueries} = require(`osm-regions/src`);
+const {SparqlService, PostgresService, directQueries} = require(`./osm-regions`);
 const app = require(`express`)();
 const topojson = require(`topojson`);
 
@@ -26,6 +26,13 @@ const sparqlSvcOpts = {
   userAgent: `osm-regions`,
   Accept: `application/sparql-results+json`,
 };
+
+if (!process.env.WIKIBASE_URL) {
+  throw new Error(`Env var WIKIBASE_URL is not set`);
+}
+if (!process.env.BLAZEGRAPH_URL) {
+  throw new Error(`Env var WIKIBASE_URL is not set`);
+}
 const wikibaseSparqlService = new SparqlService({url: process.env.WIKIBASE_URL, ...sparqlSvcOpts});
 const sophoxSparqlService = new SparqlService({url: process.env.BLAZEGRAPH_URL, ...sparqlSvcOpts});
 
@@ -184,7 +191,7 @@ async function processQueryRequest(req, resp) {
     qres = await sparqlService.query(sparql, `id`);
     ids = Object.keys(qres);
   }
-  const pres = await postgresService._query(process.env.REGIONS_TABLE, ids, postgresOpts);
+  const pres = await postgresService.query(process.env.REGIONS_TABLE, ids, postgresOpts);
   let result = PostgresService.toGeoJSON(pres, qres);
   const originalSize = result.length;
 

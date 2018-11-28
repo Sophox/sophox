@@ -9,7 +9,9 @@
   "dependencies": {
     "compression": "^1.7.3",
     "express": "^4.16.4",
-    "osm-regions": "nyurik/osm-regions",
-    "topojson": "^3.0.2"
+    "pg-promise": "^8.5.2",
+    "preq": "^0.5.7",
+    "topojson": "^3.0.2",
+    "wd-type-parser": "^0.0.3"
   }
 }

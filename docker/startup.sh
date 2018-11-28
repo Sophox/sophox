@@ -45,7 +45,7 @@ if [[ "${IS_FULL_PLANET}" = "false" ]]; then
 fi
 
 # number of days to go back from today to backfill after the dump file
-: "${BACKFILL_DAYS:=7}"
+: "${SHAPES_BACKFILL_DAYS:=7}"
 
 # Optionally override maximum memory (e.g. this is needed when testing on a Mac without `free` util)
 : "${MAX_MEMORY_MB:=}"
@@ -85,7 +85,7 @@ echo "REPO_BRANCH='${REPO_BRANCH}'"
 echo "OSM_FILE='${OSM_FILE}'"
 echo "OSM_FILE_URL='${OSM_FILE_URL}'"
 echo "OSM_FILE_MD5_URL='${OSM_FILE_MD5_URL}'"
-echo "BACKFILL_DAYS='${BACKFILL_DAYS}'"
+echo "SHAPES_BACKFILL_DAYS='${SHAPES_BACKFILL_DAYS}'"
 echo "TOTAL_MEMORY_PRCNT='${TOTAL_MEMORY_PRCNT}'"
 echo "IS_FULL_PLANET='${IS_FULL_PLANET}'"
 echo "DEBUG='${DEBUG}'"
@@ -248,7 +248,7 @@ if [[ ! -f "${OSM_PGSQL_DATA_DIR}/state.txt" ]]; then
     cp "${REPO_DIR}/docker/osmosis_configuration.txt" "${OSM_PGSQL_DATA_DIR}/configuration.txt"
     touch "${OSM_PGSQL_DATA_DIR}/download.lock"
     # Current date minus N days
-    start_date=$(( `date +%s` - ${BACKFILL_DAYS}*24*60*60 ))
+    start_date=$(( `date +%s` - ${SHAPES_BACKFILL_DAYS}*24*60*60 ))
     if [[ "$(uname -s)" = "Darwin" ]]; then
       start_date_fmt=$(date -u -r "${start_date}" +"%Y-%m-%dT00:00:00Z")
     else

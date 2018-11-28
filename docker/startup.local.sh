@@ -29,7 +29,7 @@ mkdir -p "${DATA_DIR}"
 : "${OSM_FILE_MD5_URL:=${OSM_FILE_URL}.md5}"
 
 # No need to backfill for testing
-: "${BACKFILL_DAYS:=0}"
+: "${SHAPES_BACKFILL_DAYS:=0}"
 
 # Set maximum memory Sophox will use (in MB).
 # Use it if your system does not have a `free` utility (e.g. on a Mac)
