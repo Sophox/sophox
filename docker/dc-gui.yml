@@ -1,0 +1,25 @@
+version: '2.3'
+
+services:
+
+  sophox-gui:
+    # Main web interface
+    image: sophox/wikidata-query-gui
+    restart: always
+    ports:
+      - "80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET"
+    networks:
+      - proxy_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+networks:
+  proxy_net:
+    external: true
+  postgres_net:
+  blazegraph_net:

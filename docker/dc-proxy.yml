@@ -1,0 +1,30 @@
+version: '2.3'
+
+services:
+
+  traefik:
+    # Web proxy
+    image: traefik
+    # restart: always
+    ports:
+      - "${TRAEFIK_HOST}:80:80"
+      - "${TRAEFIK_HOST}:443:443"
+      - "127.0.0.1:8080:8080"
+    networks:
+      - proxy_net
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "${TRAEFIK_FILE}:/traefik.toml:ro"
+      - "${ACME_FILE}:/acme.json:rw"
+    environment:
+      SOPHOX_HOST: "${SOPHOX_HOST}"
+    container_name: traefik
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+networks:
+  proxy_net:
+    external: true
+  postgres_net:
+  blazegraph_net:

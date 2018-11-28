@@ -2,43 +2,6 @@ version: '2.3'
 
 services:
 
-  traefik:
-    # Web proxy
-    image: traefik
-    # restart: always
-    ports:
-      - "${TRAEFIK_HOST}:80:80"
-      - "${TRAEFIK_HOST}:443:443"
-      - "127.0.0.1:8080:8080"
-    networks:
-      - proxy_net
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "${TRAEFIK_FILE}:/traefik.toml:ro"
-      - "${ACME_FILE}:/acme.json:rw"
-    environment:
-      SOPHOX_HOST: "${SOPHOX_HOST}"
-    container_name: traefik
-    logging:
-      driver: json-file
-      options: {max-file: "3", max-size: "10m"}
-
-  sophox-gui:
-    # Main web interface
-    image: sophox/wikidata-query-gui
-    restart: always
-    ports:
-      - "80"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=proxy_net"
-      - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET"
-    networks:
-      - proxy_net
-    logging:
-      driver: json-file
-      options: {max-file: "3", max-size: "10m"}
-
   mapshaper:
     # Extra web UI tool to process map geometry results
     image: crazycapivara/docker-mapshaper

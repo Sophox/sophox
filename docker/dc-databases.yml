@@ -31,6 +31,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy_net"
+      - "traefik.port=9999"
       - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET;PathPrefix:/sparql;ReplacePathRegex:^/sparql(.*) /bigdata/namespace/wdq/sparql$$1"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
 

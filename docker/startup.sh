@@ -64,6 +64,9 @@ fi
 : "${ENABLE_IMPORT_OSM2RDF=true}"
 : "${ENABLE_IMPORT_PAGEVIEWS=true}"
 
+: "${ENABLE_PROXY=true}"
+: "${ENABLE_GUI=true}"
+: "${ENABLE_SERVICES=true}"
 : "${ENABLE_UPDATE_METADATA=true}"
 : "${ENABLE_UPDATE_OSM2PGSQL=true}"
 : "${ENABLE_UPDATE_OSM2RDF=true}"
@@ -369,38 +372,48 @@ if [[ -f "${DOWNLOAD_DIR}/${OSM_FILE}" ]]; then
   fi
 fi
 
+
+
 echo "########### Starting Updaters"
 
-set -x
-docker run --rm                                                    \
-    -e "ACME_FILE=${ACME_FILE}"                                    \
-    -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                      \
-    -e "BLAZEGRAPH_URL=${BLAZEGRAPH_URL}"                          \
-    -e "BUILD_DIR=/git_repo"                                       \
-    -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                          \
-    -e "MEM_OSM_PGSQL_UPDATE_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))" \
-    -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"                  \
-    -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"                      \
-    -e "REPO_DIR=${REPO_DIR}"                                      \
-    -e "SOPHOX_HOST=${SOPHOX_HOST}"                                \
-    -e "STATUS_DIR=${STATUS_DIR}"                                  \
-    -e "TRAEFIK_FILE=${TRAEFIK_FILE}"                              \
-    -e "TRAEFIK_HOST=${TRAEFIK_HOST}"                              \
-    -e "WB_CONCEPT_URI=${WB_CONCEPT_URI}"                          \
-    -e POSTGRES_PASSWORD                                           \
-                                                                   \
-    -v "${REPO_DIR}:/git_repo"                                     \
-    -v /var/run/docker.sock:/var/run/docker.sock                   \
-                                                                   \
-    docker/compose:1.23.1                                          \
-    --file /git_repo/docker/dc-services.yml                        \
-    ${ENABLE_UPDATE_METADATA:+ --file /git_repo/docker/dc-updaters-metadata.yml}   \
-    ${ENABLE_UPDATE_OSM2PGSQL:+ --file /git_repo/docker/dc-updaters-osm2pgsql.yml} \
-    ${ENABLE_UPDATE_OSM2RDF:+ --file /git_repo/docker/dc-updaters-osm2rdf.yml}     \
-    ${ENABLE_UPDATE_PAGEVIEWS:+ --file /git_repo/docker/dc-updaters-pageviews.yml} \
-    --project-name sophox                                          \
-    up                                                             \
-    ${DETACH_DOCKER_COMPOSE:+ --detach}
-{ set +x; } 2>/dev/null
+if [[ -n ${ENABLE_PROXY} || -n ${ENABLE_GUI} || -n ${ENABLE_SERVICES} || -n ${ENABLE_UPDATE_METADATA} || \
+      -n ${ENABLE_UPDATE_OSM2PGSQL} || -n ${ENABLE_UPDATE_OSM2RDF} || -n ${ENABLE_UPDATE_PAGEVIEWS} ]]; then
+
+    set -x
+    docker run --rm                                                    \
+        -e "ACME_FILE=${ACME_FILE}"                                    \
+        -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                      \
+        -e "BLAZEGRAPH_URL=${BLAZEGRAPH_URL}"                          \
+        -e "BUILD_DIR=/git_repo"                                       \
+        -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                          \
+        -e "MEM_OSM_PGSQL_UPDATE_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))" \
+        -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"                  \
+        -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"                      \
+        -e "REPO_DIR=${REPO_DIR}"                                      \
+        -e "SOPHOX_HOST=${SOPHOX_HOST}"                                \
+        -e "STATUS_DIR=${STATUS_DIR}"                                  \
+        -e "TRAEFIK_FILE=${TRAEFIK_FILE}"                              \
+        -e "TRAEFIK_HOST=${TRAEFIK_HOST}"                              \
+        -e "WB_CONCEPT_URI=${WB_CONCEPT_URI}"                          \
+        -e POSTGRES_PASSWORD                                           \
+                                                                       \
+        -v "${REPO_DIR}:/git_repo"                                     \
+        -v /var/run/docker.sock:/var/run/docker.sock                   \
+                                                                       \
+        docker/compose:1.23.1                                          \
+        ${ENABLE_PROXY:+ --file /git_repo/docker/dc-proxy.yml}   \
+        ${ENABLE_GUI:+ --file /git_repo/docker/dc-gui.yml}   \
+        ${ENABLE_SERVICES:+ --file /git_repo/docker/dc-services.yml}   \
+        ${ENABLE_UPDATE_METADATA:+ --file /git_repo/docker/dc-updaters-metadata.yml}   \
+        ${ENABLE_UPDATE_OSM2PGSQL:+ --file /git_repo/docker/dc-updaters-osm2pgsql.yml} \
+        ${ENABLE_UPDATE_OSM2RDF:+ --file /git_repo/docker/dc-updaters-osm2rdf.yml}     \
+        ${ENABLE_UPDATE_PAGEVIEWS:+ --file /git_repo/docker/dc-updaters-pageviews.yml} \
+        --project-name sophox                                          \
+        up                                                             \
+        ${DETACH_DOCKER_COMPOSE:+ --detach}
+    { set +x; } 2>/dev/null
+else
+    echo "All updates have been disabled, skipping"
+fi
 
 echo "########### Startup is done, exiting"

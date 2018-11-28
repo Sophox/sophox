@@ -23,5 +23,5 @@ set -x
     ${INIT_TIME} \
     --wikibaseUrl "https://wiki.openstreetmap.org" \
     --conceptUri "${WB_CONCEPT_URI}" \
-    --entityNamespaces 120,122
+    --entityNamespaces 120,122 \
     --pollDelay 120
