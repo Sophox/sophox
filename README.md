@@ -110,9 +110,19 @@ current_dir=$(dirname "$0")
 status_dir="${current_dir}/../_data_dir/status/"
 mkdir -p "${status_dir}"
 
-# touch "${status_dir}/osm-rdf.disabled"
-# touch "${status_dir}/osm-pgsql.disabled"
-# touch "${status_dir}/wikibase.disabled"
+### Unmark any of these to disable a certain service/feature
+# ENABLE_IMPORT_OSM2PGSQL=
+# ENABLE_IMPORT_OSM2RDF=
+# ENABLE_IMPORT_PAGEVIEWS=
+# ENABLE_PROXY=
+# ENABLE_GUI=
+# ENABLE_SERVICES=
+# ENABLE_UPDATE_METADATA=
+# ENABLE_UPDATE_OSM2PGSQL=
+# ENABLE_UPDATE_OSM2RDF=
+# ENABLE_UPDATE_PAGEVIEWS=
+
+PAGEVIEW_HR_FILES=3
 
 source "${current_dir}/startup.local.sh"
 ```
