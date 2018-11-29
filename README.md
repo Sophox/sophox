@@ -90,7 +90,7 @@ If you have commit access to the Sophox repository, make sure to run this in ord
 git config --global url.ssh://git@github.com/.insteadOf https://github.com/
 ```
 
-For testing, you may want to create a simple script in the docker directory, e.g. docker/_belize.sh that uses [docker/startup.local.sh](docker/startup.local.sh) to get Sophox locally and with a small OSM file.   Use  http://sophox.localhost  to browse it. You may need to add `127.0.0.1   sophox.localhost` to your `hosts` file.  Make sure your script begins with an underscore (ignored by git).
+For testing, you may want to create a simple script (example below) in the docker directory, e.g. docker/_belize.sh that uses [docker/startup.local.sh](docker/startup.local.sh) to get Sophox locally and with a small OSM file.   Use  http://sophox.localhost  to browse it. You may need to add `127.0.0.1   sophox.localhost` to your `hosts` file.  Make sure your script begins with an underscore (ignored by git).
 
 ```bash
 #!/usr/bin/env bash

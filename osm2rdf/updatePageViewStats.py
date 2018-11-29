@@ -185,11 +185,11 @@ WHERE {{
             self.rdf_server.run('update', sparql)
             done += len(keys)
             if (datetime.utcnow() - last_print).total_seconds() > 60:
-                print('Imported {done} pageview stats')
+                print(f'Imported {done} pageview stats')
                 last_print = datetime.utcnow()
 
         self.rdf_server.run('update', osmutils.set_status_query(f'{self.pvstat}', timestamp))
-        print('Finished importing {done} pageview stats')
+        print(f'Finished importing {done} pageview stats')
 
 
 if __name__ == '__main__':
