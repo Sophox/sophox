@@ -151,7 +151,10 @@ OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || e
 BLAZEGRAPH_TEMP_DIR="${TEMP_DIR:-$DATA_DIR}/blazegraph-data"
 BLAZEGRAPH_DATA_DIR="${DATA_DIR}/blazegraph-data"
 
-if [[ "${BLAZEGRAPH_TEMP_DIR}" != "${BLAZEGRAPH_DATA_DIR}" && -f "${STATUS_DIR}/osm-rdf.imported" ]]; then
+if [[ "${BLAZEGRAPH_TEMP_DIR}" != "${BLAZEGRAPH_DATA_DIR}" \
+      && -f "${STATUS_DIR}/osm-rdf.imported" \
+      && -f "${BLAZEGRAPH_DATA_DIR}/osmdata.jnl" ]]; then
+  echo "Using Blazegraph data at ${BLAZEGRAPH_DATA_DIR}/osmdata.jnl"
   BLAZEGRAPH_TEMP_DIR="${BLAZEGRAPH_DATA_DIR}"
 fi
 
