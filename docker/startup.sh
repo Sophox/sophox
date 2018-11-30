@@ -284,17 +284,19 @@ function wait_for {
     local command=$2
     local id
 
-    printf "Waiting for ${name} to start "
-    id=$(docker ps "--filter=label=com.docker.compose.service=${name}" --quiet)
-    if [[ -z $id ]]; then
+    echo "Waiting for ${name} to start"
+    while true; do
+      id=$(docker ps "--filter=label=com.docker.compose.service=${name}" --quiet)
+      if [[ -z $id ]]; then
         echo "Unable to find docker service '${name}'"
         exit 1
-    fi
-    while ! docker exec ${id} ${command} > /dev/null ; do
-        sleep 2
-        printf "."
+      fi
+      if docker exec ${id} ${command} > /dev/null ; then
+        break
+      fi
+      echo "${name} ${id} is still busy..."
+      sleep 5
     done
-    echo
 }
 
 function stop_service {

@@ -16,15 +16,16 @@ services:
     environment:
       HEAP_SIZE: "${MEM_BLAZE_HEAP_MB}m"
       HOST: "0.0.0.0"
+      USER_AGENT: "Sophox - OSM Query Service; https://sophox.org/"
       BLAZEGRAPH_OPTS: >-
         -Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF
         -DwikibaseConceptUri=${WB_CONCEPT_URI}
         -DwikibaseServiceEnableWhitelist=false
-        # For remote debugging, uncomment next line and the port below
-        # -agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y
+# For remote debugging, uncomment next line and the port below
+#       -agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y
     ports:
       - "9999"
-      # - "8000:8000"
+#     - "8000:8000"
     networks:
       - proxy_net
       - blazegraph_net
