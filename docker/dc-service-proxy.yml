@@ -5,7 +5,7 @@ services:
   traefik:
     # Web proxy
     image: traefik
-    # restart: always
+    restart: always
     ports:
       - "${TRAEFIK_HOST}:80:80"
       - "${TRAEFIK_HOST}:443:443"
@@ -18,7 +18,6 @@ services:
       - "${ACME_FILE}:/acme.json:rw"
     environment:
       SOPHOX_HOST: "${SOPHOX_HOST}"
-    container_name: traefik
     logging:
       driver: json-file
       options: {max-file: "3", max-size: "10m"}
