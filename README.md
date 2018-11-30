@@ -70,16 +70,18 @@ nohup curl --fail --silent --show-error --location --compressed \
 ## Automated Installation Steps
 These steps are done automatically by the startup scripts. Many of the steps create empty `status` files in the `data/status` directory, indicating that a specific step is complete. This prevents full rebuild when the server is restarted.
 
+
 ##### [startup.sh](docker/startup.sh)
-* If `DATA_DEV` is set, format and mount it as `DATA_DIR`.  Same applies to the optional `TEMP_DEV` + `TEMP_DIR`. _(e.g. `/dev/sdb`  as `/mnt/disks/data`, and `/dev/nvme0n1` as `/mnt/disks/temp`)_
-* Clone/pull Sophox git repo _(Use `REPO_URL` and `REPO_BRANCH` to override. Set `REPO_URL` to "-" to disable)_
-* Generate random Postgres password
+* Clone/pull Sophox git repo _(Use `REPO_URL` and `REPO_BRANCH` to override. Set `REPO_URL` to "-" to disable)_* Generate random Postgres password
 * Download OSM dump file and validate md5 sum. (creates _status/file.downloaded_)
-* Initialize Osmosis state configuration / timestamp
-* Compile Blazegraph from [/wikidata-query-rdf](wikidata-query-rdf)  (creates _status/blazegraph.build_)
+* Initialize Osmosis state configuration / timestamp (needed for osm2pgsql updates)
 * Start PostgreSQL and Blazegraph with [dc-databases.yml](docker/dc-databases.yml) and wait for them to activate
-* Run [dc-importers.yml](docker/dc-importers.yml) to parse downloaded file into RDF TTL files and into Postgres tables. The TTL files are then imported into Blazegraph.  This step runs without the `--detach`, and should take a few days to complete.  Running it a second time should not take any time. Note that if it crashes, you may have to do some manual cleanup steps (e.g. wipe it all clean)
-* Run [dc-updaters.yml](docker/dc-updaters.yml) and [dc-services.yml](docker/dc-services.yml). Updaters will update OSM data -> PostgreSQL tables (geoshapes), OSM data->Blazegraph, and OSM Wiki->Blazegraph. 
+* Run all [dc-importers-*.yml](docker/) to parse downloaded file into RDF TTL files and into Postgres tables. The TTL files are then imported into Blazegraph.  This step runs without the `--detach`, and should take a few days to complete.  Running it a second time should not take any time. Note that if it crashes, you may have to do some manual cleanup steps (e.g. wipe it all clean)
+* Run [dc-updaters-*.yml](docker/) and [dc-services-*.yml](docker/). Updaters will update OSM data -> PostgreSQL tables (geoshapes), OSM data->Blazegraph, and OSM Wiki->Blazegraph. 
+
+##### [startup.gcp.sh](docker/startup.gcp.sh)
+GCP has additional disk init step done before `startup.sh`:
+* If `DATA_DEV` is set, format and mount it as `DATA_DIR`.  Same applies to the optional `TEMP_DEV` + `TEMP_DIR`. _(e.g. `/dev/sdb`  as `/mnt/disks/data`, and `/dev/nvme0n1` as `/mnt/disks/temp`)_
 
 ## Development
 
@@ -96,28 +98,22 @@ For testing, you may want to create a simple script (example below) in the docke
 #!/usr/bin/env bash
 
 OSM_FILE=belize-latest.osm.pbf
-OSM_FILE_URL=http://download.geofabrik.de/central-america/belize-latest.osm.pbf
+OSM_FILE_REGION=central-america
 MAX_MEMORY_MB=4000
 
-current_dir=$(dirname "$0")
-status_dir="${current_dir}/../_data_dir/status/"
-mkdir -p "${status_dir}"
-
-### Unmark any of these to disable a certain service/feature
+### Uncomment any of these to disable a certain service/feature
 # ENABLE_IMPORT_OSM2PGSQL=
 # ENABLE_IMPORT_OSM2RDF=
 # ENABLE_IMPORT_PAGEVIEWS=
-# ENABLE_PROXY=
-# ENABLE_GUI=
-# ENABLE_SERVICES=
+# ENABLE_SVC_PROXY=
+# ENABLE_SVC_GUI=
+# ENABLE_SVC_MISC=
 # ENABLE_UPDATE_METADATA=
 # ENABLE_UPDATE_OSM2PGSQL=
 # ENABLE_UPDATE_OSM2RDF=
 # ENABLE_UPDATE_PAGEVIEWS=
 
-PAGEVIEW_HR_FILES=3
-
-source "${current_dir}/startup.local.sh"
+source "$(dirname "$0")/startup.local.sh"
 ```
 
 

@@ -7,7 +7,7 @@ services:
     # and continuously updates from OSM wiki
     image: sophox/wikidata-query-rdf
     command: "/app-script/bg-updater.sh"
-    # restart: always
+    restart: always
     volumes:
     - "${STATUS_DIR}:/app-status:rw"
     - "${REPO_DIR}/docker/blazegraph-updater:/app-script:ro"

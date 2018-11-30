@@ -34,8 +34,10 @@ fi
 : "${REPO_BRANCH:=master}"
 
 # Which OSM dump file to download, what to save it as, and the optional URL of the md5 hash (use '-' to skip)
-: "${OSM_FILE:=new-jersey-latest.osm.pbf}"
-: "${OSM_FILE_URL:=http://download.geofabrik.de/north-america/us/${OSM_FILE}}"
+: "${IS_FULL_PLANET:=false}"
+: "${OSM_FILE:=belize-latest.osm.pbf}"
+: "${OSM_FILE_REGION:=central-america}"
+: "${OSM_FILE_URL:=http://download.geofabrik.de/${OSM_FILE_REGION}/${OSM_FILE}}"
 : "${OSM_FILE_MD5_URL:=${OSM_FILE_URL}.md5}"
 
 # IS_FULL_PLANET (true/false) optimizes node storage. Set to "false" or empty for smaller imports.
@@ -64,9 +66,9 @@ fi
 : "${ENABLE_IMPORT_OSM2RDF=true}"
 : "${ENABLE_IMPORT_PAGEVIEWS=true}"
 
-: "${ENABLE_PROXY=true}"
-: "${ENABLE_GUI=true}"
-: "${ENABLE_SERVICES=true}"
+: "${ENABLE_SVC_PROXY=true}"
+: "${ENABLE_SVC_GUI=true}"
+: "${ENABLE_SVC_MISC=true}"
 : "${ENABLE_UPDATE_METADATA=true}"
 : "${ENABLE_UPDATE_OSM2PGSQL=true}"
 : "${ENABLE_UPDATE_OSM2RDF=true}"
@@ -124,7 +126,7 @@ if [[ -z "${MAX_MEMORY_MB}" ]]; then
 fi
 echo "MAX_MEMORY_MB='${MAX_MEMORY_MB}'"
 
-# WORKERS = 1..4, per each ~30GB of the total
+# WORKERS = 1..4, per each ~25GB of the total
 OSM_RDF_WORKERS=$(( ${MAX_MEMORY_MB} / 25000 + 1 ))
 OSM_RDF_WORKERS=$(( ${OSM_RDF_WORKERS} < 1 ? 1 : ( ${OSM_RDF_WORKERS} > 4 ? 4 : ${OSM_RDF_WORKERS} ) ))
 # MEM = 40000 MB ~~ max statements = 10000 / workers count
@@ -145,8 +147,14 @@ MEM_BLAZEGRAPH_MB=$(( ${MAX_MEMORY_MB} / 2 > ${MEM_BLAZEGRAPH_MB} ? ${MEM_BLAZEG
 OSM_PGSQL_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_PGSQL_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
 OSM_RDF_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_RDF_DATA_DIR}" || echo "${TEMP_DIR}/osm-rdf-tmp" )
 
-# TODO: For now, try to use Local SSD for RDF data
-BLAZEGRAPH_DATA_DIR="${TEMP_DIR:-$DATA_DIR}/blazegraph-data"
+# Use local SSD for faster Blazegraph import - will be moved to data dir after the import
+BLAZEGRAPH_TEMP_DIR="${TEMP_DIR:-$DATA_DIR}/blazegraph-data"
+BLAZEGRAPH_DATA_DIR="${DATA_DIR}/blazegraph-data"
+
+if [[ "${BLAZEGRAPH_TEMP_DIR}" != "${BLAZEGRAPH_DATA_DIR}" && -f "${STATUS_DIR}/osm-rdf.imported" ]]; then
+  BLAZEGRAPH_TEMP_DIR="${BLAZEGRAPH_DATA_DIR}"
+fi
+
 
 mkdir -p "${STATUS_DIR}"
 
@@ -265,7 +273,7 @@ if [[ ! -f "${OSM_PGSQL_DATA_DIR}/state.txt" ]]; then
 fi
 
 #
-# #####################  Utility functions
+# #####################  DB functions
 #
 
 function wait_for {
@@ -286,6 +294,50 @@ function wait_for {
     echo
 }
 
+function stop_service {
+    local name=$1
+    local id
+
+    echo "Stopping ${name}..."
+    id=$(docker ps "--filter=label=com.docker.compose.service=${name}" --quiet)
+    if [[ -z $id ]]; then
+      echo "Unable to find docker service '${name}'"
+      exit 1
+    fi
+    docker stop ${id} > /dev/null
+}
+
+function start_dbs {
+    set -x
+    docker run --rm                                                      \
+        -e "BLAZEGRAPH_DATA_DIR=${BLAZEGRAPH_TEMP_DIR}"                  \
+        -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                        \
+        -e "MEM_BLAZE_HEAP_MB=${MEM_BLAZEGRAPH_MB}"                      \
+        -e "MEM_BLAZE_LIMIT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))"       \
+        -e "MEM_PG_MAINTENANCE_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))"    \
+        -e "MEM_PG_SHARED_BUFFERS_MB=$(( ${MAX_MEMORY_MB} * 15 / 100 ))" \
+        -e "MEM_PG_WORK_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))"            \
+        -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                                \
+        -e "POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR}"                      \
+        -e "SOPHOX_HOST=${SOPHOX_HOST}"                                  \
+        -e "WB_CONCEPT_URI=${WB_CONCEPT_URI}"                            \
+        -e POSTGRES_PASSWORD                                             \
+                                                                         \
+        -v "${REPO_DIR}:/git_repo"                                       \
+        -v /var/run/docker.sock:/var/run/docker.sock                     \
+                                                                         \
+        docker/compose:1.23.1                                            \
+        --file /git_repo/docker/dc-db-blazegraph.yml                     \
+        --file /git_repo/docker/dc-db-postgres.yml                       \
+        --project-name sophox                                            \
+        up --detach
+    { set +x; } 2>/dev/null
+
+    wait_for "blazegraph" "curl --fail --silent http://127.0.0.1:9999/bigdata/status"
+    wait_for "postgres" "pg_isready --dbname=gis --quiet"
+    sleep 5 # just in case :)
+}
+
 #
 # #####################  Run docker-compose from a docker container
 #
@@ -297,34 +349,7 @@ if [[ -z $(docker network ls --filter "name=^${NETWORK_NAME}$" --format="{{ .Nam
      docker network create "${NETWORK_NAME}"
 fi
 
-set -x
-docker run --rm                                                      \
-    -e "BLAZEGRAPH_DATA_DIR=${BLAZEGRAPH_DATA_DIR}"                  \
-    -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                        \
-    -e "MEM_BLAZE_HEAP_MB=${MEM_BLAZEGRAPH_MB}"                      \
-    -e "MEM_BLAZE_LIMIT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))"       \
-    -e "MEM_PG_MAINTENANCE_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))"    \
-    -e "MEM_PG_SHARED_BUFFERS_MB=$(( ${MAX_MEMORY_MB} * 15 / 100 ))" \
-    -e "MEM_PG_WORK_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))"            \
-    -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                                \
-    -e "POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR}"                      \
-    -e "SOPHOX_HOST=${SOPHOX_HOST}"                                  \
-    -e "WB_CONCEPT_URI=${WB_CONCEPT_URI}"                            \
-    -e POSTGRES_PASSWORD                                             \
-                                                                     \
-    -v "${REPO_DIR}:/git_repo"                                       \
-    -v /var/run/docker.sock:/var/run/docker.sock                     \
-                                                                     \
-    docker/compose:1.23.1                                            \
-    --file /git_repo/docker/dc-databases.yml                          \
-    --project-name sophox                                            \
-    up --detach
-{ set +x; } 2>/dev/null
-
-
-wait_for "blazegraph" "curl --fail --silent http://127.0.0.1:9999/bigdata/status"
-wait_for "postgres" "pg_isready --dbname=gis --quiet"
-sleep 5 # just in case :)
+start_dbs
 
 echo "########### Starting Importers"
 
@@ -373,10 +398,30 @@ if [[ -f "${DOWNLOAD_DIR}/${OSM_FILE}" ]]; then
 fi
 
 
+if [[ "${BLAZEGRAPH_TEMP_DIR}" != "${BLAZEGRAPH_DATA_DIR}" \
+      && -f "${STATUS_DIR}/osm-rdf.imported" \
+      && -f "${BLAZEGRAPH_TEMP_DIR}/osmdata.jnl" ]]; then
+
+  echo "########### Moving Blazegraph data ${BLAZEGRAPH_TEMP_DIR} --> ${BLAZEGRAPH_DATA_DIR}"
+  if [[ -f "${BLAZEGRAPH_DATA_DIR}/osmdata.jnl" ]]; then
+    echo "ERROR: File ${BLAZEGRAPH_DATA_DIR}/osmdata.jnl already exists. Aborting."
+    exit 1
+  fi
+
+  stop_service "blazegraph"
+
+  mkdir -p "${BLAZEGRAPH_DATA_DIR}"
+  mv "${BLAZEGRAPH_TEMP_DIR}/osmdata.jnl" "${BLAZEGRAPH_DATA_DIR}"
+
+  BLAZEGRAPH_TEMP_DIR="${BLAZEGRAPH_DATA_DIR}"
+  # TODO: adjust memory and other DB params for the production mode
+  echo "Restarting Databases..."
+  start_dbs
+fi
 
 echo "########### Starting Updaters"
 
-if [[ -n ${ENABLE_PROXY} || -n ${ENABLE_GUI} || -n ${ENABLE_SERVICES} || -n ${ENABLE_UPDATE_METADATA} || \
+if [[ -n ${ENABLE_SVC_PROXY} || -n ${ENABLE_SVC_GUI} || -n ${ENABLE_SVC_MISC} || -n ${ENABLE_UPDATE_METADATA} || \
       -n ${ENABLE_UPDATE_OSM2PGSQL} || -n ${ENABLE_UPDATE_OSM2RDF} || -n ${ENABLE_UPDATE_PAGEVIEWS} ]]; then
 
     set -x
@@ -401,9 +446,9 @@ if [[ -n ${ENABLE_PROXY} || -n ${ENABLE_GUI} || -n ${ENABLE_SERVICES} || -n ${EN
         -v /var/run/docker.sock:/var/run/docker.sock                   \
                                                                        \
         docker/compose:1.23.1                                          \
-        ${ENABLE_PROXY:+ --file /git_repo/docker/dc-proxy.yml}   \
-        ${ENABLE_GUI:+ --file /git_repo/docker/dc-gui.yml}   \
-        ${ENABLE_SERVICES:+ --file /git_repo/docker/dc-services.yml}   \
+        ${ENABLE_SVC_PROXY:+ --file /git_repo/docker/dc-service-proxy.yml}             \
+        ${ENABLE_SVC_GUI:+ --file /git_repo/docker/dc-service-gui.yml}                 \
+        ${ENABLE_SVC_MISC:+ --file /git_repo/docker/dc-services.yml}                   \
         ${ENABLE_UPDATE_METADATA:+ --file /git_repo/docker/dc-updaters-metadata.yml}   \
         ${ENABLE_UPDATE_OSM2PGSQL:+ --file /git_repo/docker/dc-updaters-osm2pgsql.yml} \
         ${ENABLE_UPDATE_OSM2RDF:+ --file /git_repo/docker/dc-updaters-osm2rdf.yml}     \

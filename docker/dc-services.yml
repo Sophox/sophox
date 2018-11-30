@@ -5,7 +5,7 @@ services:
   mapshaper:
     # Extra web UI tool to process map geometry results
     image: crazycapivara/docker-mapshaper
-    # restart: always
+    restart: always
     ports:
       - "5555"
     networks:
@@ -22,7 +22,7 @@ services:
   vote-server:
     # Records user votes for feature modification
     image: sophox/vote-server
-    # restart: always
+    restart: always
     environment:
       BLAZEGRAPH_URL: "${BLAZEGRAPH_URL}"
     ports:
@@ -41,7 +41,7 @@ services:
   osm-regions:
     # Serves geoshapes from Postgres, attaching them to the SPARQL query results
     image: sophox/osm-regions-server
-    # restart: always
+    restart: always
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_DB: gis

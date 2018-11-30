@@ -7,7 +7,7 @@ services:
     image: sophox/osm2rdf
     working_dir: "/app-osm2rdf"
     command: "./osm2rdf-update.sh"
-    # restart: on-failure
+    restart: on-failure
     volumes:
       - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
       - "${REPO_DIR}/osm2rdf:/app-osm2rdf:ro"

@@ -131,7 +131,7 @@ class UpdatePageViewStats(object):
                 self.log.info(f'Finished processing {url} in {(datetime.utcnow() - start).total_seconds():.1f} seconds')
             return date, True
         except:
-            print(f'Failed to process {url}')
+            self.log.warning(f'Failed to process {url}')
             return date, False
 
 
@@ -170,7 +170,7 @@ class UpdatePageViewStats(object):
 
         done = 0
         last_print = datetime.utcnow()
-        for keys in osmutils.chunks(stats.keys(), 2000):
+        for keys in osmutils.chunks(stats.keys(), 1000):
             # (<...> 10) (<...> 15) ...
             values = ' '.join(['(' + k + ' ' + str(stats[k]) + ')' for k in keys])
             sparql = f'''
@@ -185,11 +185,11 @@ WHERE {{
             self.rdf_server.run('update', sparql)
             done += len(keys)
             if (datetime.utcnow() - last_print).total_seconds() > 60:
-                print(f'Imported {done} pageview stats')
+                self.log.info(f'Imported {done} pageview stats')
                 last_print = datetime.utcnow()
 
         self.rdf_server.run('update', osmutils.set_status_query(f'{self.pvstat}', timestamp))
-        print(f'Finished importing {done} pageview stats')
+        self.log.info(f'Finished importing {done} pageview stats')
 
 
 if __name__ == '__main__':

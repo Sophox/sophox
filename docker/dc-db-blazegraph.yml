@@ -1,0 +1,41 @@
+version: '2.3'
+
+services:
+
+  blazegraph:
+    image: sophox/wikidata-query-rdf
+    mem_limit: "${MEM_BLAZE_LIMIT_MB}m"
+    memswap_limit: "${MEM_BLAZE_LIMIT_MB}m"
+    mem_swappiness: 0
+    # restart: always
+    volumes:
+      - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # Used by com.bigdata.journal.AbstractJournal.file in RWStore.properties
+      - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
+      - "${BLAZEGRAPH_DATA_DIR}/logs:/var/log/wdqs:rw" # WDQS puts GC logs here
+    command: "./runBlazegraph.sh"
+    environment:
+      HEAP_SIZE: "${MEM_BLAZE_HEAP_MB}m"
+      HOST: "0.0.0.0"
+      BLAZEGRAPH_OPTS: >-
+        -Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF
+        -DwikibaseConceptUri=${WB_CONCEPT_URI}
+        -DwikibaseServiceEnableWhitelist=false
+    ports:
+      - "9999"
+    networks:
+      - proxy_net
+      - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy_net"
+      - "traefik.port=9999"
+      - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET;PathPrefix:/sparql;ReplacePathRegex:^/sparql(.*) /bigdata/namespace/wdq/sparql$$1"
+      - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:GET,OPTIONS"
+
+networks:
+  proxy_net:
+    external: true
+  blazegraph_net:
