@@ -99,7 +99,7 @@ For testing, you may want to create a simple script (example below) in the docke
 
 OSM_FILE=belize-latest.osm.pbf
 OSM_FILE_REGION=central-america
-MAX_MEMORY_MB=4000
+MAX_MEMORY_MB=5000
 
 ### Uncomment any of these to disable a certain service/feature
 # ENABLE_IMPORT_OSM2PGSQL=

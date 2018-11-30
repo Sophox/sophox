@@ -9,7 +9,7 @@
 #    #!/usr/bin/env bash
 #    OSM_FILE=belize-latest.osm.pbf
 #    OSM_FILE_REGION=central-america
-#    MAX_MEMORY_MB=3000
+#    MAX_MEMORY_MB=5000
 #    source "$(dirname "$0")/startup.local.sh"
 #
 

@@ -136,10 +136,10 @@ OSM_RDF_MAX_STMTS=$(( ${MAX_MEMORY_MB} / 4 / ${OSM_RDF_WORKERS} ))
 # Blazegraph - full should be maxed at 16g, partial can be maxed at 2g
 if [[ -n "${IS_FULL_PLANET}" ]]; then
   echo "### Optimizing for full planet import"
-  MEM_BLAZEGRAPH_MB=$(( 12 * 1024 ))
+  MEM_BLAZEGRAPH_MB=$(( 1024 * 12 ))
 else
   echo "### Optimizing for a small OSM file import"
-  MEM_BLAZEGRAPH_MB=$(( 1024 ))
+  MEM_BLAZEGRAPH_MB=$(( 1024 * 3 / 2 ))
 fi
 MEM_BLAZEGRAPH_MB=$(( ${MAX_MEMORY_MB} / 2 > ${MEM_BLAZEGRAPH_MB} ? ${MEM_BLAZEGRAPH_MB} : ${MAX_MEMORY_MB} / 2 ))
 
@@ -308,6 +308,7 @@ function stop_service {
       exit 1
     fi
     docker stop ${id} > /dev/null
+    docker rm ${id} > /dev/null
 }
 
 function start_dbs {
@@ -414,6 +415,7 @@ if [[ "${BLAZEGRAPH_TEMP_DIR}" != "${BLAZEGRAPH_DATA_DIR}" \
   stop_service "blazegraph"
 
   mkdir -p "${BLAZEGRAPH_DATA_DIR}"
+  echo "Moving jnl file..."
   mv "${BLAZEGRAPH_TEMP_DIR}/osmdata.jnl" "${BLAZEGRAPH_DATA_DIR}"
 
   BLAZEGRAPH_TEMP_DIR="${BLAZEGRAPH_DATA_DIR}"

@@ -7,7 +7,7 @@ services:
     mem_limit: "${MEM_BLAZE_LIMIT_MB}m"
     memswap_limit: "${MEM_BLAZE_LIMIT_MB}m"
     mem_swappiness: 0
-    # restart: always
+    restart: always
     volumes:
       - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # Used by com.bigdata.journal.AbstractJournal.file in RWStore.properties
       - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS
@@ -20,8 +20,11 @@ services:
         -Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF
         -DwikibaseConceptUri=${WB_CONCEPT_URI}
         -DwikibaseServiceEnableWhitelist=false
+        # For remote debugging, uncomment next line and the port below
+        # -agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y
     ports:
       - "9999"
+      # - "8000:8000"
     networks:
       - proxy_net
       - blazegraph_net

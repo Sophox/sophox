@@ -4,7 +4,7 @@ services:
 
   postgres:
     image: "openmaptiles/postgis:2.9"
-    # restart: always
+    restart: always
     volumes:
       - "${POSTGRES_DATA_DIR}:/var/lib/postgresql/data:rw"
     environment:
