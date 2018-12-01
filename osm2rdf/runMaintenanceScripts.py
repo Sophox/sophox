@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
+
 # Copyright Yuri Astrakhan <YuriAstrakhan@gmail.com>
+
 import logging
 import os
 
@@ -9,7 +12,7 @@ from pathlib import Path
 from sparql import Sparql
 
 
-class BlazegraphUpdater(object):
+class SparqlMaintainer(object):
     def __init__(self):
         self.log = logging.getLogger('osm2rdf')
         self.log.setLevel(logging.INFO)
@@ -61,8 +64,8 @@ class BlazegraphUpdater(object):
                 self.rdf_server.run('update', queries[filename])
                 self.log.info(f'Done running {filename}')
 
-            time.sleep(60)
+            time.sleep(600)
 
 
 if __name__ == '__main__':
-    BlazegraphUpdater().run()
+    SparqlMaintainer().run()

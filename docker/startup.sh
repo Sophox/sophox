@@ -73,6 +73,7 @@ fi
 : "${ENABLE_UPDATE_OSM2PGSQL=true}"
 : "${ENABLE_UPDATE_OSM2RDF=true}"
 : "${ENABLE_UPDATE_PAGEVIEWS=true}"
+: "${ENABLE_UPDATE_MAINTAIN=true}"
 
 # If DEBUG env is not set, run docker compose in the detached (service) mode
 DETACH_DOCKER_COMPOSE=$( [[ "${DEBUG}" == "" ]] && echo "true" || echo "" )
@@ -434,7 +435,8 @@ start_dbs
 echo "########### Starting Updaters"
 
 if [[ -n ${ENABLE_SVC_PROXY} || -n ${ENABLE_SVC_GUI} || -n ${ENABLE_SVC_MISC} || -n ${ENABLE_UPDATE_METADATA} || \
-      -n ${ENABLE_UPDATE_OSM2PGSQL} || -n ${ENABLE_UPDATE_OSM2RDF} || -n ${ENABLE_UPDATE_PAGEVIEWS} ]]; then
+      -n ${ENABLE_UPDATE_OSM2PGSQL} || -n ${ENABLE_UPDATE_OSM2RDF} || -n ${ENABLE_UPDATE_PAGEVIEWS} || \
+      -n ${ENABLE_UPDATE_MAINTAIN} ]]; then
 
     set -x
     docker run --rm                                                    \
@@ -465,6 +467,7 @@ if [[ -n ${ENABLE_SVC_PROXY} || -n ${ENABLE_SVC_GUI} || -n ${ENABLE_SVC_MISC} ||
         ${ENABLE_UPDATE_OSM2PGSQL:+ --file /git_repo/docker/dc-updaters-osm2pgsql.yml} \
         ${ENABLE_UPDATE_OSM2RDF:+ --file /git_repo/docker/dc-updaters-osm2rdf.yml}     \
         ${ENABLE_UPDATE_PAGEVIEWS:+ --file /git_repo/docker/dc-updaters-pageviews.yml} \
+        ${ENABLE_UPDATE_MAINTAIN:+ --file /git_repo/docker/dc-updaters-maintain.yml}   \
         --project-name sophox                                          \
         up                                                             \
         ${DETACH_DOCKER_COMPOSE:+ --detach}

@@ -1,0 +1,20 @@
+version: '2.3'
+
+services:
+
+  sparql-maintainer:
+    # This container continuously runs maintenance SPARQL queries from the osm2rdf maintenance dir
+    image: sophox/osm2rdf
+    working_dir: "/app-osm2rdf"
+    command: "python3 runMaintenanceScripts.py --host ${BLAZEGRAPH_URL}"
+    restart: on-failure
+    volumes:
+      - "${REPO_DIR}/osm2rdf:/app-osm2rdf:ro"
+    networks:
+      - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+networks:
+  blazegraph_net:

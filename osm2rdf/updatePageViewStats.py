@@ -1,4 +1,7 @@
+#!/usr/bin/env python3
+
 # Copyright Yuri Astrakhan <YuriAstrakhan@gmail.com>
+
 import argparse
 import asyncio
 import datetime as dt

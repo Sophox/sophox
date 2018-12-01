@@ -7,6 +7,7 @@
         <option value="BLAZEGRAPH_HOST" />
         <option value="DATA_DIR" />
         <option value="DEBUG" />
+        <option value="ENABLE_UPDATE_MAINTAIN" />
         <option value="FLAGS_TO_DELETE_OSM_FILE" />
         <option value="FLAG_IMPORTED" />
         <option value="FLAG_PARSED" />
