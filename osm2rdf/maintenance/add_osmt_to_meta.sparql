@@ -1,0 +1,18 @@
+# Add missing "osmm:key" predicate to all OSM Wikibase items of type "key"
+# This helps connect OSM objects and OSM metadata
+INSERT {
+    ?key
+    ?property
+    ?value
+} WHERE {
+  VALUES ?property { osmm:key }
+
+  ?key osmdt:P2 osmd:Q7;
+       osmdt:P16 ?keyid.
+
+  MINUS { ?key osmm:key ?existing_keyid }
+
+  FILTER (REGEX(?keyid, "^[0-9a-zA-Z_]([-:0-9a-zA-Z_]*[0-9a-zA-Z_])?$"))
+
+  BIND (iri(concat("https://wiki.openstreetmap.org/wiki/Key:", ?keyid)) as ?value)
+}
