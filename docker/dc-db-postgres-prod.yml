@@ -1,0 +1,7 @@
+version: '2.3'
+
+services:
+
+  # Add "production-mode" parameters to Postgres - activated once the import process is done
+  postgres:
+    restart: always

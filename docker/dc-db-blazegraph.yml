@@ -7,7 +7,6 @@ services:
     mem_limit: "${MEM_BLAZE_LIMIT_MB}m"
     memswap_limit: "${MEM_BLAZE_LIMIT_MB}m"
     mem_swappiness: 0
-    restart: always
     volumes:
       - "${BLAZEGRAPH_DATA_DIR}:/app-data:rw"  # Used by com.bigdata.journal.AbstractJournal.file in RWStore.properties
       - "${OSM_TTLS_DIR}:/osm-rdf-ttls:rw"  # In-container path must specified by bg-updater's OSM_RDF_TTLS

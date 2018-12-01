@@ -77,7 +77,6 @@ fi
 # If DEBUG env is not set, run docker compose in the detached (service) mode
 DETACH_DOCKER_COMPOSE=$( [[ "${DEBUG}" == "" ]] && echo "true" || echo "" )
 
-
 ##############  NO USER-SERVICABLE VARIABLES BEYOND THIS POINT :)
 
 # Print parameters:
@@ -97,6 +96,8 @@ echo "DEBUG='${DEBUG}'"
 
 ##############  Setup internal vars
 
+# RUN_PROD_MODE will become "true" once all the imports are done
+RUN_PROD_MODE=
 STATUS_DIR=${DATA_DIR}/status
 ACME_FILE=${DATA_DIR}/acme.json
 POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
@@ -334,7 +335,9 @@ function start_dbs {
                                                                          \
         docker/compose:1.23.1                                            \
         --file /git_repo/docker/dc-db-blazegraph.yml                     \
+        ${RUN_PROD_MODE:+ --file /git_repo/docker/dc-db-blazegraph-prod.yml} \
         --file /git_repo/docker/dc-db-postgres.yml                       \
+        ${RUN_PROD_MODE:+ --file /git_repo/docker/dc-db-postgres-prod.yml} \
         --project-name sophox                                            \
         up --detach
     { set +x; } 2>/dev/null
@@ -403,7 +406,11 @@ if [[ -f "${DOWNLOAD_DIR}/${OSM_FILE}" ]]; then
   fi
 fi
 
+RUN_PROD_MODE=true
+stop_service "blazegraph"
+stop_service "postgres"
 
+# Move blazegraph from temp to prod if needed
 if [[ "${BLAZEGRAPH_TEMP_DIR}" != "${BLAZEGRAPH_DATA_DIR}" \
       && -f "${STATUS_DIR}/osm-rdf.imported" \
       && -f "${BLAZEGRAPH_TEMP_DIR}/osmdata.jnl" ]]; then
@@ -414,17 +421,15 @@ if [[ "${BLAZEGRAPH_TEMP_DIR}" != "${BLAZEGRAPH_DATA_DIR}" \
     exit 1
   fi
 
-  stop_service "blazegraph"
-
   mkdir -p "${BLAZEGRAPH_DATA_DIR}"
   echo "Moving jnl file..."
   mv "${BLAZEGRAPH_TEMP_DIR}/osmdata.jnl" "${BLAZEGRAPH_DATA_DIR}"
 
   BLAZEGRAPH_TEMP_DIR="${BLAZEGRAPH_DATA_DIR}"
-  # TODO: adjust memory and other DB params for the production mode
-  echo "Restarting Databases..."
-  start_dbs
 fi
+
+echo "Restarting Databases..."
+start_dbs
 
 echo "########### Starting Updaters"
 

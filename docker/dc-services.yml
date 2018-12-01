@@ -2,6 +2,17 @@ version: '2.3'
 
 services:
 
+  autoheal:
+    # Process that monitors other dockers, and restarts them once they become unhealthy
+    # Requires container to have an "autoheal=true" label
+    image: willfarrell/autoheal
+    restart: always
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
   mapshaper:
     # Extra web UI tool to process map geometry results
     image: crazycapivara/docker-mapshaper
