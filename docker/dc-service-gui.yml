@@ -2,7 +2,7 @@ version: '2.3'
 
 services:
 
-  sophox-gui:
+  gui:
     # Main web interface
     image: sophox/wikidata-query-gui
     restart: always
