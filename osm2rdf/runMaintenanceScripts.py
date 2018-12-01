@@ -43,6 +43,7 @@ class SparqlMaintainer(object):
 
     def run(self):
         dir = Path(self.options.queries_dir)
+        self.log.info(f'Running scripts from {dir}')
         while True:
             queries = {}
             for file in dir.glob('*.sparql'):

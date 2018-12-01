@@ -100,6 +100,8 @@ echo "DEBUG='${DEBUG}'"
 # RUN_PROD_MODE will become "true" once all the imports are done
 RUN_PROD_MODE=
 STATUS_DIR=${DATA_DIR}/status
+mkdir -p "${STATUS_DIR}"
+
 ACME_FILE=${DATA_DIR}/acme.json
 POSTGRES_PASSWORD_FILE=${DATA_DIR}/postgres_password
 POSTGRES_DATA_DIR=${DATA_DIR}/postgres
@@ -159,9 +161,6 @@ if [[ "${BLAZEGRAPH_TEMP_DIR}" != "${BLAZEGRAPH_DATA_DIR}" \
   echo "Using Blazegraph data at ${BLAZEGRAPH_DATA_DIR}/osmdata.jnl"
   BLAZEGRAPH_TEMP_DIR="${BLAZEGRAPH_DATA_DIR}"
 fi
-
-
-mkdir -p "${STATUS_DIR}"
 
 #
 # #####################  Clone/update GIT repo
