@@ -1,0 +1,5 @@
+-i https://pypi.org/simple
+
+pywikiapi>=1.0.3
+pywikibot>=3.0.20181203
+requests>=2.20.1

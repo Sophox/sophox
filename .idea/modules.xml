@@ -6,6 +6,7 @@
       <module fileurl="file://$PROJECT_DIR$/wikidata-query-rdf/war/blazegraph-service.iml" filepath="$PROJECT_DIR$/wikidata-query-rdf/war/blazegraph-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/wikidata-query-rdf/common/common.iml" filepath="$PROJECT_DIR$/wikidata-query-rdf/common/common.iml" />
       <module fileurl="file://$PROJECT_DIR$/docker/docker.iml" filepath="$PROJECT_DIR$/docker/docker.iml" />
+      <module fileurl="file://$PROJECT_DIR$/metabot/metabot.iml" filepath="$PROJECT_DIR$/metabot/metabot.iml" />
       <module fileurl="file://$PROJECT_DIR$/osm-regions-server/osm-regions-server.iml" filepath="$PROJECT_DIR$/osm-regions-server/osm-regions-server.iml" />
       <module fileurl="file://$PROJECT_DIR$/osm-to-pgsql/osm-to-pgsql.iml" filepath="$PROJECT_DIR$/osm-to-pgsql/osm-to-pgsql.iml" />
       <module fileurl="file://$PROJECT_DIR$/osm2rdf/osm2rdf.iml" filepath="$PROJECT_DIR$/osm2rdf/osm2rdf.iml" />
