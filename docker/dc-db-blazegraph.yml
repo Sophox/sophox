@@ -36,7 +36,6 @@ services:
       - "traefik.docker.network=proxy_net"
       - "traefik.port=9999"
       - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET,POST;PathPrefix:/sparql;ReplacePathRegex:^/sparql(.*) /bigdata/namespace/wdq/sparql$$1"
-      - "traefik.frontend.rule=Host:${SOPHOX_HOST};Method:GET;PathPrefix:/bigdata"
       - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||access-control-allow-methods:OPTIONS,GET,POST"
       - "traefik.frontend.headers.customRequestHeaders=X-BIGDATA-READ-ONLY:yes"
 
