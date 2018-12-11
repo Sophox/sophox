@@ -1,13 +1,85 @@
-from pywikibot import Site as PWB_Site
+from pathlib import Path
 
-import metabot
+from pywikiapi import AttrDict
+from pywikibot import Site as PWB_Site
+from pywikibot.data.api import LoginManager
+
+from metabot.OsmFamily import OsmFamily
+from metabot.Properties import *
+from metabot import Caches
+from metabot.Processor import Processor
 from metabot.utils import get_osm_site
 
 site = get_osm_site()
+use_bot_limits = False
+pb_site = PWB_Site(fam=OsmFamily(), user='Yurikbot')
+caches = Caches(site, pb_site, use_bot_limits=False)
 
-caches = metabot.Caches(site, PWB_Site(), use_bot_limits=False)
+# aaacaches.images.regenerate()
+# caches.descriptionParsed.parser.parse(0, 'aa', 'abc', AttrDict({'image':'File:Braunschweig Brunswick Busbahnhof 1 (2006).jpg'}))
+# exit(1)
 
+if not pb_site.logged_in():
+    password = Path('./password').read_text().strip()
+    LoginManager(site=pb_site, password=password).login()
+    print('Logged in!')
+else:
+    print('Already logged in')
+
+
+caches.data_items.regenerate()
 # caches.description.regenerate()
 # caches.descriptionParsed.regenerate()
+
+
+def fix_sitelinks_and_ids(opts=None):
+    if not opts: opts = {}
+    opts = {
+        'throw': True,
+        'props': False,
+        'ignore_user_edits': False,
+        'ignore_qid': False,
+        **opts
+    }
+
+    proc = Processor(opts, caches, site, pb_site)
+    proc.run('new')
+    proc.run('old')
+    proc.run('autogen_keys')
+
+
+fix_sitelinks_and_ids({
+    'throw': False,
+    'props': {
+        P_INSTANCE_OF.id,
+        P_IMAGE.id,
+        P_OSM_IMAGE.id,
+        P_USED_ON.id,
+        P_NOT_USED_ON.id,
+        P_STATUS.id,
+        P_KEY_TYPE.id,
+        P_TAG_KEY.id,
+        P_REF_URL.id,
+        P_KEY_ID.id,
+        P_TAG_ID.id,
+        P_ROLE_ID.id,
+        P_GROUP.id,
+    },
+    'ignore_user_edits': True,
+    # 'ignore_qid': {
+    #     'Q104',
+    #     'Q108',
+    #     'Q1191',
+    #     'Q171',
+    #     'Q3',
+    #     'Q4',
+    #     'Q4666',
+    #     'Q501',
+    #     'Q6',
+    #     'Q890',
+    #     'Q261',
+    #     'Q7565',
+    # }
+})
 
 print('done!')

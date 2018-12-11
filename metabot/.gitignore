@@ -1,5 +1,9 @@
-_*
+_cache/
 /pywikibot.lwp
+/password
+/apicache-py3
+_test.py
+throttle.ctrl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -422,3 +426,4 @@ fabric.properties
 
 # Editor-based Rest Client
 .idea/httpRequests
+/apicache-py3/

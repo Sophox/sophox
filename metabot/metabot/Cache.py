@@ -1,6 +1,8 @@
 import json
 import os.path
 
+from pywikiapi import AttrDict
+
 
 class Cache:
     def __init__(self, filename):
@@ -46,7 +48,7 @@ class CacheJsonl(Cache):
                 line = line.rstrip()
                 if not line:
                     continue
-                items.append(json.loads(line))
+                items.append(json.loads(line, object_hook=AttrDict))
             return items
 
     def iter(self):
