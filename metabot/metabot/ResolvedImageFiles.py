@@ -1,4 +1,5 @@
 import json
+
 import pywikibot as pb
 
 from metabot.Cache import Cache
@@ -6,7 +7,7 @@ from metabot.Cache import Cache
 
 class ResolvedImageFiles(Cache):
 
-    def __init__(self, filename, pwb_site):
+    def __init__(self, filename: str, pwb_site: pb.Site):
         super().__init__(filename)
         self.pwb_site = pwb_site
 

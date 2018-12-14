@@ -1,8 +1,11 @@
-import pywikiapi
+from collections import defaultdict
 
-from .consts import elements, Q_KEY, Q_TAG
+from pywikiapi import Site
+
+from .utils import strid_from_item, batches
+from .consts import elements
 from .Cache import CacheInMemory
-from .Properties import P_INSTANCE_OF, P_KEY_ID, P_TAG_ID
+from .Properties import P_INSTANCE_OF
 
 from .Cache import CacheJsonl
 from .utils import to_json, get_entities
@@ -10,7 +13,7 @@ from .utils import to_json, get_entities
 
 class DataItems(CacheJsonl):
 
-    def __init__(self, filename: str, site: pywikiapi.Site, use_bot_limits: bool):
+    def __init__(self, filename: str, site: Site, use_bot_limits: bool):
         super().__init__(filename)
         self.site = site
         self.use_bot_limits = use_bot_limits
@@ -19,22 +22,16 @@ class DataItems(CacheJsonl):
         with open(self.filename, "w+") as file:
             # For bots this might need to be smaller because the total download could exceed maximum allowed
             batch_size = 500 if self.use_bot_limits else 50
-            for batch in self.items(batch_size):
+            for batch in batches(self.items(), batch_size):
                 entities = get_entities(self.site, batch)
                 if entities:
                     # JSON Lines format
                     print('\n'.join(to_json(item) for item in entities), file=file)
 
-    def items(self, batch_size):
-        res = []
+    def items(self):
         for q in self.site.query(list='allpages', apnamespace=120, apfilterredir='nonredirects', aplimit='max'):
             for p in q.allpages:
-                res.append(p.title[len('Item:'):])
-                if len(res) >= batch_size:
-                    yield res
-                    res = []
-        if res:
-            yield res
+                yield p.title[len('Item:'):]
 
 
 class DataItemCache(CacheInMemory):
@@ -67,16 +64,25 @@ class DataItemDescByQid(DataItemCache):
 
 
 class DataItemsKeysByStrid(DataItemCache):
+    def __init__(self, items):
+        super().__init__(items)
+        self.duplicate_strids = defaultdict(set)
+
     def generate(self):
         result = {}
+        self.duplicate_strids.clear()
         for item in self.items.get():
-            qid = item['id']
-            # if qid != 'Q923': continue  #DEBUG
-            instof = P_INSTANCE_OF.get_claim_value(item)
-            if instof == Q_KEY:
-                result[P_KEY_ID.get_claim_value(item)] = qid
-            elif instof == Q_TAG:
-                result[P_TAG_ID.get_claim_value(item)] = qid
+            strid = strid_from_item(item)
+            if strid:
+                if strid in result:
+                    self.duplicate_strids[strid].add(result[strid])
+                    self.duplicate_strids[strid].add(item['id'])
+                else:
+                    result[strid] = item['id']
+        if self.duplicate_strids:
+            print('#### DUPLICATE STRIDs')
+            for strid, lst in self.duplicate_strids.items():
+                print(f'{strid} -- {", ".join(lst)}')
         return result
 
 

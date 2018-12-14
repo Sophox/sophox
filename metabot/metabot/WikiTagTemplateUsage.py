@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from pywikiapi import Site
 from pywikibot import textlib
 
 from metabot.Cache import Cache
@@ -7,7 +8,7 @@ from metabot.Cache import Cache
 
 class WikiTagTemplateUsage(Cache):
 
-    def __init__(self, filename, site):
+    def __init__(self, filename: str, site: Site):
         super().__init__(filename)
         self.site = site
 

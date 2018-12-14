@@ -4,14 +4,10 @@ import re
 
 from pywikibot import textlib
 
-from .utils import remove_wikimarkup, re_wikidata, re_tag_link, re_lang_template, goodValue, sitelink_normalizer
-from .consts import reLanguagesClause, LANG_NS, ignoreLangSuspects, languages
+from .utils import remove_wikimarkup, re_wikidata, re_tag_link, re_lang_template, goodValue, sitelink_normalizer, \
+    parse_wiki_page_title
+from .consts import languages
 from .ResolvedImageFiles import *
-
-keysRe = re.compile(r'^(Key|Tag|Relation):(.+)$', re.IGNORECASE)
-knownLangsRe = re.compile(r'^(' + reLanguagesClause + r'):(Key|Tag|Relation):(.+)$',
-                          re.IGNORECASE)
-suspectedLangsRe = re.compile(r'^([^:]+):(Key|Tag|Relation):(.+)$', re.IGNORECASE)
 
 templ_param_map = {
     'descrizione': 'description',
@@ -25,31 +21,13 @@ templ_param_map = {
     'gruppe': 'group',
     'csoport': 'group',
     'required': 'requires',
-    'nativekey': 'label',
-    'polska nazwa': 'label',
+    'polska nazwa': 'nativekey',
     'combinazioni': 'combination',
     'combinations': 'combination',
     'language': 'lang',
     'wikdata': 'wikidata',
     'siehe auch': 'seealso',
 }
-
-
-def id_extractor(item, type, str_id, messages=None):
-    item_key = item['key'] if 'key' in item else item['oldkey'] if 'oldkey' in item else False
-    item_value = item['value'] if 'value' in item else item['oldvalue'] if 'oldvalue' in item else False
-    item_id: Union[bool, str] = False
-    if item_key:
-        item_id = item_key
-        if item_value and type == 'Tag':
-            item_id += '=' + item_value
-    if str_id and item_id and item_id != str_id:
-        if sitelink_normalizer(item_id) != sitelink_normalizer(str_id):
-            if messages:
-                messages.append(f"Item keys don't match:   {item_id:30} {str_id:30} in {item.full_title}")
-            return False
-        return item_id
-    return str_id if str_id else item_id if item_id else False
 
 
 class ItemParser:
@@ -64,17 +42,32 @@ class ItemParser:
         self.result = {}
         self.messages = []
 
+        self.type_from_title, self.lang, self.id_from_title, has_suspect_lang = parse_wiki_page_title(ns, title)
+        if has_suspect_lang:
+            self.print(f'Suspected language code in { title }')
+
     def setter(self, key, value, allow_multiple=False):
         if key in self.result:
             if not allow_multiple:
                 if value != self.result[key]:
-                    self.messages.append(f"Key {key} is already set to {self.result[key]} for page {self.title}")
+                    self.print(f"Key {key} is already set to {self.result[key]} for page {self.title}")
             else:
                 self.result[key].append(value)
         else:
             self.result[key] = [value] if allow_multiple else value
 
     def parse(self):
+        if self.template.lower() not in [
+            'keydescription', 'valuedescription', 'template:keydescription', 'template:valuedescription',
+            'deprecated', 'pl:keydescription', 'pl:valuedescription', 'template:pl:keydescription',
+            'template:pl:valuedescription'
+        ]:
+            # Ignore relations for now
+            return
+
+        if not self.type_from_title:
+            return
+
         for tkey, tval in self.template_params.items():
             tkey = tkey.lower()
             tval = tval.strip()
@@ -86,44 +79,17 @@ class ItemParser:
                 elif res:
                     self.setter(*res)
 
-        primens = self.ns - self.ns % 2
-        try:
-            lng = [k for k, v in LANG_NS.items() if v == primens][0]
-        except IndexError:
-            lng = 'en'
-
-        page_type = False
-        page_title = False
-
-        title = self.title if self.ns == 0 else self.title.split(':', 1)[1]
-        m = keysRe.match(title)
-        if m:
-            page_type = m.group(1)
-            page_title = m.group(2)
-        elif primens == 0:
-            m = knownLangsRe.match(title)
-            if m:
-                lng = m.group(1).lower()
-                page_type = m.group(2)
-                page_title = m.group(3)
-            else:
-                m = suspectedLangsRe.match(title)
-                if m and m.group(1).lower() not in ignoreLangSuspects:
-                    self.messages.append(f'Suspected language code in { self.title }')
-
         if self.result:
-            str_id = id_extractor(self.result, page_type, page_title, self.messages)
-            if not str_id:
-                self.messages.append(f'Unable to extract ID from { page_title }')
-            elif str_id != page_title:
-                page_title = str_id
-
+            if 'lang' in self.result and self.lang != self.result['lang']:
+                self.print(f'Title language {self.lang} does not match parameter lang={self.result["lang"]}')
+                self.lang = self.result['lang']
             return {
-                'type': page_type,
-                'str_id': page_title,
-                'lang': lng,
+                'type': self.type_from_title,
+                'str_id': self.id_extractor(),
+                'lang': self.lang,
                 'ns': self.ns,
                 'full_title': self.title,
+                'template': self.template,
                 'params': self.result,
             }
 
@@ -134,13 +100,18 @@ class ItemParser:
             tval = tval[1:].strip()
 
         if tkey in ['key', 'value', 'oldkey', 'oldvalue', 'newtext', 'type', 'label', 'nativekey', 'nativevalue',
-                    'lang', 'group', 'groups', 'category', 'description', 'osmcarto-rendering-size', 'image caption',
+                    'group', 'groups', 'category', 'description', 'osmcarto-rendering-size', 'image caption',
                     'website', 'displayname', 'proposal']:
+            return tkey, tval
+        elif tkey == 'lang':
+            tval = tval.lower()
+            if tval == 'pt-br':
+                tval = 'pt'
             return tkey, tval
         elif tkey == 'wikidata':
             if re_wikidata.match(tval):
                 return tkey, tval
-            self.messages.append(f'Bad wikidata {tval}')
+            self.print(f'Bad wikidata {tval}')
         elif tkey == 'status':
             return tkey, tval.lower()
         elif tkey in ['onnode', 'onarea', 'onway', 'onrelation', 'onclosedway', 'onchangeset']:
@@ -148,7 +119,7 @@ class ItemParser:
             if tval in ['yes', 'no']:
                 return tkey, tval
             if tval != '?':
-                self.messages.append(f'Unrecognized {tkey}={tval}')
+                self.print(f'Unrecognized {tkey}={tval}')
         elif tkey == 'statuslink':
             if tval.startswith('[[') and tval.endswith(']]'):
                 tval = (tval[2:-2].split('|')[0]).strip()
@@ -156,26 +127,26 @@ class ItemParser:
                 try:
                     return tkey, pb.Page(self.pwb_site, tval).full_url()
                 except pb.exceptions.InvalidTitle as err:
-                    self.messages.append(f'Unparsable {tkey}={tval}')
+                    self.print(f'Unparsable {tkey}={tval}')
         elif tkey in ['image', 'osmcarto-rendering']:
             try:
                 return tkey, self.image_cache.parse_image_title(tval)
             except:
-                self.messages.append(f'image="{tval}" cannot be processed')
+                self.print(f'image="{tval}" cannot be processed')
         elif tkey in ['combination', 'implies', 'seealso', 'requires']:
             tags = self.parse_combinations(tkey, tval)
             if len(tags) > 0:
                 return [(tkey, tags), (tkey + '!text', tval)]
-            self.messages.append(f'No tags found in {tkey} -- {tval}')
+            self.print(f'No tags found in {tkey} -- {tval}')
         elif tkey in 'members':
             members = self.parse_members(tval)
             if len(members) > 0:
                 return [('members', members), (tkey + '!text', tval)]
-            self.messages.append(f'No items found in {tkey} -- {tval}')
+            self.print(f'No items found in {tkey} -- {tval}')
         elif tkey in ['languagelinks', 'image:desc', 'image_caption', 'float', 'debug', 'dir', 'rtl']:
             pass  # We know them, but they are not very useful at this point
         else:
-            self.messages.append(f'Unknown "{tkey}={tval}"')
+            self.print(f'Unknown "{tkey}={tval}"')
         return None
 
     def parse_combinations(self, tkey, tval):
@@ -199,7 +170,7 @@ class ItemParser:
             else:
                 ok = False
             if not ok:
-                self.messages.append(f'Parsed link in {tkey} is unrecognized: {typ}:{lnk} | {freetext}')
+                self.print(f'Parsed link in {tkey} is unrecognized: {typ}:{lnk} | {freetext}')
         return tags
 
     def parse_members(self, tval):
@@ -226,7 +197,7 @@ class ItemParser:
                     if list(params.keys()) == ['1']:
                         vals['value'] = params['1']
                     else:
-                        self.messages.append(f"Unknown value param pattern in '{line}'")
+                        self.print(f"Unknown value param pattern in '{line}'")
                 elif name == 'icon':
                     if list(params.keys()) == ['1']:
                         p = params['1'].lower()
@@ -237,9 +208,9 @@ class ItemParser:
                         elif p == 'r' or p == 'relation':
                             vals['onrelation'] = 'yes'
                     else:
-                        self.messages.append(f"Unknown value param pattern in '{line}'")
+                        self.print(f"Unknown value param pattern in '{line}'")
                 else:
-                    self.messages.append(f"Unknown template {name} in '{line}'")
+                    self.print(f"Unknown template {name} in '{line}'")
             if vals:
                 if 'value' not in vals:
                     m = re.match(r'^\s*(?:{{[^{}]+\}\}(?:\s|-|—)*)*(\(?[a-z_: /]+(<[^ {}\[\]<>]*>)?\)?)\s*$',
@@ -255,7 +226,7 @@ class ItemParser:
                             continue
                         vals['value'] = m[1]
                     else:
-                        self.messages.append(f"Value not found in '{line}'")
+                        self.print(f"Value not found in '{line}'")
                         continue
                 members.append(vals)
         return members
@@ -268,11 +239,11 @@ class ItemParser:
         if ':' in name:
             prefix, name = name.split(':', 1)
             if prefix not in languages:
-                self.messages.append(f'Bad Tag value "{prefix}:{name}" (unknown prefix)')
+                self.print(f'Bad Tag value "{prefix}:{name}" (unknown prefix)')
                 return
         if name not in ['tag', 'key', 'tagkey', 'tagvalue']:
             if allow_key_only and name != 'english':
-                self.messages.append(f'Bad Tag value "{name}"')
+                self.print(f'Bad Tag value "{name}"')
             return
         key = ''
         if '1' in params:
@@ -292,6 +263,28 @@ class ItemParser:
             if not goodValue.match(value):
                 if not allow_key_only: continue
                 if value not in ['', '*']:
-                    self.messages.append(f'Bad Tag value {value}')
+                    self.print(f'Bad Tag value {value}')
             if not goodValue.match(key): continue
             yield key, value
+
+    def id_extractor(self):
+        item = self.result
+        item_key = item['key'] if 'key' in item else item['oldkey'] if 'oldkey' in item else False
+        item_id: Union[bool, str] = False
+
+        if item_key:
+            item_id = item_key
+            item_value = item['value'] if 'value' in item else item['oldvalue'] if 'oldvalue' in item else False
+            if item_value and self.type_from_title == 'Tag':
+                item_id += '=' + item_value
+
+        if self.id_from_title and item_id and item_id != self.id_from_title:
+            if sitelink_normalizer(item_id) != sitelink_normalizer(self.id_from_title):
+                self.print(f"Item keys don't match:   {item_id:30} { self.id_from_title :30} in {self.title}")
+                return False
+            return item_id
+
+        return item_id if item_id else self.id_from_title if self.id_from_title else False
+
+    def print(self, msg):
+        self.messages.append(msg)

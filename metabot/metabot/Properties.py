@@ -16,7 +16,7 @@ class Property:
         Property.ALL[self.id] = self
 
     def __str__(self):
-        return f'{self.name} ({self.id})'
+        return f'{self.name:11} ({self.id}){" " if len(self.id) < 3 else ""}'
 
     def create_mainsnak(self, value):
         return {
@@ -103,6 +103,7 @@ class Property:
 
 
 P_INSTANCE_OF = Property('P2', 'instance-of', 'wikibase-item')
+P_SUBCLASS_OF = Property('P3', 'subclass-of', 'wikibase-item')
 P_IMAGE = Property('P4', 'image', 'commonsMedia')
 P_OSM_IMAGE = Property('P28', 'osm-image', 'string')
 P_USED_ON = Property('P5', 'used-on', 'wikibase-item', allow_multiple=True)

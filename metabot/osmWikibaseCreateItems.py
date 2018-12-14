@@ -46,7 +46,6 @@ opts = {
         P_ROLE_ID.id,
         P_GROUP.id,
     },
-    'ignore_user_edits': True,
     'ignore_qid': {
         'Q104',
         'Q108',

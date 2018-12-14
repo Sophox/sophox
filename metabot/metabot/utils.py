@@ -1,15 +1,17 @@
 import json
 import re
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Iterator, Iterable
 
 import requests
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 
 from pywikiapi import Site, AttrDict
 
-from .consts import reLanguagesClause
+from .Properties import P_INSTANCE_OF, P_KEY_ID, P_TAG_ID, P_SUBCLASS_OF
+from .consts import reLanguagesClause, Q_KEY, Q_TAG, LANG_NS, ignoreLangSuspects
+
 
 def to_json(obj, pretty=False):
     if pretty:
@@ -18,7 +20,7 @@ def to_json(obj, pretty=False):
         return json.dumps(obj, ensure_ascii=False)
 
 
-def get_osm_site():
+def get_osm_site() -> Site:
     retries = Retry(total=3, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
     session = requests.Session()
     session.mount('https://', HTTPAdapter(max_retries=retries))
@@ -101,3 +103,66 @@ re_tag_link = re.compile(r'\[\[(?:(' + reLanguagesClause + r'):)?(Key|Tag|Relati
 
 re_lang_template = re.compile(r'^(?:' + reLanguagesClause + r':)?(?:Template:)?(.*)$', re.IGNORECASE)
 goodValue = re.compile(r'^[a-zA-Z0-9]+([-: _.][a-zA-Z0-9]+)*:?$')
+
+
+def lang_pick(vals, lang):
+    return vals[lang] if lang in vals else vals['en']
+
+
+def strid_from_item(item):
+    instance_of = P_INSTANCE_OF.get_claim_value(item)
+    if instance_of == Q_KEY:
+        return P_KEY_ID.get_claim_value(item)
+    elif instance_of == Q_TAG:
+        return P_TAG_ID.get_claim_value(item)
+    elif instance_of is None and P_SUBCLASS_OF.get_claim_value(item) is None and item.id != 'Q2761':
+        # Ignore Sandbox Q2761
+        return item.labels.en.value
+    return None
+
+
+keysRe = re.compile(r'^(Key|Tag|Relation):(.+)$', re.IGNORECASE)
+knownLangsRe = re.compile(r'^(' + reLanguagesClause + r'):(Key|Tag|Relation):(.+)$',
+                          re.IGNORECASE)
+suspectedLangsRe = re.compile(r'^([^:]+):(Key|Tag|Relation):(.+)$', re.IGNORECASE)
+
+
+def parse_wiki_page_title(ns, title):
+    type_from_title = False
+    id_from_title = False
+    has_suspect_lang = False
+
+    primens = ns - ns % 2
+    try:
+        lang = [k for k, v in LANG_NS.items() if v == primens][0]
+    except IndexError:
+        lang = 'en'
+
+    title = title if ns == 0 else title.split(':', 1)[1]
+    m = keysRe.match(title)
+    if m:
+        type_from_title = m.group(1)
+        id_from_title = m.group(2)
+    elif primens == 0:
+        m = knownLangsRe.match(title)
+        if m:
+            lang = m.group(1).lower()
+            type_from_title = m.group(2)
+            id_from_title = m.group(3)
+        else:
+            m = suspectedLangsRe.match(title)
+            if m and m.group(1).lower() not in ignoreLangSuspects:
+                has_suspect_lang = True
+
+    return type_from_title, lang, id_from_title, has_suspect_lang
+
+
+def batches(items: Iterable, batch_size: int):
+    res = []
+    for value in items:
+        res.append(value)
+        if len(res) >= batch_size:
+            yield res
+            res = []
+    if res:
+        yield res
