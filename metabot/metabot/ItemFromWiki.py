@@ -3,8 +3,9 @@ from collections import defaultdict
 
 from pywikiapi import AttrDict
 
-from .Properties import P_USED_ON, P_NOT_USED_ON, P_OSM_IMAGE, P_IMAGE, P_GROUP, P_STATUS, Property
-from .consts import elements, reLanguagesClause
+from .Properties import P_USED_ON, P_NOT_USED_ON, P_OSM_IMAGE, P_IMAGE, P_GROUP, P_STATUS, Property, P_INSTANCE_OF, \
+    P_KEY_ID, P_TAG_ID, P_TAG_KEY
+from .consts import elements, reLanguagesClause, Q_TAG, Q_KEY
 from .utils import list_to_dict_of_lists, reTag_repl, remove_wikimarkup, lang_pick, sitelink_normalizer_tag, \
     sitelink_normalizer_key
 
@@ -45,14 +46,25 @@ class ItemFromWiki:
         self.strid = strid
         self.claims = defaultdict(list)
 
+        if '=' in self.strid:
+            # TAG
+            self.sitelink = sitelink_normalizer_tag(strid)
+            self.claims[P_INSTANCE_OF.id].append(Q_TAG)
+            self.claims[P_TAG_ID.id].append(strid)
+            key = strid.split('=')[0]
+            key_id = self.caches.itemKeysByStrid.get_strid(key)
+            if key_id:
+                self.claims[P_TAG_KEY.id].append(key_id)
+        else:
+            # KEY
+            self.sitelink = sitelink_normalizer_key(strid)
+            self.claims[P_INSTANCE_OF.id].append(Q_KEY)
+            self.claims[P_KEY_ID.id].append(strid)
+
         self.editData = {
             'labels': {'en': strid},
             'descriptions': {},
-            'sitelinks':
-                [{
-                    'site': 'wiki',
-                    'title': sitelink_normalizer_tag(strid) if '=' in self.strid else sitelink_normalizer_key(strid)
-                }],
+            'sitelinks': [{'site': 'wiki', 'title': self.sitelink}],
         }
 
     def print(self, msg):
@@ -75,9 +87,9 @@ class ItemFromWiki:
             if P_IMAGE.id in self.claim_per_lang and P_OSM_IMAGE.id in self.claim_per_lang:
                 del self.claim_per_lang[P_OSM_IMAGE.id]
 
-        # if self.claim_per_lang:
-        #     for prop, claim in self.claim_per_lang.items():
-        #         self.merge_claim(claim, Property.ALL[prop])
+        if self.claim_per_lang:
+            for prop, claim in self.claim_per_lang.items():
+                self.merge_claim(claim, Property.ALL[prop])
 
         self.ok = self.editData or self.claim_per_lang
 

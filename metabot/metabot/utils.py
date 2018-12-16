@@ -28,14 +28,25 @@ def get_osm_site() -> Site:
     return Site('https://wiki.openstreetmap.org/w/api.php', session=session, json_object_hook=AttrDict)
 
 
-def get_entities(site: Site, ids: Union[str, List[str]]) -> Union[None, Dict, List[Dict]]:
-    expect_single = type(ids) is not list
+def get_entities(site: Site, ids: Union[str, List[str]] = None, titles: Union[str, List[str]] = None) \
+        -> Union[None, Dict, List[Dict]]:
+    if ids is None == titles is None:
+        raise ValueError('Missing one of args, or both are given')
+    if ids:
+        expect_single = type(ids) is not list
+        resp = site(action='wbgetentities',
+                    ids=[ids] if expect_single else ids,
+                    redirects='no',
+                    formatversion=1)
+    else:
+        expect_single = type(titles) is not list
+        resp = site(action='wbgetentities',
+                    sites='wiki',
+                    titles=[titles] if expect_single else titles,
+                    formatversion=1)
 
-    resp = site(action='wbgetentities',
-                ids=[ids] if expect_single else ids,
-                redirects='no')
     if 'success' in resp and resp['success'] == 1 and 'entities' in resp:
-        items = list(resp['entities'].values())
+        items = [v for v in resp['entities'].values() if 'missing' not in v]
         if expect_single:
             if len(items) > 1:
                 raise ValueError('Unexpectedly got more than 1 value for a single request')

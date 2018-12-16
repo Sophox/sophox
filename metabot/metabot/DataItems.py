@@ -23,7 +23,7 @@ class DataItems(CacheJsonl):
             # For bots this might need to be smaller because the total download could exceed maximum allowed
             batch_size = 500 if self.use_bot_limits else 50
             for batch in batches(self.items(), batch_size):
-                entities = get_entities(self.site, batch)
+                entities = get_entities(self.site, ids=batch)
                 if entities:
                     # JSON Lines format
                     print('\n'.join(to_json(item) for item in entities), file=file)
@@ -46,6 +46,9 @@ class DataItemsByQid(DataItemCache):
         for item in self.items.get():
             result[item['id']] = item
         return result
+
+    def get_item(self, qid):
+        return self.get()[qid]
 
 
 class DataItemDescByQid(DataItemCache):
@@ -84,6 +87,12 @@ class DataItemsKeysByStrid(DataItemCache):
             for strid, lst in self.duplicate_strids.items():
                 print(f'{strid} -- {", ".join(lst)}')
         return result
+
+    def get_strid(self, strid):
+        try:
+            return self.get()[strid]
+        except KeyError:
+            return None
 
 
 class DataItemsByName(DataItemCache):

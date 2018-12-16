@@ -30,6 +30,8 @@ class UploadItem:
         self.needs_changes = False
         self.add_claims = {}
         self.del_claims = {}
+        self.duplicates = {}
+        self.force_contribs = not dry_run
 
         if not self.item:
             self.item = AttrDict()
@@ -40,52 +42,66 @@ class UploadItem:
             self.qid = self.item.id
 
     def prepare_upload(self):
-        if self.qid:
-            self.validate_data_item()
+        try:
+            if self.qid:
+                self.validate_data_item()
 
-        self.update_i18n('labels')
-        self.update_i18n('descriptions')
+            self.update_i18n('labels')
+            self.update_i18n('descriptions')
 
-        if 'en' in self.item.descriptions and \
-                self.item.descriptions.en == self.strid and \
-                ('descriptions' not in self.editData or 'en' not in self.editData['descriptions']):
-            self.editData['descriptions']['en'] = ''
+            if 'en' in self.item.descriptions and \
+                    self.item.descriptions.en == self.strid and \
+                    ('descriptions' not in self.editData or 'en' not in self.editData['descriptions']):
+                self.editData['descriptions']['en'] = ''
 
-        self.update_claims()
+            self.update_claims()
 
-        self.check_user_modifications()
+            self.check_user_modifications()
 
-        self.needs_changes = len(self.editData['labels']) > 0 or \
-                             len(self.editData['descriptions']) > 0 or \
-                             'sitelinks' in self.editData or \
-                             len(self.add_claims) > 0 or len(self.del_claims) > 0
+            self.needs_changes = len(self.editData['labels']) > 0 or \
+                                 len(self.editData['descriptions']) > 0 or \
+                                 'sitelinks' in self.editData or \
+                                 len(self.add_claims) > 0 or len(self.del_claims) > 0 or len(self.duplicates) > 0
+        except:
+            self.print_messages()
+            self.needs_changes = False
+            raise
+
+    def prohibit(self, type, value):
+        if not self.item:
+            return False
+        force = self.force_contribs
+        contribs = self.caches.contributed(self.item.id, force=force)
+        self.force_contribs = False
+        return type in contribs and value in contribs[type]
 
     def check_user_modifications(self):
-        if not self.item or not self.caches.contributed(self.item.id, force=not self.dry_run):
-            return
-
         labels = self.editData['labels']
-        if not self.opts.overwrite_user_labels_en and 'en' in labels:
+        if not self.opts.overwrite_user_labels_en and 'en' in labels and self.prohibit('label', 'en'):
             self.print(f'User modified item: cannot set en label to "{self.editData["labels"]["en"]}"')
             del labels['en']
         if not self.opts.overwrite_user_labels:
             for lng in list(labels.keys()):
-                if lng != 'en':
-                    self.print(f'User modified item: cannot set {lng} label to "{self.editData["labels"][lng]}"')
+                if lng != 'en' and self.prohibit('label', lng):
+                    if self.editData["labels"][lng]:
+                        self.print(f'User modified item: cannot set {lng} label to "{self.editData["labels"][lng]}"')
                     del labels[lng]
 
         descriptions = self.editData['descriptions']
         if not self.opts.overwrite_user_descriptions and descriptions:
             for lng in list(descriptions.keys()):
-                if lng in self.item.descriptions:
-                    self.print(f'User modified item: cannot set description {lng} '
-                               f'"{descriptions[lng]}" ==> "{self.item.descriptions[lng]}"')
+                if lng in self.item.descriptions and self.prohibit('description', lng):
+                    if descriptions[lng]:
+                        self.print(f'User modified item: cannot set description {lng} '
+                                   f'"{self.item.descriptions[lng]["value"]}" ==> "{descriptions[lng]}"')
                     del descriptions[lng]
 
-        if not self.opts.overwrite_user_claims and (self.add_claims or self.del_claims):
-            self.print(f'User modified item: cannot set new claims')
-            self.add_claims = {}
-            self.del_claims = {}
+        if not self.opts.overwrite_user_claims and (self.add_claims or self.del_claims or self.duplicates):
+            for op, lst in [('add', self.add_claims), ('del', self.del_claims), ('fix', self.duplicates)]:
+                for clm in lst:
+                    if self.prohibit('claim', clm):
+                        self.print(f'User modified item: cannot {op} claim {clm}')
+                        del lst[clm]
 
     def upload_item_updates(self):
         self.print(('Updating ' if self.qid else 'Creating ') + self.strid + ' ' + self.qitem(self.qid))
@@ -102,6 +118,8 @@ class UploadItem:
             summary += ', '.join([f"{k}:'{v}'" for k, v in self.editData['descriptions'].items()])
         for prop_id in self.claims.keys():
             self.apply_claims(pb_item, Property.ALL[prop_id])
+        for prop_id in self.duplicates:
+            self.fix_duplicates(pb_item, Property.ALL[prop_id])
         self.print(summary)
         self.print_messages()
         pb_item.editEntity(self.editData, summary=summary)
@@ -111,23 +129,31 @@ class UploadItem:
         for prop_id in self.claims.keys():
             prop = Property.ALL[prop_id]
             allow = self.allow_edit(prop)
-            old_claim_vals = set(prop.get_claim_value(self.item, True) or [])
-            new_claim_vals = set(self.claims[prop.id])
+            old_claim_vals = prop.get_claim_value(self.item, True) or []
+            new_claim_vals = self.claims[prop.id]
+            changed = False
             status = f'  {prop}' if not self.qid else f"{ self.qitem(self.qid) } {prop}"
-            vals = new_claim_vals - old_claim_vals
 
+            vals = set(new_claim_vals) - set(old_claim_vals)
             if vals:
                 status += f" = { self.qitem(vals) }"
                 if allow:
                     self.add_claims[prop.id] = vals
-            vals = old_claim_vals - new_claim_vals
+                    changed = True
+
+            vals = set(old_claim_vals) - set(new_claim_vals)
             if vals:
                 status += f"   removing { self.qitem(vals) }"
                 if allow:
                     self.del_claims[prop.id] = vals
-            self.print(status)
+                    changed = True
+
+            if changed:
+                self.print(status)
 
     def update_i18n(self, type):
+        if type not in self.item:
+            return
         good_langs = set()
         if type in self.editData:
             langs = list(self.editData[type])
@@ -158,29 +184,39 @@ class UploadItem:
         tag_key = P_TAG_KEY.get_claim_value(item)
         sitelink = get_sitelink(item)
         edit_sitelink = self.editData['sitelinks'][0]['title']
+        item_is_key = None
+        item_is_tag = None
 
         if instance_of == Q_KEY or key_strid or \
                 (sitelink and sitelink.startswith('Key:')) or \
                 (edit_sitelink and edit_sitelink.startswith('Key:')):
             # Must be a key
+            item_is_key = True
             if not instance_of:
                 self.print(f"{item_as_str} seems to be a key, but instance_of is not set")
                 self.claims[P_INSTANCE_OF.id] = [Q_KEY]
             elif instance_of != Q_KEY:
                 self.print(f"{item_as_str} seems to be a key, but instance_of is {instance_of}")
+                item_is_key = False
             if not key_strid:
                 self.print(f"{item_as_str} seems to be a key, but {P_KEY_ID} is not set")
                 self.claims[P_KEY_ID.id] = [self.strid]
+            elif '=' in key_strid:
+                self.print(f"{item_as_str} seems to be a key, but {key_strid} has '=' in it")
+                item_is_key = False
             if tag_strid:
                 self.print(f"{item_as_str} seems to be a key, but {P_TAG_ID} must not set")
             if tag_key:
                 self.print(f"{item_as_str} seems to be a key, but {P_TAG_KEY} must not set")
+                item_is_key = False
 
             expected_sitelink = sitelink_normalizer_key(self.strid)
             if not sitelink:
                 self.print(f"{item_as_str} seems to be a key, but sitelink is not set")
             elif not sitelink.startswith('Key:') or (key_strid and expected_sitelink != sitelink):
                 self.print(f"{item_as_str} seems to be a key, but sitelink equals to {sitelink}")
+                if sitelink.startswith('Tag:') or '=' in sitelink:
+                    item_is_key = False
             if expected_sitelink != edit_sitelink:
                 raise ValueError(f'Expected sitelink {expected_sitelink} != {edit_sitelink}')
             if sitelink == edit_sitelink:
@@ -194,20 +230,25 @@ class UploadItem:
                 (sitelink and sitelink.startswith('Tag:')) or \
                 (edit_sitelink and edit_sitelink.startswith('Tag:')):
             # Must be a tag
+            item_is_tag = True
             if not instance_of:
                 self.print(f"{item_as_str} seems to be a tag, but instance_of is not set")
                 self.claims[P_INSTANCE_OF.id] = [Q_TAG]
             elif instance_of != Q_TAG:
                 self.print(f"{item_as_str} seems to be a tag, but instance_of is {instance_of}")
+                item_is_tag = False
             if not tag_strid:
                 self.print(f"{item_as_str} seems to be a tag, but {P_TAG_ID} is not set")
                 self.claims[P_TAG_ID.id] = [self.strid]
+            elif '=' not in tag_strid:
+                self.print(f"{item_as_str} seems to be a tag, but {tag_strid} has no '=' in it")
+                item_is_tag = False
             if key_strid:
                 self.print(f"{item_as_str} seems to be a tag, but {P_KEY_ID} must not be set")
+                item_is_tag = False
 
-            ek = self.caches.itemKeysByStrid.get()
-            ks = tag_strid.split('=')[0]
-            expected_tag_key = ek[ks] if ks in ek else False
+            ks = (tag_strid or self.strid).split('=')[0]
+            expected_tag_key = self.caches.itemKeysByStrid.get_strid(ks)
 
             if not tag_key:
                 self.print(f"{item_as_str} seems to be a tag, but {P_TAG_KEY} is not set" +
@@ -238,17 +279,31 @@ class UploadItem:
                 self.print(f"{item_as_str} seems to be a tag, but sitelink is not set")
             elif not sitelink.startswith('Tag:') or (tag_strid and expected_sitelink != sitelink):
                 self.print(f"{item_as_str} seems to be a tag, but sitelink equals to {sitelink}")
+                if sitelink.startswith('Key:') or '=' not in sitelink:
+                    item_is_tag = False
             if expected_sitelink != edit_sitelink:
                 raise ValueError(f'Expected sitelink {expected_sitelink} != {edit_sitelink}')
             if sitelink == edit_sitelink:
                 del self.editData['sitelinks']
+
+        if item_is_key == False or item_is_tag == False:
+            raise ValueError(f'{item_as_str} needs manual fixing')
+
+        # Fix multiple values
+        for prop in Property.ALL.values():
+            if not prop.allow_multiple:
+                vals = prop.get_claim_value(item, allow_multiple=True)
+                if vals and len(vals) > 1:
+                    self.print(f"{item_as_str} property {prop} has multiple values: {','.join(vals)}")
+                    if len(set(vals)) == 1:
+                        self.duplicates[prop.id] = True
 
     def print(self, msg):
         self.messages.append(msg)
 
     def print_messages(self):
         if self.messages:
-            print(f'---- {self.strid}')
+            print(f'---- {self.strid}  {self.item.id if self.item and "id" in self.item else ""}')
             for msg in self.messages:
                 print(msg)
             self.messages = []
@@ -265,6 +320,19 @@ class UploadItem:
                     prop.set_claim_on_new(self.editData, v)
         if del_claims and self.qid and prop.id in pb_item.claims:
             remove = [c for c in pb_item.claims[prop.id] if prop.value_from_claim(c) in del_claims]
+            if remove:
+                pb_item.removeClaims(remove)
+
+    def fix_duplicates(self, pb_item, prop):
+        if prop.id in pb_item.claims:
+            vals = set()
+            remove = []
+            for c in pb_item.claims[prop.id]:
+                val = prop.value_from_claim(c)
+                if val in vals:
+                    remove.append(c)
+                else:
+                    vals.add(val)
             if remove:
                 pb_item.removeClaims(remove)
 

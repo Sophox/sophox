@@ -29,7 +29,6 @@ class WikiPagesWithTemplate(CacheJsonl):
                 for page in self.site.query_pages(
                         prop=['revisions', 'info'],
                         rvprop='content',
-                        inprop='redirect',
                         titles=batch,
                 ):
                     if page.title in titles:
@@ -81,7 +80,7 @@ class WikiPagesWithTemplate(CacheJsonl):
                         'template': t,
                         'params': p,
                     }
-            if not found:
+            if not found and 'redirect' in page and not page.redirect:
                 print(f'Unable to find relevant templates in {page.title}')
 
     def ignore_title(self, ns, title):
