@@ -6,7 +6,7 @@ services:
   blazegraph:
     restart: always
     healthcheck:
-      test: "curl --fail --silent 'http://localhost:9999/bigdata/namespace/wdq/sparql?query=SELECT%20%3Fdummy%20%3Fa%20WHERE%20%7B%0A%20%20BIND(%20%2242%22%20as%20%3Fdummy%20)%0A%20%20%3Fa%20%3Fb%20%3Fc%20.%0A%7D%20LIMIT%201' -H 'Accept: application/sparql-results+json'"
+      test: "curl --max-time 30 --fail --silent 'http://localhost:9999/bigdata/namespace/wdq/sparql?query=SELECT%20%3Fdummy%20%3Fa%20WHERE%20%7B%0A%20%20BIND(%20%2242%22%20as%20%3Fdummy%20)%0A%20%20%3Fa%20%3Fb%20%3Fc%20.%0A%7D%20LIMIT%201' -H 'Accept: application/sparql-results+json'"
       interval: "30s"
       timeout: "3m"
       start_period: "1m"
