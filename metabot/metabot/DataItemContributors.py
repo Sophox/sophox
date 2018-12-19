@@ -48,7 +48,7 @@ class DataItemContributors():
                 continue
             m = reComment.search(v.comment)
             if not m:
-                if 'sitelink' not in v.comment:
+                if 'sitelink' not in v.comment and 'undo' not in v.comment:
                     print(f'Unable to parse wb comment "{v.comment}"')
                 continue
             cmd = m.group('cmd')

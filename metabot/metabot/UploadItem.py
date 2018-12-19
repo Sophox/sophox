@@ -1,9 +1,11 @@
+import difflib
+
 import pywikibot as pb
 from pywikiapi import AttrDict
 
 from .Properties import P_USED_ON, P_NOT_USED_ON, P_OSM_IMAGE, P_IMAGE, P_GROUP, P_STATUS, P_INSTANCE_OF, \
-    P_KEY_ID, P_TAG_ID, P_TAG_KEY, P_KEY_TYPE, Property
-from .consts import elements, Q_KEY, Q_TAG, Q_ENUM_KEY_TYPE
+    P_KEY_ID, P_TAG_ID, P_TAG_KEY, P_KEY_TYPE, Property, P_LANG_CODE, Qualified
+from .consts import elements, Q_KEY, Q_TAG, Q_ENUM_KEY_TYPE, Q_REGION_INSTANCE
 from .utils import get_sitelink, list_to_dict_of_lists, reTag_repl, remove_wikimarkup, sitelink_normalizer_key, \
     sitelink_normalizer_tag
 
@@ -28,10 +30,10 @@ class UploadItem:
         self.claims = claims
         self.dry_run = dry_run
         self.needs_changes = False
-        self.add_claims = {}
-        self.del_claims = {}
+        self.mod_claims = {}
         self.duplicates = {}
         self.force_contribs = not dry_run
+        self.rank_updated = False
 
         if not self.item:
             self.item = AttrDict()
@@ -61,7 +63,7 @@ class UploadItem:
             self.needs_changes = len(self.editData['labels']) > 0 or \
                                  len(self.editData['descriptions']) > 0 or \
                                  'sitelinks' in self.editData or \
-                                 len(self.add_claims) > 0 or len(self.del_claims) > 0 or len(self.duplicates) > 0
+                                 len(self.mod_claims) > 0 or len(self.duplicates) > 0
         except:
             self.print_messages()
             self.needs_changes = False
@@ -96,8 +98,8 @@ class UploadItem:
                                    f'"{self.item.descriptions[lng]["value"]}" ==> "{descriptions[lng]}"')
                     del descriptions[lng]
 
-        if not self.opts.overwrite_user_claims and (self.add_claims or self.del_claims or self.duplicates):
-            for op, lst in [('add', self.add_claims), ('del', self.del_claims), ('fix', self.duplicates)]:
+        if not self.opts.overwrite_user_claims and (self.mod_claims or self.duplicates):
+            for op, lst in [('mod', self.mod_claims), ('fix', self.duplicates)]:
                 for clm in lst:
                     if self.prohibit('claim', clm):
                         self.print(f'User modified item: cannot {op} claim {clm}')
@@ -116,40 +118,50 @@ class UploadItem:
         if self.editData['descriptions']:
             if summary: summary += ' '
             summary += ', '.join([f"{k}:'{v}'" for k, v in self.editData['descriptions'].items()])
-        for prop_id in self.claims.keys():
-            self.apply_claims(pb_item, Property.ALL[prop_id])
-        for prop_id in self.duplicates:
-            self.fix_duplicates(pb_item, Property.ALL[prop_id])
+
         self.print(summary)
+        for prop in self.claims.keys():
+            self.apply_claims(pb_item, prop)
+
         self.print_messages()
-        pb_item.editEntity(self.editData, summary=summary)
+        if not self.qid:
+            pb_item.editEntity(self.editData, summary=summary)
+        elif self.rank_updated:
+            pb_item.editEntity()
+
+        self.print_messages()
+        for prop in self.duplicates:
+            self.fix_duplicates(pb_item, prop)
+
+        self.print_messages()
         self.print(f'+++ Data item {self.strid} updated!')
 
     def update_claims(self):
-        for prop_id in self.claims.keys():
-            prop = Property.ALL[prop_id]
-            allow = self.allow_edit(prop)
-            old_claim_vals = prop.get_claim_value(self.item, True) or []
-            new_claim_vals = self.claims[prop.id]
-            changed = False
-            status = f'  {prop}' if not self.qid else f"{ self.qitem(self.qid) } {prop}"
+        for prop in self.claims.keys():
+            old_claim_vals = prop.get_claim_value(self.item, allow_multiple=True) or []
+            new_claim_vals = self.claims[prop]
+            if old_claim_vals != new_claim_vals:
+                self.mod_claims[prop] = new_claim_vals
 
-            vals = set(new_claim_vals) - set(old_claim_vals)
-            if vals:
-                status += f" = { self.qitem(vals) }"
-                if allow:
-                    self.add_claims[prop.id] = vals
-                    changed = True
-
-            vals = set(old_claim_vals) - set(new_claim_vals)
-            if vals:
-                status += f"   removing { self.qitem(vals) }"
-                if allow:
-                    self.del_claims[prop.id] = vals
-                    changed = True
-
-            if changed:
+                status = f'  {prop}' if not self.qid else f"{ self.qitem(self.qid) } {prop}\n"
+                old_strs = list(map(str, old_claim_vals))
+                new_strs = list(map(str, new_claim_vals))
+                status += '  ' + '\n  '.join([
+                    f"\x1b[{'32;107' if s.startswith('+') else '31;107' if s.startswith('-') else '0'}m{s}\x1b[0m"
+                    for s in difflib.ndiff(old_strs, new_strs) if not s.startswith('?')
+                ])
                 self.print(status)
+
+            # add = set(new_claim_vals) - set(old_claim_vals)
+            # if add:
+            #     status += f" = { self.qitem(add) }"
+            #     self.add_claims[prop] = add
+            # remove = set(old_claim_vals) - set(new_claim_vals)
+            # if remove:
+            #     status += f"   removing { self.qitem(remove) }"
+            #     self.del_claims[prop] = remove
+            # if add or remove:
+            #     self.print(status)
 
     def update_i18n(self, type):
         if type not in self.item:
@@ -194,13 +206,13 @@ class UploadItem:
             item_is_key = True
             if not instance_of:
                 self.print(f"{item_as_str} seems to be a key, but instance_of is not set")
-                self.claims[P_INSTANCE_OF.id] = [Q_KEY]
+                self.claims[P_INSTANCE_OF] = [Q_KEY]
             elif instance_of != Q_KEY:
                 self.print(f"{item_as_str} seems to be a key, but instance_of is {instance_of}")
                 item_is_key = False
             if not key_strid:
                 self.print(f"{item_as_str} seems to be a key, but {P_KEY_ID} is not set")
-                self.claims[P_KEY_ID.id] = [self.strid]
+                self.claims[P_KEY_ID] = [self.strid]
             elif '=' in key_strid:
                 self.print(f"{item_as_str} seems to be a key, but {key_strid} has '=' in it")
                 item_is_key = False
@@ -224,7 +236,7 @@ class UploadItem:
 
             related_tags = self.caches.tags_per_key[self.qid] if self.qid in self.caches.tags_per_key else []
             if len(related_tags) > 5 and key_strid not in known_non_enums:
-                self.claims[P_KEY_TYPE.id] = [Q_ENUM_KEY_TYPE]
+                self.claims[P_KEY_TYPE] = [Q_ENUM_KEY_TYPE]
 
         if instance_of == Q_TAG or tag_strid or \
                 (sitelink and sitelink.startswith('Tag:')) or \
@@ -233,13 +245,13 @@ class UploadItem:
             item_is_tag = True
             if not instance_of:
                 self.print(f"{item_as_str} seems to be a tag, but instance_of is not set")
-                self.claims[P_INSTANCE_OF.id] = [Q_TAG]
+                self.claims[P_INSTANCE_OF] = [Q_TAG]
             elif instance_of != Q_TAG:
                 self.print(f"{item_as_str} seems to be a tag, but instance_of is {instance_of}")
                 item_is_tag = False
             if not tag_strid:
                 self.print(f"{item_as_str} seems to be a tag, but {P_TAG_ID} is not set")
-                self.claims[P_TAG_ID.id] = [self.strid]
+                self.claims[P_TAG_ID] = [self.strid]
             elif '=' not in tag_strid:
                 self.print(f"{item_as_str} seems to be a tag, but {tag_strid} has no '=' in it")
                 item_is_tag = False
@@ -255,7 +267,7 @@ class UploadItem:
                            (', setting to ' + self.qitem(
                                expected_tag_key) if expected_tag_key else ' (nor it could be found in the item cache)'))
                 if expected_tag_key:
-                    self.claims[P_TAG_KEY.id] = [expected_tag_key]
+                    self.claims[P_TAG_KEY] = [expected_tag_key]
                 else:
                     self.autogenerated_keys.add(ks)
             else:
@@ -292,11 +304,20 @@ class UploadItem:
         # Fix multiple values
         for prop in Property.ALL.values():
             if not prop.allow_multiple:
-                vals = prop.get_claim_value(item, allow_multiple=True)
-                if vals and len(vals) > 1:
-                    self.print(f"{item_as_str} property {prop} has multiple values: {','.join(vals)}")
-                    if len(set(vals)) == 1:
-                        self.duplicates[prop.id] = True
+                vals = prop.get_claim_value(item, allow_multiple=True, allow_qualifiers=True)
+                if vals:
+                    rank = 'normal'
+                    count = 0
+                    for v in vals:
+                        if v.rank == rank:
+                            count += 1
+                        elif v.rank == 'preferred' and rank == 'normal':
+                            rank = v.rank
+                            count = 0
+                    if count > 1:
+                        self.print(f"{item_as_str} property {prop} has multiple values:")
+                        self.print('  ' + '\n  '.join([str(v) for v in vals]))
+                        self.duplicates[prop] = True
 
     def print(self, msg):
         self.messages.append(msg)
@@ -309,19 +330,59 @@ class UploadItem:
             self.messages = []
 
     def apply_claims(self, pb_item, prop):
-        add_claims = self.add_claims[prop.id] if prop.id in self.add_claims else False
-        del_claims = self.del_claims[prop.id] if prop.id in self.del_claims else False
+        add_values = self.mod_claims[prop] if prop in self.mod_claims else None
+        if not add_values:
+            return
+        if not self.qid:
+            for v in add_values:
+                prop.set_claim_on_new(self.editData, v)
+            return
 
-        if add_claims:
-            for v in add_claims:
-                if self.qid:
-                    pb_item.addClaim(prop.create_claim(self.pb_site, v))
+        add_values = {v.value: v for v in add_values}
+
+        if prop.id in pb_item.claims:
+            delete_claims = []
+            for old_claim in pb_item.claims[prop.id]:
+                old_value = prop.value_from_claim(old_claim)
+                if old_value in add_values:
+                    new_value = add_values[old_value]
+                    del add_values[old_value]
+                    self.merge_claim(old_claim, new_value)
                 else:
-                    prop.set_claim_on_new(self.editData, v)
-        if del_claims and self.qid and prop.id in pb_item.claims:
-            remove = [c for c in pb_item.claims[prop.id] if prop.value_from_claim(c) in del_claims]
-            if remove:
-                pb_item.removeClaims(remove)
+                    delete_claims.append(old_claim)
+            if delete_claims:
+                pb_item.removeClaims(delete_claims)
+        if add_values:
+            for v in add_values:
+                claim = prop.create_claim(self.pb_site, v)
+                pb_item.addClaim(claim)
+                self.add_new_qualifiers(claim, add_values[v])
+
+    def merge_claim(self, claim: pb.Claim, new_value: Qualified):
+        if claim.getRank() != new_value.rank:
+            self.rank_updated = True
+            claim.setRank(new_value.rank)
+        for qualifier_prop_id, qualifier_vals in list(claim.qualifiers.items()):
+            qprop = Property.ALL[qualifier_prop_id]
+            if qprop not in new_value.qualifiers:
+                claim.qualifiers[qualifier_prop_id].remove(qualifier_vals)
+            else:
+                new_q_vals = new_value.qualifiers[qprop]
+                for q_val, q in list_to_dict_of_lists(qualifier_vals, lambda v: qprop.value_from_claim(v)).items():
+                    if len(q) != 1:
+                        raise ValueError(f'Unexpected number of identical qualifier values found for {qprop} / {q_val}')
+                    if q_val in new_q_vals:
+                        new_q_vals.remove(q_val)
+                    else:
+                        claim.removeQualifier(q[0])
+                for new_q_val in new_q_vals:
+                    claim.addQualifier(qprop.create_claim(self.pb_site, new_q_val))
+        self.add_new_qualifiers(claim, new_value)
+
+    def add_new_qualifiers(self, claim, new_value):
+        for q_prop, qualifier_vals in new_value.qualifiers.items():
+            for v in qualifier_vals:
+                claim.addQualifier(q_prop.create_claim(self.pb_site, v))
 
     def fix_duplicates(self, pb_item, prop):
         if prop.id in pb_item.claims:
@@ -336,13 +397,16 @@ class UploadItem:
             if remove:
                 pb_item.removeClaims(remove)
 
-    def allow_edit(self, prop):
-        if (self.opts.props and prop.id not in self.opts.props) or \
-                (self.opts.ignore_qid and self.qid in self.opts.ignore_qid):
-            self.print(f'***********************  Skipping { self.qitem(self.qid) } '
-                       f'prop {prop} due to parameter restrictions.')
-            return False
-        return True
+    def create_language_region(self, lang_code, label, description):
+        pb_item = pb.ItemPage(self.pb_site)
+        data = {
+            'labels': {'en': label},
+            'descriptions': {'en': description},
+        }
+        P_INSTANCE_OF.set_claim_on_new(data, Q_REGION_INSTANCE)
+        P_LANG_CODE.set_claim_on_new(data, lang_code)
+        pb_item.editEntity(data, summary=label)
+
 
     #
     #
@@ -362,13 +426,13 @@ class UploadItem:
     #     if (not self.qid and 'en' not in self.new_labels) or (self.get_localized_value('labels', 'en') != self.strid):
     #         self.new_labels['en'] = self.strid
     #     if P_IMAGE.id in self.claims and P_OSM_IMAGE.id in self.claims:
-    #         del self.claims[P_OSM_IMAGE.id]
+    #         del self.claims[P_OSM_IMAGE]
     #     if self.has_unknown_group:
     #         status = ''
     #         old_group = P_GROUP.get_claim_value(self.item)
     #         if old_group:
     #             status += ' Currently set to ' + self.qitem(old_group)
-    #         new_groups = self.claims[P_GROUP.id] if P_GROUP.id in self.claims else None
+    #         new_groups = self.claims[P_GROUP] if P_GROUP.id in self.claims else None
     #         if new_groups and {old_group} != set(new_groups):
     #             status += ' Trying to set to: ' + self.qitem(set(new_groups.values()))
     #         if status:
@@ -487,7 +551,7 @@ class UploadItem:
     #         statuses = self.caches.statusesByName.get()
     #         st = params.status.lower()
     #         if st in statuses:
-    #             self.claims[P_STATUS.id][lng] = statuses[st]
+    #             self.claims[P_STATUS][lng] = statuses[st]
     #         elif st not in ['undefined', 'unspecified', 'unknown']:
     #             self.print(f"Unknown status {params.status} for {self.strid} ({lng})  { self.qitem(self.qid) }")
     #
@@ -496,7 +560,7 @@ class UploadItem:
     #         groups = self.caches.groupsByName.get()
     #         grp = params.group.lower()
     #         if grp in groups:
-    #             self.claims[P_GROUP.id][lng] = groups[grp]
+    #             self.claims[P_GROUP][lng] = groups[grp]
     #         else:
     #             self.print(f"Unknown group {params.group} for {self.strid} ({lng})  { self.qitem(self.qid) }")
     #             self.has_unknown_group = True
@@ -504,9 +568,9 @@ class UploadItem:
     # def do_images(self, lng, params):
     #     if 'image' in params:
     #         if params.image.startswith('osm:'):
-    #             self.claims[P_OSM_IMAGE.id][lng] = params.image[len('osm:'):]
+    #             self.claims[P_OSM_IMAGE][lng] = params.image[len('osm:'):]
     #         else:
-    #             self.claims[P_IMAGE.id][lng] = params.image
+    #             self.claims[P_IMAGE][lng] = params.image
     #
     # def do_used_on(self, lng, params):
     #     # Used/Not used on
@@ -523,8 +587,8 @@ class UploadItem:
     #                 self.print(f'unknown usedon type {params[v]} for {self.strid} { self.qitem(self.qid) }')
     #     usedon.sort()
     #     notusedon.sort()
-    #     if usedon: self.claims[P_USED_ON.id][lng] = usedon
-    #     if notusedon: self.claims[P_NOT_USED_ON.id][lng] = notusedon
+    #     if usedon: self.claims[P_USED_ON][lng] = usedon
+    #     if notusedon: self.claims[P_NOT_USED_ON][lng] = notusedon
     #
     #
     # def update_text_val(self, typ, lng, newval, wikiinfo):

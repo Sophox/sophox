@@ -13,7 +13,16 @@ from .utils import get_entities, list_to_dict_of_lists, sitelink_normalizer, str
 class Processor:
 
     def __init__(self, opts, caches: Caches, site: Site, pb_site: PbSite) -> None:
-        self.opts = AttrDict(opts)
+        self.opts = AttrDict({
+            'throw': True,
+            'props': False,
+            'ignore_qid': False,
+            'overwrite_user_labels_en': True,
+            'overwrite_user_labels': False,
+            'overwrite_user_descriptions': False,
+            'overwrite_user_claims': False,
+            **(opts or {})
+        })
         self.caches = caches
         self.site = site
         self.pb_site = pb_site

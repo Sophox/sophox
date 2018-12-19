@@ -5,7 +5,8 @@ from .utils import list_to_dict_of_lists
 from .DescriptionParser import DescriptionParser
 from .consts import Q_GROUP, Q_STATUS, Q_TAG
 from .CachedFilteredDescription import CachedFilteredDescription
-from .DataItems import DataItems, DataItemsByQid, DataItemDescByQid, DataItemsKeysByStrid, DataItemsByName
+from .DataItems import DataItems, DataItemsByQid, DataItemDescByQid, DataItemsKeysByStrid, DataItemsByName, \
+    RegionByLangCode
 from .WikiPagesWithTemplate import WikiPagesWithTemplate
 from .ResolvedImageFiles import ResolvedImageFiles
 from .DataItemContributors import DataItemContributors
@@ -41,6 +42,7 @@ class Caches:
         self.itemByQid = DataItemsByQid(self.data_items)
         self.itemDescByQid = DataItemDescByQid(self.data_items)
         self.itemKeysByStrid = DataItemsKeysByStrid(self.data_items)
+        self.regionByLangCode = RegionByLangCode(self.data_items)
         self.groupsByName = DataItemsByName(self.data_items, Q_GROUP)
         self.statusesByName = DataItemsByName(self.data_items, Q_STATUS)
 

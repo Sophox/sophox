@@ -26,6 +26,7 @@ Q_ENUM_KEY_TYPE = 'Q8'
 Q_REL_MEMBER_ROLE = 'Q4667'
 Q_GROUP = 'Q12'
 Q_STATUS = 'Q11'
+Q_REGION_INSTANCE = 'Q6999'
 
 languages = {'ace', 'kbd', 'ady', 'af', 'ak', 'als', 'am', 'ang', 'ab', 'ar',
              'an', 'arc', 'roa-rup', 'frp', 'as', 'ast', 'atj', 'gn', 'av',

@@ -4,7 +4,7 @@ from collections import defaultdict
 from pywikiapi import AttrDict
 
 from .Properties import P_USED_ON, P_NOT_USED_ON, P_OSM_IMAGE, P_IMAGE, P_GROUP, P_STATUS, Property, P_INSTANCE_OF, \
-    P_KEY_ID, P_TAG_ID, P_TAG_KEY
+    P_KEY_ID, P_TAG_ID, P_TAG_KEY, P_LIMIT_TO, P_NOT_IN, Qualified
 from .consts import elements, reLanguagesClause, Q_TAG, Q_KEY
 from .utils import list_to_dict_of_lists, reTag_repl, remove_wikimarkup, lang_pick, sitelink_normalizer_tag, \
     sitelink_normalizer_key
@@ -37,7 +37,7 @@ deprdescr = {
 class ItemFromWiki:
 
     def __init__(self, caches, strid, wiki_pages) -> None:
-        self.ok = False
+        self.ok = True
         self.caches = caches
         self.wiki_pages = wiki_pages
         self.messages = []
@@ -49,17 +49,17 @@ class ItemFromWiki:
         if '=' in self.strid:
             # TAG
             self.sitelink = sitelink_normalizer_tag(strid)
-            self.claims[P_INSTANCE_OF.id].append(Q_TAG)
-            self.claims[P_TAG_ID.id].append(strid)
+            self.claims[P_INSTANCE_OF].append(Q_TAG)
+            self.claims[P_TAG_ID].append(strid)
             key = strid.split('=')[0]
             key_id = self.caches.itemKeysByStrid.get_strid(key)
             if key_id:
-                self.claims[P_TAG_KEY.id].append(key_id)
+                self.claims[P_TAG_KEY].append(key_id)
         else:
             # KEY
             self.sitelink = sitelink_normalizer_key(strid)
-            self.claims[P_INSTANCE_OF.id].append(Q_KEY)
-            self.claims[P_KEY_ID.id].append(strid)
+            self.claims[P_INSTANCE_OF].append(Q_KEY)
+            self.claims[P_KEY_ID].append(strid)
 
         self.editData = {
             'labels': {'en': strid},
@@ -84,14 +84,14 @@ class ItemFromWiki:
             self.merge_wiki_languages()
             if 'en' not in self.editData['labels']:
                 self.editData['labels']['en'] = self.strid
-            if P_IMAGE.id in self.claim_per_lang and P_OSM_IMAGE.id in self.claim_per_lang:
-                del self.claim_per_lang[P_OSM_IMAGE.id]
+            if P_IMAGE in self.claim_per_lang and P_OSM_IMAGE in self.claim_per_lang:
+                del self.claim_per_lang[P_OSM_IMAGE]
 
         if self.claim_per_lang:
             for prop, claim in self.claim_per_lang.items():
-                self.merge_claim(claim, Property.ALL[prop])
+                self.merge_claim(claim, prop)
 
-        self.ok = self.editData or self.claim_per_lang
+        self.ok = self.ok and (self.editData or self.claim_per_lang)
 
     def merge_wiki_languages(self):
         for lng, vv in list_to_dict_of_lists(self.wiki_pages, lambda v: v.lang).items():
@@ -159,7 +159,7 @@ class ItemFromWiki:
         statuses = self.caches.statusesByName.get()
         st = params.status.lower()
         if st in statuses:
-            self.claim_per_lang[P_STATUS.id][lng] = statuses[st]
+            self.claim_per_lang[P_STATUS][lng] = statuses[st]
         elif st not in ['undefined', 'unspecified', 'unknown']:
             self.print(f"Unknown status {params.status} for {self.strid} ({lng})")
 
@@ -168,7 +168,7 @@ class ItemFromWiki:
         groups = self.caches.groupsByName.get()
         grp = params.group.lower()
         if grp in groups:
-            self.claim_per_lang[P_GROUP.id][lng] = groups[grp]
+            self.claim_per_lang[P_GROUP][lng] = groups[grp]
         else:
             # self.print(f"Unknown group {params.group} for {self.strid} ({lng})")
             self.has_unknown_group = True
@@ -176,9 +176,9 @@ class ItemFromWiki:
     def do_images(self, lng, params):
         if 'image' not in params or not params.image: return
         if params.image.startswith('osm:'):
-            self.claim_per_lang[P_OSM_IMAGE.id][lng] = params.image[len('osm:'):]
+            self.claim_per_lang[P_OSM_IMAGE][lng] = params.image[len('osm:'):]
         else:
-            self.claim_per_lang[P_IMAGE.id][lng] = params.image
+            self.claim_per_lang[P_IMAGE][lng] = params.image
 
     def do_used_on(self, lng, params):
         # Used/Not used on
@@ -195,25 +195,62 @@ class ItemFromWiki:
                     self.print(f'unknown usedon type {params[v]} for {self.strid}')
         usedon.sort()
         notusedon.sort()
-        if usedon: self.claim_per_lang[P_USED_ON.id][lng] = usedon
-        if notusedon: self.claim_per_lang[P_NOT_USED_ON.id][lng] = notusedon
+        if usedon: self.claim_per_lang[P_USED_ON][lng] = usedon
+        if notusedon: self.claim_per_lang[P_NOT_USED_ON][lng] = notusedon
 
     def merge_claim(self, new_claims_all, prop):
         if not prop.allow_multiple:
             new_claims_all = {k: [v] for k, v in new_claims_all.items()}
-        new_claim = new_claims_all['en'] if 'en' in new_claims_all else False
         set_to_lang = list_to_dict_of_lists(
             [(k, tuple(v)) for k, v in new_claims_all.items()],
             lambda v: v[1], lambda v: v[0])
+
         if len(set_to_lang) == 1:
-            new_claim = list([v for v in set_to_lang.keys()][0])
+            (new_claim,) = set_to_lang.keys()
+            new_claim = list(new_claim)
+            if prop.allow_qualifiers:
+                new_claim = [Qualified(c) for c in new_claim]
         else:
-            status = f"  Claim mismatch: {prop}:"
-            for q, lngs in set_to_lang.items():
-                status += f"  ({','.join(lngs)}) = { self.caches.qitem(q) }"
-            self.print(status)
+            # status = f"  Claim mismatch: {prop}:"
+            # for q, lngs in set_to_lang.items():
+            #     status += f"  ({','.join(lngs)}) = { self.caches.qitem(q) }"
+            # self.print(status)
+            new_claim = new_claims_all['en'] if 'en' in new_claims_all else False
+            regions = self.caches.regionByLangCode.get()
+            if new_claim:
+                new_claim = {val: Qualified(val, {P_NOT_IN:set()}) for val in new_claim}
+                en_claims = set(new_claim.keys())
+                raise_rank = False
+                for lng in new_claims_all:
+                    if lng == 'en': continue
+                    if lng not in regions:
+                        self.print(f'Region language {lng} not found in the region codes')
+                    lng_claims = set(new_claims_all[lng])
+                    missing = en_claims - lng_claims if prop.allow_multiple else []
+                    extras = lng_claims - en_claims
+                    for src, qualifier in [(missing, P_NOT_IN), (extras, P_LIMIT_TO)]:
+                        for v in src:
+                            if lng not in regions:
+                                new_claim = None
+                                break
+                            if v not in new_claim:
+                                new_claim[v] = Qualified(v, {P_LIMIT_TO:set()})
+                                raise_rank = True
+                            new_claim[v].qualifiers[qualifier].add(regions[lng].id)
+                if not new_claim:
+                    self.print(f'  Unable to add claim qualifiers')
+                    self.ok = False
+                else:
+                    new_claim = list(new_claim.values())
+                    for ind in range(len(new_claim)):
+                        qualifiers = new_claim[ind].qualifiers
+                        new_claim[ind] = Qualified(
+                            new_claim[ind].value,
+                            {k: v for k, v in qualifiers.items() if len(v) > 0},
+                            'preferred' if raise_rank and P_NOT_IN in qualifiers else 'normal')
 
         if not new_claim:
             self.print('  Skipping...')
         else:
-            self.claims[prop.id] = new_claim
+            prop.sort_claims(new_claim)
+            self.claims[prop] = new_claim
