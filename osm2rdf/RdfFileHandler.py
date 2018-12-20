@@ -2,8 +2,11 @@ import gzip
 import logging
 import os
 from multiprocessing import Process, Queue
+
 from datetime import datetime
+
 import osmutils
+from utils import format_date
 from RdfHandler import RdfHandler
 
 log = logging.getLogger('osm2rdf')
@@ -33,7 +36,7 @@ def write_file(ts_enqueue, worker_id, options, file_id, data, last_timestamp, st
         output.write(text)
 
     if last_timestamp.year > 2000:  # Not min-year
-        output.write(f'\nosmroot: schema:dateModified {osmutils.format_date(last_timestamp)} .')
+        output.write(f'\nosmroot: schema:dateModified {format_date(last_timestamp)} .')
 
     output.flush()
     output.close()

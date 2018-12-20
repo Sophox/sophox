@@ -4,6 +4,7 @@ import datetime as dt
 from datetime import datetime
 
 import osmutils
+from utils import set_status_query, query_status
 from RdfHandler import RdfHandler
 from osmium.replication.server import ReplicationServer
 from sparql import Sparql
@@ -58,7 +59,7 @@ WHERE {{
         if seqid > 0:
             if self.last_timestamp.year < 2000:  # Something majorly wrong
                 raise Exception('last_timestamp was not updated')
-            sparql += osmutils.set_status_query('osmroot:', self.last_timestamp, 'version', seqid)
+            sparql += set_status_query('osmroot:', self.last_timestamp, 'version', seqid)
 
         if sparql:
             sparql = '\n'.join(osmutils.prefixes) + '\n\n' + sparql
@@ -70,7 +71,7 @@ WHERE {{
             raise Exception(f'pendingCounter={self.pendingCounter}')
 
     def get_osm_schema_ver(self, repserv):
-        result = osmutils.query_status(self.rdf_server, '<https://www.openstreetmap.org>', 'version')
+        result = query_status(self.rdf_server, '<https://www.openstreetmap.org>', 'version')
 
         ver = result['version']
         if ver is not None:

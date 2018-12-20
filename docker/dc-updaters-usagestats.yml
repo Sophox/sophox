@@ -1,0 +1,19 @@
+version: '2.3'
+
+services:
+
+  usagestats-update:
+    # This container updates key usage data from taginfo
+    image: sophox/osm2rdf
+    working_dir: "/app-osm2rdf"
+    command: "python3 updateUsageStats.py --host ${BLAZEGRAPH_URL}"
+    volumes:
+    - "${REPO_DIR}/osm2rdf:/app-osm2rdf:ro"
+    networks:
+    - blazegraph_net
+    logging:
+      driver: json-file
+      options: {max-file: "3", max-size: "10m"}
+
+networks:
+  blazegraph_net:

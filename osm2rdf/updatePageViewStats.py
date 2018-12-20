@@ -16,7 +16,7 @@ import aiohttp
 import re
 import shapely.speedups
 
-import osmutils
+from utils import query_status, make_wiki_url, chunks, set_status_query
 from sparql import Sparql
 
 if shapely.speedups.available:
@@ -64,7 +64,7 @@ class UpdatePageViewStats(object):
     async def run(self):
         backwards = self.options.go_backwards
         while True:
-            ver = osmutils.query_status(self.rdf_server, f'{self.pvstat}')
+            ver = query_status(self.rdf_server, self.pvstat)
             if ver is None:
                 self.log.info(f'schema:dateModified is not set for {self.pvstat}')
                 # Calculate last valid file. Assume current data will not be available for at least a few hours
@@ -165,7 +165,7 @@ class UpdatePageViewStats(object):
                 self.log.error(f'Skipping unexpected language prefix "{parts[0]}"')
             return None
 
-        return osmutils.make_wiki_url(parts[0], site, title)
+        return make_wiki_url(parts[0], site, title)
 
     def save_stats(self, stats, timestamp):
 
@@ -173,7 +173,7 @@ class UpdatePageViewStats(object):
 
         done = 0
         last_print = datetime.utcnow()
-        for keys in osmutils.chunks(stats.keys(), 1000):
+        for keys in chunks(stats.keys(), 1000):
             # (<...> 10) (<...> 15) ...
             values = ' '.join(['(' + k + ' ' + str(stats[k]) + ')' for k in keys])
             sparql = f'''
@@ -192,7 +192,7 @@ WHERE {{
                 time.sleep(5000)
                 last_print = datetime.utcnow()
 
-        self.rdf_server.run('update', osmutils.set_status_query(f'{self.pvstat}', timestamp))
+        self.rdf_server.run('update', set_status_query(self.pvstat, timestamp))
         self.log.info(f'Finished importing {done} pageview stats')
 
 

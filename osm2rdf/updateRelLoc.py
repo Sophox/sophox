@@ -9,6 +9,7 @@ from shapely.geometry import MultiPoint
 from shapely.wkt import loads
 
 import osmutils
+from utils import chunks
 from sparql import Sparql
 import osmium
 
@@ -83,7 +84,7 @@ SELECT ?rel WHERE {
 
 
     def run_list(self, relIds):
-        for chunk in osmutils.chunks(relIds, 2000):
+        for chunk in chunks(relIds, 2000):
             self.fixRelations(chunk)
 
     def fixRelations(self, relIds):
