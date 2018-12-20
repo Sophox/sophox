@@ -7,7 +7,7 @@ class Sparql:
         self.dry_run = dry_run
 
     def run(self, queryType, sparql):
-        if not self.dry_run:
+        if not self.dry_run or self.dry_run == queryType:
             r = requests.post(self.rdf_url,
                               data={queryType: sparql},
                               headers={'Accept': 'application/sparql-results+json'})

@@ -46,7 +46,7 @@ class UpdateUsageStats(object):
         opts = parser.parse_args()
 
         self.options = opts
-        self.rdf_server = Sparql(opts.rdf_url, opts.dry_run)
+        self.rdf_server = Sparql(opts.rdf_url, 'query' if opts.dry_run else False)
         self.date_subject = '<https://taginfo.openstreetmap.org>'
         self.url_stats = 'https://taginfo.openstreetmap.org/api/4/key/stats'
         self.url_keys = ' https://taginfo.openstreetmap.org/api/4/keys/all'
@@ -60,7 +60,7 @@ class UpdateUsageStats(object):
 
     def run_once(self):
         ts_taginfo = self.get_current_ts()
-        ts_db = query_status(self.rdf_server, self.date_subject)
+        ts_db = query_status(self.rdf_server, self.date_subject) if not self.options.dry_run else None
 
         if ts_taginfo is not None and ts_taginfo == ts_db:
             self.log.info(f'Data is up to date {ts_taginfo}, sleeping...')
@@ -78,9 +78,11 @@ class UpdateUsageStats(object):
         self.log.info('Import is done, waiting for new data...')
 
     def get_stats(self):
-        data = requests.get(self.url_keys).json()
-        # with open('/home/yurik/dev/sophox/all.keys.json', 'r') as f:
-        #     data = json.load(f)
+        if self.options.dry_run:
+            with open('/home/yurik/dev/sophox/all.keys.json', 'r') as f:
+                data = json.load(f)
+        else:
+            data = requests.get(self.url_keys).json()
 
         ts = parse_utc(data['data_until'])
         stats = {}
@@ -101,25 +103,29 @@ SELECT ?key ?id WHERE {{
             # http://wiki.openstreetmap.org/entity/Q103
             self.ids.update(
                 {v['key']['value']: v['id']['value'][len('http://wiki.openstreetmap.org/entity/'):] for v in res})
+
         self.log.info(f'Total resolved keys is {len(self.ids)}, updating...')
 
         # Delete all usage counters
-        sparql = '\n'.join([f'DELETE {{ [] osmm:{k} [] }}' for k in info_keys])
+        sparql = f'''
+DELETE {{ ?s ?p ?o }} WHERE {{
+  VALUES ?p {{ {' '.join([f'osmm:{k}' for k in info_keys])} }}
+         ?s ?p ?o .
+}}'''
+
         self.rdf_server.run('update', sparql)
         self.log.info(f'Existing counts deleted, importing...')
 
         done = 0
         last_print = datetime.utcnow()
         for keys in chunks(stats.keys(), 5000):
-            # (<...> 10) (<...> 15) ...
-            # values = ' '.join([f'({k} {[str(v) for v in stats[k]]})' for k in keys])
             sparql = (
                     'INSERT {\n' +
                     '\n'.join([f'?id osmm:{k} ?{k}.' for k in info_keys]) +
                     '\n} WHERE {\n' +
                     f"VALUES (?id {' '.join([f'?{k}' for k in info_keys])}) {{\n" +
                     '\n'.join([
-                        f"(osmd:{self.ids[k]} {' '.join([keys[k][i] for i in range(len(info_keys))])})"
+                        f"(osmd:{self.ids[k]} {' '.join([str(stats[k][i]) for i in range(len(info_keys))])})"
                         for k in keys if k in self.ids
                     ]) + '\n} }'
             )
