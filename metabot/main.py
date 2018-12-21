@@ -26,18 +26,20 @@ caches = Caches(site, pb_site, use_bot_limits=False)
 # caches.data_items.regenerate()
 # caches.description.regenerate()
 # caches.descriptionParsed.regenerate()
+# caches.taginfo.regenerate()
 # exit(1)
 
 opts = {
-    'throw': False
+    # 'throw': False
 }
 proc = Processor(opts, caches, site, pb_site)
 
 # proc.run('religion')
 # proc.run('new')
-proc.run('items')
+# proc.run('items')
 # proc.run('old')
+# proc.run('taginfo_keys')
 # proc.run('autogen_keys')
-# proc.run([caches.itemByQid.get_item('Q501')])
+proc.run([caches.itemByQid.get_item('Q103')])
 
 print('done!')

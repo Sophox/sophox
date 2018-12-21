@@ -27,6 +27,8 @@ Q_REL_MEMBER_ROLE = 'Q4667'
 Q_GROUP = 'Q12'
 Q_STATUS = 'Q11'
 Q_REGION_INSTANCE = 'Q6999'
+Q_IS_ALLOWED = 'Q8000'
+Q_IS_PROHIBITED = 'Q8001'
 
 languages = {'ace', 'kbd', 'ady', 'af', 'ak', 'als', 'am', 'ang', 'ab', 'ar',
              'an', 'arc', 'roa-rup', 'frp', 'as', 'ast', 'atj', 'gn', 'av',

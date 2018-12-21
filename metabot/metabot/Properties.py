@@ -49,9 +49,6 @@ class Property:
         }
 
     def set_claim_on_new(self, data, value: Qualified):
-
-        raise ValueError('Broken')
-
         if 'claims' not in data: data['claims'] = {}
         claims = data['claims']
         claim = {
@@ -69,9 +66,9 @@ class Property:
                 raise ValueError(
                     f"Cannot set value of {self} to '{value}', "
                     f"already set to '{self.get_value(data['claims'][self])}'")
-            claims[self].append(claim)
+            claims[self.id].append(claim)
         else:
-            claims[self] = [claim]
+            claims[self.id] = [claim]
 
     def get_value(self, item):
         if 'mainsnak' in item:
@@ -148,18 +145,25 @@ class Property:
 
 P_INSTANCE_OF = Property('P2', 'instance-of', 'wikibase-item')
 P_SUBCLASS_OF = Property('P3', 'subclass-of', 'wikibase-item')
+
 P_IMAGE = Property('P4', 'image', 'commonsMedia', allow_qualifiers=True)
 P_OSM_IMAGE = Property('P28', 'osm-image', 'string', allow_qualifiers=True)
+P_STATUS = Property('P6', 'status', 'wikibase-item', allow_qualifiers=True)
+P_GROUP = Property('P25', 'group', 'wikibase-item', allow_qualifiers=True)
+P_USE_ON_NODES = Property('P33', 'use-on-nodes', 'wikibase-item', allow_qualifiers=True)
+P_USE_ON_WAYS = Property('P34', 'use-on-ways', 'wikibase-item', allow_qualifiers=True)
+P_USE_ON_AREAS = Property('P35', 'use-on-areas', 'wikibase-item', allow_qualifiers=True)
+P_USE_ON_RELATIONS = Property('P36', 'use-on-relations', 'wikibase-item', allow_qualifiers=True)
+P_USE_ON_CHANGESETS = Property('P37', 'use-on-changesets', 'wikibase-item', allow_qualifiers=True)
 P_USED_ON = Property('P5', 'used-on', 'wikibase-item', allow_multiple=True, allow_qualifiers=True)
 P_NOT_USED_ON = Property('P24', 'not-used-on', 'wikibase-item', allow_multiple=True, allow_qualifiers=True)
-P_STATUS = Property('P6', 'status', 'wikibase-item', allow_qualifiers=True)
+
 P_KEY_TYPE = Property('P9', 'key-type', 'wikibase-item')
 P_TAG_KEY = Property('P10', 'tag-key', 'wikibase-item')
 P_REF_URL = Property('P11', 'ref-url', 'url')
 P_KEY_ID = Property('P16', 'key-id', 'string')
 P_TAG_ID = Property('P19', 'tag-id', 'string')
 P_ROLE_ID = Property('P21', 'role-mem-id', 'string')
-P_GROUP = Property('P25', 'group', 'wikibase-item', allow_qualifiers=True)
 P_LANG_CODE = Property('P32', 'lang-code', 'string')
 P_LIMIT_TO = Property('P26', 'limit-to', 'wikibase-item', allow_multiple=True, is_qualifier=True)
 P_NOT_IN = Property('P27', 'not-in', 'wikibase-item', allow_multiple=True, is_qualifier=True)

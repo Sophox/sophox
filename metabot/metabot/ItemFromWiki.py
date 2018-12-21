@@ -1,11 +1,14 @@
+from typing import List, Dict
+
 import re
 from collections import defaultdict
 
 from pywikiapi import AttrDict
 
 from .Properties import P_USED_ON, P_NOT_USED_ON, P_OSM_IMAGE, P_IMAGE, P_GROUP, P_STATUS, Property, P_INSTANCE_OF, \
-    P_KEY_ID, P_TAG_ID, P_TAG_KEY, P_LIMIT_TO, P_NOT_IN, Qualified
-from .consts import elements, reLanguagesClause, Q_TAG, Q_KEY
+    P_KEY_ID, P_TAG_ID, P_TAG_KEY, P_LIMIT_TO, P_NOT_IN, Qualified, P_USE_ON_NODES, P_USE_ON_WAYS, P_USE_ON_AREAS, \
+    P_USE_ON_RELATIONS, P_USE_ON_CHANGESETS
+from .consts import elements, reLanguagesClause, Q_TAG, Q_KEY, Q_IS_ALLOWED, Q_IS_PROHIBITED
 from .utils import list_to_dict_of_lists, reTag_repl, remove_wikimarkup, lang_pick, sitelink_normalizer_tag, \
     sitelink_normalizer_key
 
@@ -24,7 +27,7 @@ reTag = re.compile(
 
 reWikiLink = re.compile(r'\[\[(?:[^|\]\[]*\|)?([^|\]\[]*)\]\]')
 
-deprdescr = {
+deprecated_msg = {
     'cs': 'Použití této značky se nedoporučuje. Použijte radši $1.',
     'de': 'Dieses Tag ist überholt, verwende stattdessen $1.',
     'en': 'Using this tag is discouraged, use $1 instead.',
@@ -33,8 +36,18 @@ deprdescr = {
     'ja': 'このタグの使用は避けてください。代わりに $1 を使用してください。',
 }
 
+on_elem_map = {
+    'onnode': P_USE_ON_NODES,
+    'onway': P_USE_ON_WAYS,
+    'onarea': P_USE_ON_AREAS,
+    'onrelation': P_USE_ON_RELATIONS,
+    'onchangeset': P_USE_ON_CHANGESETS,
+}
+
 
 class ItemFromWiki:
+    claim_per_lang: Dict[Property, Dict[str, List[str]]]
+    claims: Dict[Property, List[Qualified]]
 
     def __init__(self, caches, strid, wiki_pages) -> None:
         self.ok = True
@@ -49,17 +62,17 @@ class ItemFromWiki:
         if '=' in self.strid:
             # TAG
             self.sitelink = sitelink_normalizer_tag(strid)
-            self.claims[P_INSTANCE_OF].append(Q_TAG)
-            self.claims[P_TAG_ID].append(strid)
+            self.claims[P_INSTANCE_OF].append(Qualified(Q_TAG))
+            self.claims[P_TAG_ID].append(Qualified(strid))
             key = strid.split('=')[0]
             key_id = self.caches.itemKeysByStrid.get_strid(key)
             if key_id:
-                self.claims[P_TAG_KEY].append(key_id)
+                self.claims[P_TAG_KEY].append(Qualified(key_id))
         else:
             # KEY
             self.sitelink = sitelink_normalizer_key(strid)
-            self.claims[P_INSTANCE_OF].append(Q_KEY)
-            self.claims[P_KEY_ID].append(strid)
+            self.claims[P_INSTANCE_OF].append(Qualified(Q_KEY))
+            self.claims[P_KEY_ID].append(Qualified(strid))
 
         self.editData = {
             'labels': {'en': strid},
@@ -114,7 +127,7 @@ class ItemFromWiki:
             if 'oldkey' in params:
                 # deprecation support
                 newtext = params.newtext if 'newtext' in params else ''
-                params.description = lang_pick(deprdescr, lng).replace('$1', newtext)
+                params.description = lang_pick(deprecated_msg, lng).replace('$1', newtext)
                 params.image = 'Ambox warning pn.svg'
                 params.status = 'Deprecated'
 
@@ -155,7 +168,8 @@ class ItemFromWiki:
         self.editData['descriptions'][lng] = desc[:250].strip()
 
     def do_status(self, lng, params):
-        if 'status' not in params: return
+        if 'status' not in params:
+            return
         statuses = self.caches.statusesByName.get()
         st = params.status.lower()
         if st in statuses:
@@ -164,7 +178,8 @@ class ItemFromWiki:
             self.print(f"Unknown status {params.status} for {self.strid} ({lng})")
 
     def do_groups(self, lng, params):
-        if 'group' not in params: return
+        if 'group' not in params:
+            return
         groups = self.caches.groupsByName.get()
         grp = params.group.lower()
         if grp in groups:
@@ -174,7 +189,8 @@ class ItemFromWiki:
             self.has_unknown_group = True
 
     def do_images(self, lng, params):
-        if 'image' not in params or not params.image: return
+        if 'image' not in params or not params.image:
+            return
         if params.image.startswith('osm:'):
             self.claim_per_lang[P_OSM_IMAGE][lng] = params.image[len('osm:'):]
         else:
@@ -184,19 +200,28 @@ class ItemFromWiki:
         # Used/Not used on
         usedon = []
         notusedon = []
-        for v in ['onnode', 'onarea', 'onway', 'onrelation', 'onclosedway', 'onchangeset']:
+        for v in ['onnode', 'onway', 'onarea', 'onrelation', 'onclosedway', 'onchangeset']:
+            elem_prop = on_elem_map[v] if v in on_elem_map else None
             if v in params:
+                elem_val = None
                 vv = elements[v[2:]]
                 if params[v] == 'yes':
                     usedon.append(vv)
+                    elem_val = Q_IS_ALLOWED
                 elif params[v] == 'no':
                     notusedon.append(vv)
+                    elem_val = Q_IS_PROHIBITED
                 else:
-                    self.print(f'unknown usedon type {params[v]} for {self.strid}')
+                    self.print(f'unknown "used on" type {params[v]} for {self.strid}')
+                if elem_prop and elem_val:
+                    self.claim_per_lang[elem_prop][lng] = elem_val
+
         usedon.sort()
         notusedon.sort()
-        if usedon: self.claim_per_lang[P_USED_ON][lng] = usedon
-        if notusedon: self.claim_per_lang[P_NOT_USED_ON][lng] = notusedon
+        if usedon:
+            self.claim_per_lang[P_USED_ON][lng] = usedon
+        if notusedon:
+            self.claim_per_lang[P_NOT_USED_ON][lng] = notusedon
 
     def merge_claim(self, new_claims_all, prop):
         if not prop.allow_multiple:
@@ -215,14 +240,15 @@ class ItemFromWiki:
             # for q, lngs in set_to_lang.items():
             #     status += f"  ({','.join(lngs)}) = { self.caches.qitem(q) }"
             # self.print(status)
-            new_claim = new_claims_all['en'] if 'en' in new_claims_all else False
+            new_claim = new_claims_all['en'] if 'en' in new_claims_all else None
             regions = self.caches.regionByLangCode.get()
             if new_claim:
-                new_claim = {val: Qualified(val, {P_NOT_IN:set()}) for val in new_claim}
+                new_claim = {val: Qualified(val, {P_NOT_IN: set()}) for val in new_claim}
                 en_claims = set(new_claim.keys())
                 raise_rank = False
                 for lng in new_claims_all:
-                    if lng == 'en': continue
+                    if lng == 'en':
+                        continue
                     if lng not in regions:
                         self.print(f'Region language {lng} not found in the region codes')
                     lng_claims = set(new_claims_all[lng])
@@ -234,7 +260,7 @@ class ItemFromWiki:
                                 new_claim = None
                                 break
                             if v not in new_claim:
-                                new_claim[v] = Qualified(v, {P_LIMIT_TO:set()})
+                                new_claim[v] = Qualified(v, {P_LIMIT_TO: set()})
                                 raise_rank = True
                             new_claim[v].qualifiers[qualifier].add(regions[lng].id)
                 if not new_claim:
