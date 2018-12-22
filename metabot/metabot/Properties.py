@@ -1,20 +1,26 @@
 from collections import namedtuple
-from typing import Dict, Set
+from typing import Dict, Set, Union
 import pywikibot as pb
 from dataclasses import dataclass, field
 
 
 @dataclass
-class Qualified:
+class ClaimValue:
     value: str
     qualifiers: Dict['Property', Set[str]] = field(default_factory=dict)
     rank: str = 'normal'
+
+    def promote(self):
+        if self.rank != 'normal':
+            raise ValueError(f'{self} cannot be promoted')
+        return ClaimValue(self.value, self.qualifiers, 'preferred')
 
 
 class Property:
     ALL: Dict[str, 'Property'] = {}
 
-    def __init__(self, id, name, type, allow_multiple=False, allow_qualifiers=False, is_qualifier=False):
+    def __init__(self, id, name, type, allow_multiple=False, allow_qualifiers=False, is_qualifier=False, ignore=False):
+        self.ignore = ignore
         self.id = id
         self.name = name
         self.type = type
@@ -26,7 +32,7 @@ class Property:
         Property.ALL[self.id] = self
 
     def __str__(self):
-        return f'{self.name:11} ({self.id}){" " if len(self.id) < 3 else ""}'
+        return self.__repr__()
 
     def __repr__(self):
         return f'{self.name} ({self.id})'
@@ -48,7 +54,7 @@ class Property:
             }
         }
 
-    def set_claim_on_new(self, data, value: Qualified):
+    def set_claim_on_new(self, data, value: ClaimValue):
         if 'claims' not in data: data['claims'] = {}
         claims = data['claims']
         claim = {
@@ -110,11 +116,12 @@ class Property:
             if allow_qualifiers:
                 qualifiers = {}
                 if 'qualifiers' in claim:
-                    qlf = P_NOT_IN.get_claim_value(claim.qualifiers)
-                    if qlf: qualifiers[P_NOT_IN] = set(qlf)
                     qlf = P_LIMIT_TO.get_claim_value(claim.qualifiers)
-                    if qlf: qualifiers[P_LIMIT_TO] = set(qlf)
-                value = Qualified(value, qualifiers, claim.rank)
+                    if qlf:
+                        qualifiers[P_LIMIT_TO] = set(qlf)
+                value = ClaimValue(value, qualifiers, claim.rank)
+            elif 'qualifiers' in claim:
+                raise ValueError(f'{self} does not support qualifiers')
             values.append(value)
         if not allow_multiple:
             return values[0]
@@ -126,13 +133,19 @@ class Property:
         if allow_qualifiers is None: allow_qualifiers = self.allow_qualifiers
         values.sort(key=lambda v: (1 if v.rank == 'preferred' else 2, v.value) if allow_qualifiers else v)
 
-    def create_claim(self, site, value):
+    def create_claim(self, site, value: Union[ClaimValue, str]):
         claim = pb.Claim(site, self.id, is_qualifier=self.is_qualifier)
+        if type(value) == ClaimValue:
+            val = value.value
+            claim.setRank(value.rank)
+        else:
+            val = value
         if self.is_item:
-            value = pb.ItemPage(site, value)
+            claim.setTarget(pb.ItemPage(site, val))
         elif self.type == 'commonsMedia':
-            value = pb.FilePage(site, value)
-        claim.setTarget(value)
+            claim.setTarget(pb.FilePage(site, val))
+        else:
+            claim.setTarget(val)
         return claim
 
     def value_from_claim(self, claim):
@@ -155,8 +168,6 @@ P_USE_ON_WAYS = Property('P34', 'use-on-ways', 'wikibase-item', allow_qualifiers
 P_USE_ON_AREAS = Property('P35', 'use-on-areas', 'wikibase-item', allow_qualifiers=True)
 P_USE_ON_RELATIONS = Property('P36', 'use-on-relations', 'wikibase-item', allow_qualifiers=True)
 P_USE_ON_CHANGESETS = Property('P37', 'use-on-changesets', 'wikibase-item', allow_qualifiers=True)
-P_USED_ON = Property('P5', 'used-on', 'wikibase-item', allow_multiple=True, allow_qualifiers=True)
-P_NOT_USED_ON = Property('P24', 'not-used-on', 'wikibase-item', allow_multiple=True, allow_qualifiers=True)
 
 P_KEY_TYPE = Property('P9', 'key-type', 'wikibase-item')
 P_TAG_KEY = Property('P10', 'tag-key', 'wikibase-item')
@@ -166,4 +177,6 @@ P_TAG_ID = Property('P19', 'tag-id', 'string')
 P_ROLE_ID = Property('P21', 'role-mem-id', 'string')
 P_LANG_CODE = Property('P32', 'lang-code', 'string')
 P_LIMIT_TO = Property('P26', 'limit-to', 'wikibase-item', allow_multiple=True, is_qualifier=True)
-P_NOT_IN = Property('P27', 'not-in', 'wikibase-item', allow_multiple=True, is_qualifier=True)
+
+
+# [sorted(self.claims.items(), lambda v: ['P2', 'P3', 'P16', 'P9', 'P19', 'P10', 'P4', 'P28', 'P6', 'P33', 'P34', 'P35', 'P36', 'P37', 'P25']

@@ -196,7 +196,7 @@ class Processor:
         for item in self.caches.taginfo.get()['data']:
             key = item['key']
             count_all = item['count_all']
-            if key in known_keys or count_all < 500 or (count_all < 1000 and not re_key.match(key)):
+            if key in known_keys:
                 continue
-
-            yield key
+            if count_all > 5000 or (count_all > 50 and re_key.match(key)):
+                yield key

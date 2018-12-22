@@ -5,10 +5,10 @@ from collections import defaultdict
 
 from pywikiapi import AttrDict
 
-from .Properties import P_USED_ON, P_NOT_USED_ON, P_OSM_IMAGE, P_IMAGE, P_GROUP, P_STATUS, Property, P_INSTANCE_OF, \
-    P_KEY_ID, P_TAG_ID, P_TAG_KEY, P_LIMIT_TO, P_NOT_IN, Qualified, P_USE_ON_NODES, P_USE_ON_WAYS, P_USE_ON_AREAS, \
+from .Properties import P_OSM_IMAGE, P_IMAGE, P_GROUP, P_STATUS, Property, P_INSTANCE_OF, \
+    P_KEY_ID, P_TAG_ID, P_TAG_KEY, P_LIMIT_TO, ClaimValue, P_USE_ON_NODES, P_USE_ON_WAYS, P_USE_ON_AREAS, \
     P_USE_ON_RELATIONS, P_USE_ON_CHANGESETS
-from .consts import elements, reLanguagesClause, Q_TAG, Q_KEY, Q_IS_ALLOWED, Q_IS_PROHIBITED
+from .consts import reLanguagesClause, Q_TAG, Q_KEY, Q_IS_ALLOWED, Q_IS_PROHIBITED
 from .utils import list_to_dict_of_lists, reTag_repl, remove_wikimarkup, lang_pick, sitelink_normalizer_tag, \
     sitelink_normalizer_key
 
@@ -47,7 +47,7 @@ on_elem_map = {
 
 class ItemFromWiki:
     claim_per_lang: Dict[Property, Dict[str, List[str]]]
-    claims: Dict[Property, List[Qualified]]
+    claims: Dict[Property, List[ClaimValue]]
 
     def __init__(self, caches, strid, wiki_pages) -> None:
         self.ok = True
@@ -62,17 +62,17 @@ class ItemFromWiki:
         if '=' in self.strid:
             # TAG
             self.sitelink = sitelink_normalizer_tag(strid)
-            self.claims[P_INSTANCE_OF].append(Qualified(Q_TAG))
-            self.claims[P_TAG_ID].append(Qualified(strid))
+            self.claims[P_INSTANCE_OF].append(ClaimValue(Q_TAG))
+            self.claims[P_TAG_ID].append(ClaimValue(strid))
             key = strid.split('=')[0]
             key_id = self.caches.itemKeysByStrid.get_strid(key)
             if key_id:
-                self.claims[P_TAG_KEY].append(Qualified(key_id))
+                self.claims[P_TAG_KEY].append(ClaimValue(key_id))
         else:
             # KEY
             self.sitelink = sitelink_normalizer_key(strid)
-            self.claims[P_INSTANCE_OF].append(Qualified(Q_KEY))
-            self.claims[P_KEY_ID].append(Qualified(strid))
+            self.claims[P_INSTANCE_OF].append(ClaimValue(Q_KEY))
+            self.claims[P_KEY_ID].append(ClaimValue(strid))
 
         self.editData = {
             'labels': {'en': strid},
@@ -197,86 +197,47 @@ class ItemFromWiki:
             self.claim_per_lang[P_IMAGE][lng] = params.image
 
     def do_used_on(self, lng, params):
-        # Used/Not used on
-        usedon = []
-        notusedon = []
-        for v in ['onnode', 'onway', 'onarea', 'onrelation', 'onclosedway', 'onchangeset']:
-            elem_prop = on_elem_map[v] if v in on_elem_map else None
-            if v in params:
-                elem_val = None
-                vv = elements[v[2:]]
-                if params[v] == 'yes':
-                    usedon.append(vv)
-                    elem_val = Q_IS_ALLOWED
-                elif params[v] == 'no':
-                    notusedon.append(vv)
-                    elem_val = Q_IS_PROHIBITED
+        for key, prop in on_elem_map.items():
+            if key in params:
+                if params[key] == 'yes':
+                    self.claim_per_lang[prop][lng] = Q_IS_ALLOWED
+                elif params[key] == 'no':
+                    self.claim_per_lang[prop][lng] = Q_IS_PROHIBITED
                 else:
-                    self.print(f'unknown "used on" type {params[v]} for {self.strid}')
-                if elem_prop and elem_val:
-                    self.claim_per_lang[elem_prop][lng] = elem_val
-
-        usedon.sort()
-        notusedon.sort()
-        if usedon:
-            self.claim_per_lang[P_USED_ON][lng] = usedon
-        if notusedon:
-            self.claim_per_lang[P_NOT_USED_ON][lng] = notusedon
+                    self.print(f'unknown {key} = {params[key]} for {self.strid}')
 
     def merge_claim(self, new_claims_all, prop):
-        if not prop.allow_multiple:
-            new_claims_all = {k: [v] for k, v in new_claims_all.items()}
         set_to_lang = list_to_dict_of_lists(
-            [(k, tuple(v)) for k, v in new_claims_all.items()],
+            [(k, v) for k, v in new_claims_all.items()],
             lambda v: v[1], lambda v: v[0])
 
         if len(set_to_lang) == 1:
             (new_claim,) = set_to_lang.keys()
-            new_claim = list(new_claim)
-            if prop.allow_qualifiers:
-                new_claim = [Qualified(c) for c in new_claim]
+            new_claims = [ClaimValue(new_claim, rank='preferred')]
         else:
             # status = f"  Claim mismatch: {prop}:"
             # for q, lngs in set_to_lang.items():
             #     status += f"  ({','.join(lngs)}) = { self.caches.qitem(q) }"
             # self.print(status)
-            new_claim = new_claims_all['en'] if 'en' in new_claims_all else None
+            new_claims = {}
+            default_value = None
+            if 'en' in new_claims_all:
+                default_value = new_claims_all['en']
+                new_claims[default_value] = ClaimValue(default_value, rank='preferred')
             regions = self.caches.regionByLangCode.get()
-            if new_claim:
-                new_claim = {val: Qualified(val, {P_NOT_IN: set()}) for val in new_claim}
-                en_claims = set(new_claim.keys())
-                raise_rank = False
-                for lng in new_claims_all:
-                    if lng == 'en':
-                        continue
-                    if lng not in regions:
-                        self.print(f'Region language {lng} not found in the region codes')
-                    lng_claims = set(new_claims_all[lng])
-                    missing = en_claims - lng_claims if prop.allow_multiple else []
-                    extras = lng_claims - en_claims
-                    for src, qualifier in [(missing, P_NOT_IN), (extras, P_LIMIT_TO)]:
-                        for v in src:
-                            if lng not in regions:
-                                new_claim = None
-                                break
-                            if v not in new_claim:
-                                new_claim[v] = Qualified(v, {P_LIMIT_TO: set()})
-                                raise_rank = True
-                            new_claim[v].qualifiers[qualifier].add(regions[lng].id)
-                if not new_claim:
-                    self.print(f'  Unable to add claim qualifiers')
-                    self.ok = False
-                else:
-                    new_claim = list(new_claim.values())
-                    for ind in range(len(new_claim)):
-                        qualifiers = new_claim[ind].qualifiers
-                        new_claim[ind] = Qualified(
-                            new_claim[ind].value,
-                            {k: v for k, v in qualifiers.items() if len(v) > 0},
-                            'preferred' if raise_rank and P_NOT_IN in qualifiers else 'normal')
 
-        if not new_claim:
-            self.print('  Skipping...')
-        else:
-            prop.sort_claims(new_claim)
-            self.claims[prop] = new_claim
+            for lng in new_claims_all:
+                if lng == 'en':
+                    continue
+                if lng not in regions:
+                    self.print(f'Region language {lng} not found in the region codes')
+                value = new_claims_all[lng]
+                if value != default_value:
+                    if value not in new_claims:
+                        new_claims[value] = ClaimValue(value, {P_LIMIT_TO: set()})
+                    new_claims[value].qualifiers[P_LIMIT_TO].add(regions[lng].id)
+
+            new_claims = list(new_claims.values())
+            prop.sort_claims(new_claims)
+
+        self.claims[prop] = new_claims
