@@ -3,7 +3,7 @@ from collections import defaultdict
 from pywikiapi import Site
 
 from .utils import strid_from_item, batches
-from .consts import elements, Q_KEY, Q_REGION_INSTANCE
+from .consts import elements, Q_KEY, Q_LOCALE_INSTANCE
 from .Cache import CacheInMemory
 from .Properties import P_INSTANCE_OF, P_LANG_CODE
 
@@ -100,7 +100,7 @@ class RegionByLangCode(DataItemCache):
         result = {}
         for item in self.items.get():
             instance_of = P_INSTANCE_OF.get_claim_value(item)
-            if instance_of == Q_REGION_INSTANCE:
+            if instance_of == Q_LOCALE_INSTANCE:
                 result[P_LANG_CODE.get_claim_value(item)] = item
         return result
 

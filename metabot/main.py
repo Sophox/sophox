@@ -1,12 +1,10 @@
 from pathlib import Path
 
-from pywikiapi import AttrDict
 from pywikibot import Site as PWB_Site
 from pywikibot.data.api import LoginManager
 
 from metabot.OsmFamily import OsmFamily
-from metabot.Properties import *
-from metabot import Caches, Q_REGION_INSTANCE
+from metabot import Caches
 from metabot.Processor import Processor
 from metabot.utils import get_osm_site
 
@@ -34,12 +32,12 @@ opts = {
 }
 proc = Processor(opts, caches, site, pb_site)
 
-# proc.run('religion')
 # proc.run('new')
-# proc.run('items')
+proc.run('items')
 # proc.run('old')
-# proc.run('taginfo_keys')
-# proc.run('autogen_keys')
-proc.run([caches.itemByQid.get_item('Q103')])
+proc.run('taginfo_keys')
+proc.run('autogen_keys')
+# proc.run('religion')
+# proc.run([caches.itemByQid.get_item('Q96')])
 
 print('done!')
