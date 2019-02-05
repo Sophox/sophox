@@ -24,15 +24,17 @@ class DescriptionParser(CacheJsonl):
                     print(to_json(res), file=file)
 
     def parse_item(self, page):
-        item = ItemParser(
-            self.image_cache, self.pwb_site, page['ns'], page['title'], page['template'], page['params'])
-        result = item.parse()
-        if item.messages:
-            print(f'#### {page["title"]}\n  ' + '\n  '.join(item.messages))
-        if result:
-            return result
-        else:
-            print(f'Skipping {page["title"]}')
+        if page['ns'] % 2 != 1 and page['ns'] != 2: # and 'Proposed features/' not in page['title']:
+            item = ItemParser(
+                self.image_cache, self.pwb_site, page['ns'], page['title'], page['template'], page['params'])
+            result = item.parse()
+            if item.messages:
+                print(f'#### {page["title"]}')
+                item.print_messages()
+            if result:
+                return result
+        print(f'Skipping {page["title"]}')
+        return None
 
     def parse_manual(self, pages):
         return [AttrDict(v) for v in [self.parse_item(p) for p in pages] if v]

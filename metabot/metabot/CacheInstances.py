@@ -4,9 +4,9 @@ from .Properties import P_TAG_KEY, P_INSTANCE_OF
 from .utils import list_to_dict_of_lists
 from .DescriptionParser import DescriptionParser
 from .consts import Q_GROUP, Q_STATUS, Q_TAG
-from .CachedFilteredDescription import CachedFilteredDescription
+from .CachedFilteredDescription import CachedFilteredDescription, RelationRolesDescription
 from .DataItems import DataItems, DataItemsByQid, DataItemDescByQid, DataItemsKeysByStrid, DataItemsByName, \
-    RegionByLangCode
+    RegionByLangCode, DataItemBySitelink
 from .WikiPagesWithTemplate import WikiPagesWithTemplate
 from .ResolvedImageFiles import ResolvedImageFiles
 from .DataItemContributors import DataItemContributors
@@ -36,11 +36,13 @@ class Caches:
         self.keydescription = CachedFilteredDescription(self.descriptionParsed, 'Key')
         self.tagdescription = CachedFilteredDescription(self.descriptionParsed, 'Tag')
         self.reldescription = CachedFilteredDescription(self.descriptionParsed, 'Relation')
+        self.relroledescriptions = RelationRolesDescription(self.descriptionParsed)
 
         self.data_items = DataItems('_cache/data_items.json', site, use_bot_limits)
 
         self.itemByQid = DataItemsByQid(self.data_items)
         self.itemDescByQid = DataItemDescByQid(self.data_items)
+        self.itemQidBySitelink = DataItemBySitelink(self.data_items)
         self.itemKeysByStrid = DataItemsKeysByStrid(self.data_items)
         self.regionByLangCode = RegionByLangCode(self.data_items)
         self.groupsByName = DataItemsByName(self.data_items, Q_GROUP)

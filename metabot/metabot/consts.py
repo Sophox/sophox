@@ -22,6 +22,7 @@ elements = {
 
 Q_TAG = 'Q2'
 Q_KEY = 'Q7'
+Q_RELATION = 'Q6'
 Q_ENUM_KEY_TYPE = 'Q8'
 Q_REL_MEMBER_ROLE = 'Q4667'
 Q_GROUP = 'Q12'

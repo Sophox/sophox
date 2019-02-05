@@ -10,6 +10,10 @@ from .Properties import P_INSTANCE_OF, P_LANG_CODE
 from .Cache import CacheJsonl
 from .utils import to_json, get_entities
 
+ignore_qids = {
+    'Q2761', # Sandbox
+}
+
 
 class DataItems(CacheJsonl):
 
@@ -31,7 +35,9 @@ class DataItems(CacheJsonl):
     def items(self):
         for q in self.site.query(list='allpages', apnamespace=120, apfilterredir='nonredirects', aplimit='max'):
             for p in q.allpages:
-                yield p.title[len('Item:'):]
+                qid = p.title[len('Item:'):]
+                if qid not in ignore_qids:
+                    yield qid
 
 
 class DataItemCache(CacheInMemory):
@@ -63,6 +69,15 @@ class DataItemDescByQid(DataItemCache):
             if item['id'] not in ignore_ids:
                 value += ' (' + item['id'] + ')'
             result[item['id']] = value
+        return result
+
+
+class DataItemBySitelink(DataItemCache):
+    def generate(self):
+        result = {}
+        for item in self.items.get():
+            if 'sitelinks' in item and 'wiki' in item['sitelinks']:
+                result[item['sitelinks']['wiki']['title']] = item['id']
         return result
 
 

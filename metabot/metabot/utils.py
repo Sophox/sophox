@@ -9,13 +9,14 @@ from collections import defaultdict
 
 from pywikiapi import Site, AttrDict
 
-from .Properties import P_INSTANCE_OF, P_KEY_ID, P_TAG_ID, P_SUBCLASS_OF
-from .consts import reLanguagesClause, Q_KEY, Q_TAG, LANG_NS, ignoreLangSuspects
+from .Properties import P_INSTANCE_OF, P_KEY_ID, P_TAG_ID, P_SUBCLASS_OF, P_REL_ID, P_ROLE_ID, P_LANG_CODE
+from .consts import reLanguagesClause, Q_KEY, Q_TAG, LANG_NS, ignoreLangSuspects, Q_RELATION, Q_REL_MEMBER_ROLE, \
+    Q_LOCALE_INSTANCE
 
 
 def to_json(obj, pretty=False):
     if pretty:
-        return json.dumps(obj, ensure_ascii=False, sort_keys=True, indent=2)
+        return json.dumps(obj, ensure_ascii=False, indent=2)
     else:
         return json.dumps(obj, ensure_ascii=False)
 
@@ -56,16 +57,24 @@ def get_entities(site: Site, ids: Union[str, List[str]] = None, titles: Union[st
         return None
 
 
-def sitelink_normalizer(strid):
-    return strid.replace('_', ' ').strip()
+def sitelink_normalizer(strid, prefix=''):
+    return (prefix + strid).replace('_', ' ').strip()
 
 
 def sitelink_normalizer_key(strid):
-    return sitelink_normalizer('Key:' + strid)
+    return sitelink_normalizer(strid, 'Key:')
 
 
 def sitelink_normalizer_tag(strid):
-    return sitelink_normalizer('Tag:' + strid)
+    return sitelink_normalizer(strid, 'Tag:')
+
+
+def sitelink_normalizer_rel(strid):
+    return sitelink_normalizer(strid, 'Relation:')
+
+
+def sitelink_normalizer_locale(strid):
+    return sitelink_normalizer(strid, 'Locale:')
 
 
 def get_sitelink(item):
@@ -106,7 +115,7 @@ def remove_wikimarkup(text):
 reBoldItalic = re.compile(r"'''''(.*)'''''")
 reBold = re.compile(r"'''(.*)'''")
 reItalic = re.compile(r"''(.*)''")
-re_wikidata = re.compile(r'^Q[1-9][0-9]{0,11}$')
+re_wikidata = re.compile(r'^(Q|Property:P)[1-9][0-9]{0,11}$')
 
 # links like [[Key:...|...]], with the optional language prefix??//
 re_tag_link = re.compile(r'\[\[(?:(' + reLanguagesClause + r'):)?(Key|Tag|Relation):([^|\]]+)(?:\|([^|\]]+))?\]\]',
@@ -123,12 +132,15 @@ def lang_pick(vals, lang):
 def strid_from_item(item):
     instance_of = P_INSTANCE_OF.get_claim_value(item)
     if instance_of == Q_KEY:
-        return P_KEY_ID.get_claim_value(item)
+        return 'Key', P_KEY_ID.get_claim_value(item)
     elif instance_of == Q_TAG:
-        return P_TAG_ID.get_claim_value(item)
-    elif instance_of is None and P_SUBCLASS_OF.get_claim_value(item) is None and item.id != 'Q2761':
-        # Ignore Sandbox Q2761
-        return item.labels.en.value
+        return 'Tag', P_TAG_ID.get_claim_value(item)
+    elif instance_of == Q_RELATION:
+        return 'Relation', P_REL_ID.get_claim_value(item)
+    elif instance_of == Q_REL_MEMBER_ROLE:
+        return 'Role', P_ROLE_ID.get_claim_value(item)
+    elif instance_of == Q_LOCALE_INSTANCE:
+        return 'Locale', P_LANG_CODE.get_claim_value(item)
     return None
 
 
@@ -177,3 +189,7 @@ def batches(items: Iterable, batch_size: int):
             res = []
     if res:
         yield res
+
+
+def to_item_sitelink(sitelink):
+    return {'wiki': {'site': 'wiki', 'title': sitelink}}

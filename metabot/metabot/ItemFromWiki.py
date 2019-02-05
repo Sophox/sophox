@@ -5,12 +5,13 @@ from collections import defaultdict
 
 from pywikiapi import AttrDict
 
-from .Properties import P_OSM_IMAGE, P_IMAGE, P_GROUP, P_STATUS, Property, P_INSTANCE_OF, \
+from .Properties import P_IMAGE_OSM, P_IMAGE, P_GROUP, P_STATUS, Property, P_INSTANCE_OF, \
     P_KEY_ID, P_TAG_ID, P_TAG_KEY, P_LIMIT_TO, ClaimValue, P_USE_ON_NODES, P_USE_ON_WAYS, P_USE_ON_AREAS, \
-    P_USE_ON_RELATIONS, P_USE_ON_CHANGESETS
-from .consts import reLanguagesClause, Q_TAG, Q_KEY, Q_IS_ALLOWED, Q_IS_PROHIBITED
+    P_USE_ON_RELATIONS, P_USE_ON_CHANGESETS, P_WIKIDATA_CONCEPT, P_REL_TAG, P_REL_ID, P_ROLE_ID, P_REL_FOR_ROLE, \
+    P_REGEX, P_WIKI_PAGES
+from .consts import reLanguagesClause, Q_TAG, Q_KEY, Q_IS_ALLOWED, Q_IS_PROHIBITED, Q_RELATION, Q_REL_MEMBER_ROLE
 from .utils import list_to_dict_of_lists, reTag_repl, remove_wikimarkup, lang_pick, sitelink_normalizer_tag, \
-    sitelink_normalizer_key
+    sitelink_normalizer_key, sitelink_normalizer_rel, sitelink_normalizer, to_item_sitelink
 
 reTag = re.compile(
     r'{{(?:(?:template:)?' + reLanguagesClause + r':)?' +
@@ -49,36 +50,113 @@ class ItemFromWiki:
     claim_per_lang: Dict[Property, Dict[str, List[str]]]
     claims: Dict[Property, List[ClaimValue]]
 
-    def __init__(self, caches, strid, wiki_pages) -> None:
+    def __init__(self, caches, strid, wiki_pages, create_new) -> None:
         self.ok = True
         self.caches = caches
         self.wiki_pages = wiki_pages
         self.messages = []
         self.claim_per_lang = defaultdict(dict)
         self.has_unknown_group = False
-        self.strid = strid
+        self.typ = strid[0]
+        self.strid = strid[1]
         self.claims = defaultdict(list)
 
-        if '=' in self.strid:
+        if self.typ == 'Relation':
+            # Relation
+            self.sitelink = sitelink_normalizer_rel(self.strid)
+            self.claims[P_INSTANCE_OF].append(ClaimValue(Q_RELATION))
+            self.claims[P_REL_ID].append(ClaimValue(self.strid))
+            type_strid = ('Tag', 'type=' + self.strid)
+            tag_id = self.caches.itemKeysByStrid.get_strid(type_strid)
+            if not tag_id:
+                create_new(type_strid)
+                tag_id = self.caches.itemKeysByStrid.get_strid(type_strid)
+            self.claims[P_REL_TAG].append(ClaimValue(tag_id))
+            label = self.strid + ' relation'
+            self.strid = self.sitelink
+        elif self.typ == 'Role':
+            # Relation role
+            is_number = False
+            if self.strid.endswith('<number>'):
+                self.strid = self.strid[:-len('<number>')]
+                is_number = True
+                print('number!')
+            self.sitelink = sitelink_normalizer_rel(self.strid)
+            self.claims[P_INSTANCE_OF].append(ClaimValue(Q_REL_MEMBER_ROLE))
+            self.claims[P_ROLE_ID].append(ClaimValue(self.strid))
+            rel_name = self.strid[:self.strid.find('=')]
+            role_name = self.strid[self.strid.find('=')+1:] or '<blank>'
+            rel_sl = sitelink_normalizer_rel(rel_name)
+            if rel_sl not in self.caches.itemQidBySitelink.get():
+                raise ValueError(f"{rel_sl} does not exist")
+            self.claims[P_REL_FOR_ROLE].append(ClaimValue(self.caches.itemQidBySitelink.get()[rel_sl]))
+            if is_number:
+                self.claims[P_REGEX].append(ClaimValue(re.escape(self.strid[self.strid.find('=') + 1:]) + r'[0-9]+'))
+                role_name += '<number>'
+            label = f'{rel_name} relation {role_name} role'
+        elif self.typ == 'Tag':
             # TAG
-            self.sitelink = sitelink_normalizer_tag(strid)
+            if '=' not in self.strid:
+                 raise ValueError(f'{self.strid} does not contain "="')
+            self.sitelink = sitelink_normalizer_tag(self.strid)
             self.claims[P_INSTANCE_OF].append(ClaimValue(Q_TAG))
-            self.claims[P_TAG_ID].append(ClaimValue(strid))
-            key = strid.split('=')[0]
+            self.claims[P_TAG_ID].append(ClaimValue(self.strid))
+            key = ('Key', self.strid.split('=')[0])
             key_id = self.caches.itemKeysByStrid.get_strid(key)
             if key_id:
                 self.claims[P_TAG_KEY].append(ClaimValue(key_id))
+            label = self.strid
         else:
             # KEY
-            self.sitelink = sitelink_normalizer_key(strid)
+            if '=' in self.strid:
+                raise ValueError(f'{self.strid} contains "="')
+            self.sitelink = sitelink_normalizer_key(self.strid)
             self.claims[P_INSTANCE_OF].append(ClaimValue(Q_KEY))
-            self.claims[P_KEY_ID].append(ClaimValue(strid))
+            self.claims[P_KEY_ID].append(ClaimValue(self.strid))
+            label = self.strid
 
-        self.editData = {
-            'labels': {'en': strid},
+        self.header = {
+            'labels': {'en': label},
             'descriptions': {},
-            'sitelinks': [{'site': 'wiki', 'title': self.sitelink}],
+            'sitelinks': to_item_sitelink(self.sitelink),
         }
+
+        if '*' in self.strid:
+            self.print(f'WARNING: {self.strid} has a wildcard')
+
+        if self.wiki_pages:
+            new_wiki_pages = []
+            for lng, vv in list_to_dict_of_lists(self.wiki_pages, lambda v: v.lang).items():
+                if len(vv) > 1 and len(set([v.ns for v in vv])) == 1:
+                    vv = [v for v in vv if 'Key:' in v.full_title or 'Tag:' in v.full_title or 'Relation:' in v.full_title]
+                if len(vv) > 1:
+                    vv = [v for v in vv if 'Proposed features/' not in v.full_title]
+                if len(vv) > 1:
+                    s = set([v.template for v in vv])
+                    if s == {'deprecated', 'valuedescription'} or s == {'deprecated', 'keydescription'}:
+                        vv = [v for v in vv if v.template != 'deprecated']
+                    else:
+                        self.print(f'Multiple descriptions found {lng} {self.strid}: '
+                                   f'{", ".join([v.full_title for v in vv])}')
+                        self.ok = False
+                        break
+                new_wiki_pages.append(vv[0])
+            self.wiki_pages = new_wiki_pages
+
+            if self.ok:
+                self.merge_wiki_languages()
+                # if P_IMAGE in self.claim_per_lang and P_IMAGE_OSM in self.claim_per_lang:
+                #     del self.claim_per_lang[P_IMAGE_OSM]
+                for wp in self.wiki_pages:
+                    self.claims[P_WIKI_PAGES].append(ClaimValue({'language': wp.lang, 'text': wp.full_title}))
+
+        if self.claim_per_lang:
+            for prop, claim in self.claim_per_lang.items():
+                self.merge_claim(claim, prop)
+
+        self.update_image_claims()
+
+        self.ok = self.ok and (self.header or self.claim_per_lang)
 
     def print(self, msg):
         self.messages.append(msg)
@@ -89,54 +167,26 @@ class ItemFromWiki:
             for msg in self.messages:
                 print(msg)
 
-    def run(self):
-        if '*' in self.strid:
-            self.print(f'WARNING: {self.strid} has a wildcard')
-
-        if self.wiki_pages:
-            self.merge_wiki_languages()
-            if 'en' not in self.editData['labels']:
-                self.editData['labels']['en'] = self.strid
-            if P_IMAGE in self.claim_per_lang and P_OSM_IMAGE in self.claim_per_lang:
-                del self.claim_per_lang[P_OSM_IMAGE]
-
-        if self.claim_per_lang:
-            for prop, claim in self.claim_per_lang.items():
-                self.merge_claim(claim, prop)
-
-        self.ok = self.ok and (self.editData or self.claim_per_lang)
-
     def merge_wiki_languages(self):
-        for lng, vv in list_to_dict_of_lists(self.wiki_pages, lambda v: v.lang).items():
-            if len(vv) > 1 and len(set([v.ns for v in vv])) == 1:
-                vv = [v for v in vv if 'Key:' in v.full_title or 'Tag:' in v.full_title]
-            if len(vv) > 1:
-                s = set([v.template for v in vv])
-                if s == {'Deprecated', 'ValueDescription'} or s == {'Deprecated', 'KeyDescription'}:
-                    params = vv[0].params if vv[1].template == 'Deprecated' else vv[1].params
-                else:
-                    self.print(
-                        f'Multiple descriptions found {lng} {self.strid}: {", ".join([v.full_title for v in vv])}')
-                    break
-            else:
-                params = vv[0].params
-
+        for page in self.wiki_pages:
+            params = page.params
             if type(params) == dict:
                 params = AttrDict(params)
 
             if 'oldkey' in params:
                 # deprecation support
                 newtext = params.newtext if 'newtext' in params else ''
-                params.description = lang_pick(deprecated_msg, lng).replace('$1', newtext)
+                params.description = lang_pick(deprecated_msg, page.lang).replace('$1', newtext)
                 params.image = 'Ambox warning pn.svg'
                 params.status = 'Deprecated'
 
-            self.do_label(lng, params)
-            self.do_description(lng, params)
-            self.do_used_on(lng, params)
-            self.do_images(lng, params)
-            self.do_groups(lng, params)
-            self.do_status(lng, params)
+            self.do_label(page.lang, params)
+            self.do_description(page.lang, params)
+            self.do_used_on(page.lang, params)
+            self.do_images(page.lang, params)
+            self.do_groups(page.lang, params)
+            self.do_status(page.lang, params)
+            self.do_wikidata(page.lang, params)
 
     def do_label(self, lng, params):
         if 'nativekey' not in params:
@@ -145,8 +195,8 @@ class ItemFromWiki:
         if 'nativevalue' in params:
             label += '=' + params.nativevalue
         if len(label) > 250:
-            self.print(f'Label is longer than 250! {label}')
-        self.editData['labels'][lng] = label[:250].strip()
+            self.print(f'Label {lng} is longer than 250! {label}')
+        self.header['labels'][lng] = label[:250].strip()
 
     def do_description(self, lng, params):
         if 'description' not in params:
@@ -164,8 +214,8 @@ class ItemFromWiki:
         desc = reTag.sub(reTag_repl, desc)
         desc = remove_wikimarkup(desc)
         if len(desc) > 250:
-            self.print(f'Description is longer than 250! {desc}')
-        self.editData['descriptions'][lng] = desc[:250].strip()
+            self.print(f'Description {lng} is longer than 250! {desc}')
+        self.header['descriptions'][lng] = desc[:250].strip()
 
     def do_status(self, lng, params):
         if 'status' not in params:
@@ -191,10 +241,22 @@ class ItemFromWiki:
     def do_images(self, lng, params):
         if 'image' not in params or not params.image:
             return
-        if params.image.startswith('osm:'):
-            self.claim_per_lang[P_OSM_IMAGE][lng] = params.image[len('osm:'):]
-        else:
-            self.claim_per_lang[P_IMAGE][lng] = params.image
+        self.claim_per_lang[P_IMAGE][lng] = params.image
+
+    def update_image_claims(self):
+        if P_IMAGE in self.claims:
+            for img in list(self.claims[P_IMAGE]):
+                if img.value.startswith('osm:'):
+                    self.claims[P_IMAGE].remove(img)
+                    self.claims[P_IMAGE_OSM].append(ClaimValue(img.value[len('osm:'):], img.qualifiers, img.rank))
+            if len(self.claims[P_IMAGE]) == 0:
+                del self.claims[P_IMAGE]
+
+
+    def do_wikidata(self, lng, params):
+        if 'wikidata' not in params or not params.wikidata:
+            return
+        self.claim_per_lang[P_WIKIDATA_CONCEPT][lng] = params.wikidata
 
     def do_used_on(self, lng, params):
         for key, prop in on_elem_map.items():
@@ -238,6 +300,5 @@ class ItemFromWiki:
                     new_claims[value].qualifiers[P_LIMIT_TO].add(regions[lng].id)
 
             new_claims = list(new_claims.values())
-            prop.sort_claims(new_claims)
 
         self.claims[prop] = new_claims

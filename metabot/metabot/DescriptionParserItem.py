@@ -32,12 +32,13 @@ templ_param_map = {
 
 class ItemParser:
 
-    def __init__(self, image_cache: ResolvedImageFiles, pwb_site: pb.Site, ns, title, template, template_params):
+    def __init__(self, image_cache: ResolvedImageFiles, pwb_site: pb.Site, ns, title, template, template_params, print_info=False):
+        self.print_info = print_info
         self.image_cache = image_cache
         self.pwb_site = pwb_site
         self.ns = ns
         self.title = title
-        self.template = template
+        self.template = template.lower()
         self.template_params = template_params
         self.result = {}
         self.messages = []
@@ -57,21 +58,18 @@ class ItemParser:
             self.result[key] = [value] if allow_multiple else value
 
     def parse(self):
-        if self.template.lower() not in [
+        if self.template not in [
             'keydescription', 'valuedescription', 'template:keydescription', 'template:valuedescription',
             'deprecated', 'pl:keydescription', 'pl:valuedescription', 'template:pl:keydescription',
-            'template:pl:valuedescription'
+            'template:pl:valuedescription', 'template:relationdescription', 'relationdescription'
         ]:
             # Ignore relations for now
-            return
-
-        if not self.type_from_title:
             return
 
         for tkey, tval in self.template_params.items():
             tkey = tkey.lower()
             tval = tval.strip()
-            if tval and (self.template != 'Deprecated' or tkey in ['oldkey', 'oldvalue', 'newtext']):
+            if tval and (self.template != 'deprecated' or tkey in ['oldkey', 'oldvalue', 'newtext']):
                 res = self.parse_template_param(tkey, tval)
                 if isinstance(res, list):
                     for vv in res:
@@ -80,9 +78,22 @@ class ItemParser:
                     self.setter(*res)
 
         if self.result:
+            if not self.type_from_title:
+                if self.template == 'keydescription' or self.template == 'template:keydescription':
+                    self.type_from_title = 'Key'
+                elif self.template == 'valuedescription' or self.template == 'template:valuedescription':
+                    self.type_from_title = 'Tag'
+                elif self.template == 'relationdescription' or self.template == 'template:relationdescription':
+                    self.type_from_title = 'Relation'
+                else:
+                    return
+            if not self.type_from_title:
+                pass
+
             if 'lang' in self.result and self.lang != self.result['lang']:
                 self.print(f'Title language {self.lang} does not match parameter lang={self.result["lang"]}')
-                self.lang = self.result['lang']
+                if self.lang == 'en':
+                    self.lang = self.result['lang']
             return {
                 'type': self.type_from_title,
                 'str_id': self.id_extractor(),
@@ -129,24 +140,27 @@ class ItemParser:
                 except pb.exceptions.InvalidTitle as err:
                     self.print(f'Unparsable {tkey}={tval}')
         elif tkey in ['image', 'osmcarto-rendering']:
-            try:
-                return tkey, self.image_cache.parse_image_title(tval)
-            except:
-                self.print(f'image="{tval}" cannot be processed')
+            if 'osm element key.svg' in tval.lower():
+                self.print(f'image="{tval}" is not a valid image')
+            else:
+                try:
+                    return tkey, self.image_cache.parse_image_title(tval)
+                except:
+                    self.print(f'image="{tval}" cannot be processed')
         elif tkey in ['combination', 'implies', 'seealso', 'requires']:
             tags = self.parse_combinations(tkey, tval)
             if len(tags) > 0:
                 return [(tkey, tags), (tkey + '!text', tval)]
-            self.print(f'No tags found in {tkey} -- {tval}')
+            self.info(f'No tags found in {tkey} -- {tval}')
         elif tkey in 'members':
             members = self.parse_members(tval)
             if len(members) > 0:
                 return [('members', members), (tkey + '!text', tval)]
-            self.print(f'No items found in {tkey} -- {tval}')
+            self.info(f'No items found in {tkey} -- {tval}')
         elif tkey in ['languagelinks', 'image:desc', 'image_caption', 'float', 'debug', 'dir', 'rtl']:
             pass  # We know them, but they are not very useful at this point
         else:
-            self.print(f'Unknown "{tkey}={tval}"')
+            self.info(f'Unknown "{tkey}={tval}"')
         return None
 
     def parse_combinations(self, tkey, tval):
@@ -170,7 +184,7 @@ class ItemParser:
             else:
                 ok = False
             if not ok:
-                self.print(f'Parsed link in {tkey} is unrecognized: {typ}:{lnk} | {freetext}')
+                self.info(f'Parsed link in {tkey} is unrecognized: {typ}:{lnk} | {freetext}')
         return tags
 
     def parse_members(self, tval):
@@ -196,6 +210,9 @@ class ItemParser:
                 elif name == 'value':
                     if list(params.keys()) == ['1']:
                         vals['value'] = params['1']
+                        vals['value'] = params['1']
+                    elif len(params.keys()) == 0:
+                        vals['value'] = ''
                     else:
                         self.print(f"Unknown value param pattern in '{line}'")
                 elif name == 'icon':
@@ -210,7 +227,7 @@ class ItemParser:
                     else:
                         self.print(f"Unknown value param pattern in '{line}'")
                 else:
-                    self.print(f"Unknown template {name} in '{line}'")
+                    self.info(f"Unknown template {name} in '{line}'")
             if vals:
                 if 'value' not in vals:
                     m = re.match(r'^\s*(?:{{[^{}]+\}\}(?:\s|-|—)*)*(\(?[a-z_: /]+(<[^ {}\[\]<>]*>)?\)?)\s*$',
@@ -226,8 +243,15 @@ class ItemParser:
                             continue
                         vals['value'] = m[1]
                     else:
-                        self.print(f"Value not found in '{line}'")
-                        continue
+                        line2 = line.replace('<code>', '').replace('</code>', '')
+                        m = re.match(r'^.* [-–] ([()A-Za-z:_0-9]+)($| .*$)', line2)
+                        if m:
+                            vals['value'] = m[1]
+                        elif re.match(r'^.* - \((prázná|prázdná|空|prázdné)\)$', line2):
+                            vals['value'] = ''
+                        else:
+                            self.info(f"Value not found in '{line}'")
+                            continue
                 members.append(vals)
         return members
 
@@ -243,7 +267,7 @@ class ItemParser:
                 return
         if name not in ['tag', 'key', 'tagkey', 'tagvalue']:
             if allow_key_only and name != 'english':
-                self.print(f'Bad Tag value "{name}"')
+                self.info(f'Bad Tag value "{name}"')
             return
         key = ''
         if '1' in params:
@@ -263,7 +287,7 @@ class ItemParser:
             if not goodValue.match(value):
                 if not allow_key_only: continue
                 if value not in ['', '*']:
-                    self.print(f'Bad Tag value {value}')
+                    self.info(f'Bad Tag value {value}')
             if not goodValue.match(key): continue
             yield key, value
 
@@ -271,6 +295,9 @@ class ItemParser:
         item = self.result
         item_key = item['key'] if 'key' in item else item['oldkey'] if 'oldkey' in item else False
         item_id: Union[bool, str] = False
+
+        if self.type_from_title == 'Relation':
+            return item['type']
 
         if item_key:
             item_id = item_key
@@ -288,3 +315,12 @@ class ItemParser:
 
     def print(self, msg):
         self.messages.append(msg)
+
+    def info(self, msg):
+        if self.print_info:
+            self.messages.append(msg)
+
+    def print_messages(self):
+        if self.messages:
+            print('  ' + '\n  '.join(self.messages))
+            # self.messages = []
