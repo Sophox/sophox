@@ -61,6 +61,8 @@ class Property:
         for claim in claims:
             if self.claim_to_claimvalue(claim, True) == value:
                 claims.remove(claim)
+                if not claims:
+                    del data['claims'][self.id]
                 break
 
     def set_claim_on_new(self, data, value: ClaimValue):
@@ -140,57 +142,6 @@ class Property:
             raise ValueError(f'{self} does not support qualifiers')
         return value
 
-    #
-    # def create_claim(self, value: Union[ClaimValue, str]):
-    #
-    #     a = {
-    #         "mainsnak": {
-    #             "snaktype": "value",
-    #             "property": "P2",
-    #             "hash": "9c1b9f9b61faedefa272a9c8c980faba6cefe7d5",
-    #             "datavalue": {
-    #                 "value": {
-    #                     "entity-type": "item",
-    #                     "numeric-id": 7,
-    #                     "id": "Q7"},
-    #                 "type": "wikibase-entityid"
-    #             },
-    #             "datatype": "wikibase-item"
-    #         },
-    #         "type": "statement",
-    #         "id": "Q100$E10C17E1-E574-4B27-B101-BC45E6B5ED07",
-    #         "rank": "normal"
-    #     }
-    #
-    #     claim = pb.Claim(site, self.id, is_qualifier=self.is_qualifier)
-    #     if type(value) == ClaimValue:
-    #         val = value.value
-    #         claim.setRank(value.rank)
-    #     else:
-    #         val = value
-    #     if self.is_item:
-    #         claim.setTarget(pb.ItemPage(site, val))
-    #     elif self.type == 'commonsMedia':
-    #         claim.setTarget(pb.FilePage(site, val))
-    #     else:
-    #         claim.setTarget(val)
-    #     return claim
-
-    # def create_claim(self, site, value: Union[ClaimValue, str]):
-    #     claim = pb.Claim(site, self.id, is_qualifier=self.is_qualifier)
-    #     if type(value) == ClaimValue:
-    #         val = value.value
-    #         claim.setRank(value.rank)
-    #     else:
-    #         val = value
-    #     if self.is_item:
-    #         claim.setTarget(pb.ItemPage(site, val))
-    #     elif self.type == 'commonsMedia':
-    #         claim.setTarget(pb.FilePage(site, val))
-    #     else:
-    #         claim.setTarget(val)
-    #     return claim
-    #
     def value_from_claim(self, claim):
         if self.is_item:
             return claim.target.id
@@ -211,7 +162,9 @@ P_USE_ON_WAYS = Property('P34', 'use-on-ways', 'wikibase-item', allow_qualifiers
 P_USE_ON_AREAS = Property('P35', 'use-on-areas', 'wikibase-item', allow_qualifiers=True)
 P_USE_ON_RELATIONS = Property('P36', 'use-on-relations', 'wikibase-item', allow_qualifiers=True)
 P_USE_ON_CHANGESETS = Property('P37', 'use-on-changesets', 'wikibase-item', allow_qualifiers=True)
+P_WIKIDATA_EQUIVALENT = Property('P7', 'wikidata-equivalent', 'string', allow_qualifiers=True)
 P_WIKIDATA_CONCEPT = Property('P12', 'wikidata-concept', 'string', allow_qualifiers=True)
+P_URL_FORMAT = Property('P8', 'url-format', 'string')
 P_REQUIRES_KEY_OR_TAG = Property('P22', 'requires-key-or-tag', 'wikibase-item', allow_multiple=True)
 
 P_RENDERING_IMAGE = Property('P38', 'rendering-image', 'commonsMedia', allow_qualifiers=True)

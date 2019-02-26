@@ -33,8 +33,11 @@ prop_order = [
     P_REF_URL.id,
     P_LIMIT_TO.id,
     P_WIKI_PAGES.id,
+    P_WIKIDATA_EQUIVALENT.id,
+    P_URL_FORMAT.id,
     P_DIFF_FROM.id,
     P_REL_FOR_ROLE.id,
+    P_REGEX.id,
 ]
 
 qualifier_order = [
@@ -136,7 +139,7 @@ class Sorter:
     def do_page(self, title, page):
         new_content = self.order(loads(page.revisions[0].content))
         if not new_content:
-            print(f"{title} hasn't changed")
+            print(f"{title} has not changed")
             return
 
         print(f"Uploading {title}")
@@ -149,16 +152,6 @@ class Sorter:
                   clear=1,
                   bot=1,
                   POST=1)
-
-        # api.php?action=wbeditentity&id=q42&data=
-        # page = Page(self.pb_site, title)
-        # try:
-        #     if page.text != new_content:
-        #         page.text = new_content
-        #         page.save(summary='Removing meant/not-meant props, sorting')
-        # except Exception as exception:
-        #     print(exception)
-        # print('done')
 
     def order(self, content):
         content = dict_sorter(content, lambda v: key_from_list(v[0], root_order))

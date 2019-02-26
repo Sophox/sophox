@@ -1,7 +1,7 @@
 from .Properties import P_INSTANCE_OF, \
     ClaimValue, P_LANG_CODE
 from .consts import Q_LOCALE_INSTANCE
-from .utils import sitelink_normalizer_locale, to_item_sitelink
+from .utils import to_item_sitelink, id_to_sitelink
 
 
 class ItemFromConcept:
@@ -17,7 +17,7 @@ class ItemFromConcept:
             P_LANG_CODE: [ClaimValue(self.lang_code)],
         }
 
-        self.sitelink = sitelink_normalizer_locale(self.lang_code)
+        self.sitelink = id_to_sitelink('Locale', self.lang_code)
 
         self.header = {
             'labels': {},

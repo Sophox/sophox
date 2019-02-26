@@ -10,8 +10,7 @@ from .Properties import P_IMAGE_OSM, P_IMAGE, P_GROUP, P_STATUS, Property, P_INS
     P_USE_ON_RELATIONS, P_USE_ON_CHANGESETS, P_WIKIDATA_CONCEPT, P_REL_TAG, P_REL_ID, P_ROLE_ID, P_REL_FOR_ROLE, \
     P_REGEX, P_WIKI_PAGES
 from .consts import reLanguagesClause, Q_TAG, Q_KEY, Q_IS_ALLOWED, Q_IS_PROHIBITED, Q_RELATION, Q_REL_MEMBER_ROLE
-from .utils import list_to_dict_of_lists, reTag_repl, remove_wikimarkup, lang_pick, sitelink_normalizer_tag, \
-    sitelink_normalizer_key, sitelink_normalizer_rel, sitelink_normalizer, to_item_sitelink
+from .utils import list_to_dict_of_lists, reTag_repl, remove_wikimarkup, lang_pick, to_item_sitelink, id_to_sitelink
 
 reTag = re.compile(
     r'{{(?:(?:template:)?' + reLanguagesClause + r':)?' +
@@ -61,9 +60,9 @@ class ItemFromWiki:
         self.strid = strid[1]
         self.claims = defaultdict(list)
 
+        self.sitelink = id_to_sitelink(self.typ, self.strid)
         if self.typ == 'Relation':
             # Relation
-            self.sitelink = sitelink_normalizer_rel(self.strid)
             self.claims[P_INSTANCE_OF].append(ClaimValue(Q_RELATION))
             self.claims[P_REL_ID].append(ClaimValue(self.strid))
             type_strid = ('Tag', 'type=' + self.strid)
@@ -81,12 +80,11 @@ class ItemFromWiki:
                 self.strid = self.strid[:-len('<number>')]
                 is_number = True
                 print('number!')
-            self.sitelink = sitelink_normalizer_rel(self.strid)
             self.claims[P_INSTANCE_OF].append(ClaimValue(Q_REL_MEMBER_ROLE))
             self.claims[P_ROLE_ID].append(ClaimValue(self.strid))
             rel_name = self.strid[:self.strid.find('=')]
             role_name = self.strid[self.strid.find('=')+1:] or '<blank>'
-            rel_sl = sitelink_normalizer_rel(rel_name)
+            rel_sl = id_to_sitelink('Relation', rel_name)
             if rel_sl not in self.caches.itemQidBySitelink.get():
                 raise ValueError(f"{rel_sl} does not exist")
             self.claims[P_REL_FOR_ROLE].append(ClaimValue(self.caches.itemQidBySitelink.get()[rel_sl]))
@@ -98,7 +96,6 @@ class ItemFromWiki:
             # TAG
             if '=' not in self.strid:
                  raise ValueError(f'{self.strid} does not contain "="')
-            self.sitelink = sitelink_normalizer_tag(self.strid)
             self.claims[P_INSTANCE_OF].append(ClaimValue(Q_TAG))
             self.claims[P_TAG_ID].append(ClaimValue(self.strid))
             key = ('Key', self.strid.split('=')[0])
@@ -106,14 +103,15 @@ class ItemFromWiki:
             if key_id:
                 self.claims[P_TAG_KEY].append(ClaimValue(key_id))
             label = self.strid
-        else:
+        elif self.typ == 'Key':
             # KEY
             if '=' in self.strid:
                 raise ValueError(f'{self.strid} contains "="')
-            self.sitelink = sitelink_normalizer_key(self.strid)
             self.claims[P_INSTANCE_OF].append(ClaimValue(Q_KEY))
             self.claims[P_KEY_ID].append(ClaimValue(self.strid))
             label = self.strid
+        else:
+            raise ValueError(f'Unknown type {self.typ} for {self.strid}')
 
         self.header = {
             'labels': {'en': label},
@@ -140,7 +138,8 @@ class ItemFromWiki:
                                    f'{", ".join([v.full_title for v in vv])}')
                         self.ok = False
                         break
-                new_wiki_pages.append(vv[0])
+                if len(vv) > 0:
+                    new_wiki_pages.append(vv[0])
             self.wiki_pages = new_wiki_pages
 
             if self.ok:
@@ -195,7 +194,7 @@ class ItemFromWiki:
         if 'nativevalue' in params:
             label += '=' + params.nativevalue
         if len(label) > 250:
-            self.print(f'Label {lng} is longer than 250! {label}')
+            self.print(f'Label {self.strid} {lng} is longer than 250! {label}')
         self.header['labels'][lng] = label[:250].strip()
 
     def do_description(self, lng, params):
@@ -214,7 +213,7 @@ class ItemFromWiki:
         desc = reTag.sub(reTag_repl, desc)
         desc = remove_wikimarkup(desc)
         if len(desc) > 250:
-            self.print(f'Description {lng} is longer than 250! {desc}')
+            self.print(f'Description {self.strid} {lng} is longer than 250! {desc}')
         self.header['descriptions'][lng] = desc[:250].strip()
 
     def do_status(self, lng, params):

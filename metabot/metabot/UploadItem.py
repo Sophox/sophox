@@ -4,16 +4,12 @@ from json import loads, dumps
 from pywikiapi import AttrDict
 from typing import List
 
-from metabot.utils import to_item_sitelink
+from metabot import known_non_enums
+from metabot.utils import to_item_sitelink, id_to_sitelink
 from .Sorter import Sorter, claim_order
 from .Properties import *
 from .consts import Q_KEY, Q_TAG, Q_ENUM_KEY_TYPE, Q_LOCALE_INSTANCE, Q_REL_MEMBER_ROLE
-from .utils import get_sitelink, list_to_dict_of_lists, sitelink_normalizer_key, sitelink_normalizer_tag, \
-    sitelink_normalizer_locale, to_json
-
-known_non_enums = {
-    'name',  # Many POIs use Tag:name=*
-}
+from .utils import get_sitelink, list_to_dict_of_lists, to_json
 
 
 class UploadItem:
@@ -46,7 +42,7 @@ class UploadItem:
             self.item = AttrDict()
             self.item.labels = {}
             self.item.descriptions = {}
-            self.item.sitelinks = header.sitelinks
+            self.item.sitelinks = header['sitelinks']
             self.item.claims = {}
             self.qid = None
             self.old_item = AttrDict()
@@ -80,26 +76,6 @@ class UploadItem:
     def upload_item_updates(self):
         self.print(('Updating ' if not self.is_new else 'Creating ') + \
                    (self.strid or '') + ' ' + self.qitem(self.qid))
-        # summary = ''
-        # data = self.header
-        # if data['labels']:
-        #     summary += 'labels ' + ', '.join([f"{k}:'{v}'" for k, v in data['labels'].items()])
-        # if data['descriptions']:
-        #     if summary: summary += ' '
-        #     summary += ', '.join([f"{k}:'{v}'" for k, v in data['descriptions'].items()])
-
-        # self.print(summary)
-        # for prop in self.claims.keys():
-        #     self.apply_claims(prop)
-
-        self.print_messages()
-        # if not self.is_new:
-        #     if data['labels'] or data['descriptions'] or data['sitelinks']:
-        #         print({
-        #             'labels': data['labels'],
-        #             'descriptions': data['descriptions'],
-        #             'sitelinks': data['sitelinks'],
-        #         })
         self.print_messages()
 
         id = self.edit_entity(
@@ -171,69 +147,6 @@ class UploadItem:
         else:
             del self.item.claims[prop.id]
 
-
-        # for prop in set([c.id for c in self.claims.keys()] + list(self.item.claims.keys())):
-        #     add_values = self.mod_claims[prop] if prop in self.mod_claims else None
-        #     if add_values is None:
-        #         return
-        #     if self.is_new:
-        #         for v in add_values:
-        #             prop.set_claim_on_new(self.header, v)
-        #         return
-        #
-        #     add_values = {v.value: v for v in add_values}
-        #
-        #     if prop.id in self.item.claims:
-        #         delete_claims = []
-        #         for old_claim in self.item.claims[prop.id]:
-        #             old_value = prop.value_from_claim(old_claim)
-        #             if old_value in add_values:
-        #                 new_value = add_values[old_value]
-        #                 del add_values[old_value]
-        #                 self.merge_claim(old_claim, new_value)
-        #             else:
-        #                 delete_claims.append(old_claim)
-        #         if delete_claims:
-        #             self.item.removeClaims(delete_claims)
-        #     if add_values:
-        #         for v in add_values.values():
-        #             claim = prop.create_claim(self.pb_site, v)
-        #             self.rank_updated = True
-        #             self.item.addClaim(claim)
-        #             self.add_new_qualifiers(claim, v)
-
-        # for prop in self.claims.keys():
-        #     old_claim_vals = prop.get_claim_value(self.item, allow_multiple=True, allow_qualifiers=True) or []
-        #     new_claim_vals = self.claims[prop]
-        #     if old_claim_vals != new_claim_vals:
-        #         # if not old_claim_vals:
-        #         #     for c in new_claim_vals:
-        #         #         prop.set_claim_on_new(self.item, c)
-        #         # else:
-        #
-        #         # self.mod_claims[prop] = new_claim_vals
-        #
-        #         status = f'  {prop}' if self.is_new else f"{self.qitem(self.qid)} {prop}\n"
-        #         old_strs = list(map(str, old_claim_vals))
-        #         new_strs = list(map(str, new_claim_vals))
-        #         status += '  ' + '\n  '.join([
-        #             f"\x1b[{'32;107' if s.startswith('+') else '31;107' if s.startswith('-') else '0'}m{s}\x1b[0m"
-        #             for s in difflib.ndiff(old_strs, new_strs) if not s.startswith('?')
-        #         ])
-        #         self.print(status)
-
-            # add = set(new_claim_vals) - set(old_claim_vals)
-            # if add:
-            #     status += f" = { self.qitem(add) }"
-            #     self.add_claims[prop] = add
-            # remove = set(old_claim_vals) - set(new_claim_vals)
-            # if remove:
-            #     status += f"   removing { self.qitem(remove) }"
-            #     self.del_claims[prop] = remove
-            # if add or remove:
-            #     self.print(status)
-
-
     def validate_data_item(self):
         item = self.item
         item_as_str = self.qitem(self.qid)
@@ -248,18 +161,13 @@ class UploadItem:
 
         if self.type == 'Locale' or instance_of == Q_LOCALE_INSTANCE:
             locale_id = P_LANG_CODE.get_claim_value(item)
-            exp_sitelink = sitelink_normalizer_locale(locale_id.lower())
+            exp_sitelink = id_to_sitelink('Locale', locale_id.lower())
             if not sitelink or sitelink != exp_sitelink:
                 item.sitelinks = to_item_sitelink(exp_sitelink)
                 sitelink = exp_sitelink
                 self.rank_updated = True
-            # else:
-            #     self.header['sitelinks'] = []
         elif self.type == 'Role' or instance_of == Q_REL_MEMBER_ROLE:
             pass
-            # if P_REL_TAG in self.claims:
-            #     del self.claims[P_REL_TAG]
-            #
         if self.type == 'Key' or \
                 instance_of == Q_KEY or key_strid or \
                 (sitelink and sitelink.startswith('Key:')) or \
@@ -284,7 +192,7 @@ class UploadItem:
                 self.print(f"{item_as_str} seems to be a key, but {P_TAG_KEY} must not set")
                 item_is_key = False
 
-            expected_sitelink = sitelink_normalizer_key(self.strid)
+            expected_sitelink = id_to_sitelink('Key', self.strid)
             if not sitelink:
                 self.print(f"{item_as_str} seems to be a key, but sitelink is not set")
                 item.sitelinks = to_item_sitelink(expected_sitelink)
@@ -294,8 +202,6 @@ class UploadItem:
                     item_is_key = False
             if expected_sitelink != edit_sitelink:
                 raise ValueError(f'Expected sitelink {expected_sitelink} != {edit_sitelink}')
-            # if sitelink == edit_sitelink:
-            #     self.header['sitelinks'] = []
 
             related_tags = self.caches.tags_per_key[self.qid] if self.qid in self.caches.tags_per_key else []
             if len(related_tags) > 5 and key_strid not in known_non_enums:
@@ -350,7 +256,7 @@ class UploadItem:
                     self.print(f"{item_as_str} {P_KEY_ID} = {self.qitem(tag_key)}, "
                                f"which does not have its key id set to {ks}")
 
-            expected_sitelink = sitelink_normalizer_tag(self.strid)
+            expected_sitelink = id_to_sitelink('Tag', self.strid)
             if not sitelink:
                 self.print(f"{item_as_str} seems to be a tag, but sitelink is not set")
                 item.sitelinks = to_item_sitelink(expected_sitelink)
@@ -360,8 +266,6 @@ class UploadItem:
                     item_is_tag = False
             if expected_sitelink != edit_sitelink:
                 raise ValueError(f'Expected sitelink {expected_sitelink} != {edit_sitelink}')
-            # if sitelink == edit_sitelink:
-            #     self.header['sitelinks'] = []
 
         if item_is_key == False or item_is_tag == False:
             raise ValueError(f'{item_as_str} needs manual fixing')
@@ -392,7 +296,6 @@ class UploadItem:
                             if sum([len(v) for v in qualifiers]) != len(unique):
                                 self.print(f"{item_as_str} property {prop} has multiple normal values:")
                                 self.print('  ' + '\n  '.join([str(v) for v in vals2]))
-                        # self.duplicates[prop] = True
 
     def print(self, msg):
         self.messages.append(msg)
@@ -403,67 +306,6 @@ class UploadItem:
             for msg in self.messages:
                 print(msg)
             self.messages = []
-
-    # def apply_claims(self, prop: Property):
-    #     add_values = self.mod_claims[prop] if prop in self.mod_claims else None
-    #     if add_values is None:
-    #         return
-    #     if self.is_new:
-    #         for v in add_values:
-    #             prop.set_claim_on_new(self.header, v)
-    #         return
-    #
-    #     add_values = {v.value: v for v in add_values}
-    #
-    #     if prop.id in self.item.claims:
-    #         delete_claims = []
-    #         for old_claim in self.item.claims[prop.id]:
-    #             old_value = prop.value_from_claim(old_claim)
-    #             if old_value in add_values:
-    #                 new_value = add_values[old_value]
-    #                 del add_values[old_value]
-    #                 self.merge_claim(old_claim, new_value)
-    #             else:
-    #                 delete_claims.append(old_claim)
-    #         if delete_claims:
-    #             self.item.removeClaims(delete_claims)
-    #     if add_values:
-    #         for v in add_values.values():
-    #             claim = prop.create_claim(self.pb_site, v)
-    #             self.rank_updated = True
-    #             self.item.addClaim(claim)
-    #             self.add_new_qualifiers(claim, v)
-
-    # def merge_claim(self, claim, new_value: ClaimValue):
-    #     if claim.getRank() != new_value.rank:
-    #         self.rank_updated = True
-    #         claim.setRank(new_value.rank)
-    #     delete_qualifiers = []
-    #     for qualifier_prop_id, qualifier_vals in list(claim.qualifiers.items()):
-    #         qprop = Property.ALL[qualifier_prop_id]
-    #         if qprop not in new_value.qualifiers:
-    #             delete_qualifiers += claim.qualifiers[qualifier_prop_id]
-    #         else:
-    #             new_q_vals = new_value.qualifiers[qprop]
-    #             for q_val, q in list_to_dict_of_lists(qualifier_vals, lambda v: qprop.value_from_claim(v)).items():
-    #                 if len(q) != 1:
-    #                     raise ValueError(f'Unexpected number of identical qualifier values found for {qprop} / {q_val}')
-    #                 if q_val in new_q_vals:
-    #                     new_q_vals.remove(q_val)
-    #                 else:
-    #                     delete_qualifiers.append(q[0])
-    #             for new_q_val in new_q_vals:
-    #                 claim.addQualifier(qprop.create_claim(self.pb_site, new_q_val))
-    #                 self.rank_updated = True
-    #     if delete_qualifiers:
-    #         claim.removeQualifiers(delete_qualifiers)
-    #     self.add_new_qualifiers(claim, new_value)
-
-    # def add_new_qualifiers(self, claim, new_value):
-    #     for q_prop, qualifier_vals in new_value.qualifiers.items():
-    #         for v in qualifier_vals:
-    #             claim.addQualifier(q_prop.create_claim(self.pb_site, v))
-    #             self.rank_updated = True
 
     def fix_duplicates(self, prop):
         if prop.id in self.item.claims:
@@ -482,17 +324,13 @@ class UploadItem:
         data = {
             'labels': {'en': label},
             'descriptions': {'en': description},
-            'sitelinks': to_item_sitelink(sitelink_normalizer_locale(lang_code)),
+            'sitelinks': to_item_sitelink(id_to_sitelink('Locale', lang_code)),
         }
         P_INSTANCE_OF.set_claim_on_new(data, Q_LOCALE_INSTANCE)
         P_LANG_CODE.set_claim_on_new(data, lang_code)
         self.edit_entity(data, label)
 
     def edit_entity(self, data, summary, qid=None):
-
-        # for prop in self.duplicates:
-        #     self.fix_duplicates(prop)
-
         params = AttrDict()
         params.summary = summary
         params.token = self.site.token()
@@ -555,5 +393,4 @@ class UploadItem:
             for s in difflib.ndiff(old, new) if not s.startswith('?')
         ])
         self.print(status)
-
 

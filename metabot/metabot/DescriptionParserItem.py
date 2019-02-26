@@ -32,7 +32,8 @@ templ_param_map = {
 
 class ItemParser:
 
-    def __init__(self, image_cache: ResolvedImageFiles, pwb_site: pb.Site, ns, title, template, template_params, print_info=False):
+    def __init__(self, image_cache: ResolvedImageFiles, pwb_site: pb.Site, ns, title, template, template_params,
+                 print_info=False):
         self.print_info = print_info
         self.image_cache = image_cache
         self.pwb_site = pwb_site
@@ -45,7 +46,7 @@ class ItemParser:
 
         self.type_from_title, self.lang, self.id_from_title, has_suspect_lang = parse_wiki_page_title(ns, title)
         if has_suspect_lang:
-            self.print(f'Suspected language code in { title }')
+            self.print(f'Suspected language code in {title}')
 
     def setter(self, key, value, allow_multiple=False):
         if key in self.result:
@@ -137,7 +138,7 @@ class ItemParser:
             if tval:
                 try:
                     return tkey, pb.Page(self.pwb_site, tval).full_url()
-                except pb.exceptions.InvalidTitle as err:
+                except pb.exceptions.InvalidTitle:
                     self.print(f'Unparsable {tkey}={tval}')
         elif tkey in ['image', 'osmcarto-rendering']:
             if 'osm element key.svg' in tval.lower():
@@ -307,7 +308,7 @@ class ItemParser:
 
         if self.id_from_title and item_id and item_id != self.id_from_title:
             if sitelink_normalizer(item_id) != sitelink_normalizer(self.id_from_title):
-                self.print(f"Item keys don't match:   {item_id:30} { self.id_from_title :30} in {self.title}")
+                self.print(f"Item keys don't match:   {item_id:30} {self.id_from_title :30} in {self.title}")
                 return False
             return item_id
 

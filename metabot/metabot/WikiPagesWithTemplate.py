@@ -1,8 +1,8 @@
-from typing import Union, List
+from typing import List
 from pywikibot import textlib
 from pywikiapi import Site
 
-from .consts import NS_USER, NS_USER_TALK, NS_TEMPLATE, NS_TEMPLATE_TALK, LANG_NS
+from .consts import NS_USER, NS_TEMPLATE, LANG_NS, LANG_NS_REVERSE
 from .Cache import CacheJsonl
 from .utils import to_json, parse_wiki_page_title, batches
 
@@ -61,9 +61,14 @@ class WikiPagesWithTemplate(CacheJsonl):
                             print(f'Possible language: {p.title}')
                         continue
                     titles.add(p.title)
-        for page in self.site.query_pages(prop='transcludedin', tilimit='max', titles=self.template):
-            for p in page.transcludedin:
-                titles.add(p.title)
+        for page in self.site.query_pages(
+                prop='transcludedin',
+                tilimit='max',
+                titles=self.template):
+            if 'transcludedin' in page:
+                for p in page.transcludedin:
+                    if p.ns in LANG_NS_REVERSE:
+                        titles.add(p.title)
         return titles
 
     def parse_page(self, page):

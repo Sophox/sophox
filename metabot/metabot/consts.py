@@ -11,6 +11,8 @@ LANG_NS = {
     'ja': 212,
 }
 
+LANG_NS_REVERSE = {v: k for k,v in LANG_NS.items()}
+
 elements = {
     'node': 'Q3',
     'way': 'Q4',
@@ -72,3 +74,9 @@ NS_USER=2
 NS_USER_TALK=3
 NS_TEMPLATE=10
 NS_TEMPLATE_TALK=11
+known_non_enums = {
+    'name',  # Many POIs use Tag:name=*
+    'brand',
+    'operator',
+    'source',
+}

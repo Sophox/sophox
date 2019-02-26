@@ -57,24 +57,24 @@ def get_entities(site: Site, ids: Union[str, List[str]] = None, titles: Union[st
         return None
 
 
+def id_to_sitelink(typ, strid):
+    if typ == 'Relation':
+        return sitelink_normalizer(strid, 'Relation:')
+    elif typ == 'Role':
+        if strid.endswith('<number>'):
+            strid = strid[:-len('<number>')]
+        return sitelink_normalizer(strid, 'Relation:')
+    elif typ == 'Tag':
+        return sitelink_normalizer(strid, 'Tag:')
+    elif typ == 'Key':
+        return sitelink_normalizer(strid, 'Key:')
+    elif typ == 'Locale':
+        return sitelink_normalizer(strid, 'Locale:')
+    raise ValueError(f'Unknown type {typ} for {strid}')
+
+
 def sitelink_normalizer(strid, prefix=''):
     return (prefix + strid).replace('_', ' ').strip()
-
-
-def sitelink_normalizer_key(strid):
-    return sitelink_normalizer(strid, 'Key:')
-
-
-def sitelink_normalizer_tag(strid):
-    return sitelink_normalizer(strid, 'Tag:')
-
-
-def sitelink_normalizer_rel(strid):
-    return sitelink_normalizer(strid, 'Relation:')
-
-
-def sitelink_normalizer_locale(strid):
-    return sitelink_normalizer(strid, 'Locale:')
 
 
 def get_sitelink(item):

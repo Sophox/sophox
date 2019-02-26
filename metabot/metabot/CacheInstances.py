@@ -1,5 +1,6 @@
 from typing import Union, List
 
+from metabot.TagInfoDb import TagInfoDb
 from .Properties import P_TAG_KEY, P_INSTANCE_OF
 from .utils import list_to_dict_of_lists
 from .DescriptionParser import DescriptionParser
@@ -23,6 +24,8 @@ class Caches:
 
         self.images = ResolvedImageFiles('_cache/images.json', pwb_site)
         self.contributed = DataItemContributors('_cache/contributed.json', site)
+
+        # self.wikiPageTitles = WikiPageTitles('_cache/wiki_page_titles.json', site)
 
         self.description = WikiPagesWithTemplate(
             '_cache/wiki_raw_descriptions.json', site,
@@ -51,6 +54,8 @@ class Caches:
         self.tags_per_key = list_to_dict_of_lists(
             self.data_items.get(),
             lambda v: P_TAG_KEY.get_claim_value(v) if P_INSTANCE_OF.get_claim_value(v) == Q_TAG else None)
+
+        self.tagInfoDb = TagInfoDb('_cache/tag_info_db.json', '_cache/taginfo-db.db', self.data_items)
 
     def qitem(self, qid: Union[str, List[str]]):
         if not qid: return '[New Item]'
