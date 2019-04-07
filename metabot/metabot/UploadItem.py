@@ -393,4 +393,3 @@ class UploadItem:
             for s in difflib.ndiff(old, new) if not s.startswith('?')
         ])
         self.print(status)
-

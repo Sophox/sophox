@@ -53,11 +53,13 @@ class DataItemContributors():
                 continue
             cmd = m.group('cmd')
             lang = m.group('lang')
-            if 'aliases' in cmd:
+            subcmd = m.group('subcmd')
+            created = 'editentity' == cmd and 'create' == subcmd
+            if 'aliases' in cmd or created:
                 data['aliases'].add(lang)
-            if 'description' in cmd:
+            if 'description' in cmd or created:
                 data['description'].add(lang)
-            if 'label' in cmd:
+            if 'label' in cmd or created:
                 data['label'].add(lang)
             if 'claim' in cmd:
                 m2 = reProperty.search(m.group('text'))

@@ -8,8 +8,10 @@ from pywikiapi import AttrDict
 from .Properties import P_IMAGE_OSM, P_IMAGE, P_GROUP, P_STATUS, Property, P_INSTANCE_OF, \
     P_KEY_ID, P_TAG_ID, P_TAG_KEY, P_LIMIT_TO, ClaimValue, P_USE_ON_NODES, P_USE_ON_WAYS, P_USE_ON_AREAS, \
     P_USE_ON_RELATIONS, P_USE_ON_CHANGESETS, P_WIKIDATA_CONCEPT, P_REL_TAG, P_REL_ID, P_ROLE_ID, P_REL_FOR_ROLE, \
-    P_REGEX, P_WIKI_PAGES
-from .consts import reLanguagesClause, Q_TAG, Q_KEY, Q_IS_ALLOWED, Q_IS_PROHIBITED, Q_RELATION, Q_REL_MEMBER_ROLE
+    P_REGEX, P_WIKI_PAGES, P_RENDERING_IMAGE, P_RENDERING_IMAGE_OSM, P_REQUIRES_KEY_OR_TAG, P_DIFF_FROM, P_IMPLIES, \
+    P_COMBINATION
+from .consts import reLanguagesClause, Q_TAG, Q_KEY, Q_IS_ALLOWED, Q_IS_PROHIBITED, Q_RELATION, Q_REL_MEMBER_ROLE, \
+    LANG_ORDER
 from .utils import list_to_dict_of_lists, reTag_repl, remove_wikimarkup, lang_pick, to_item_sitelink, id_to_sitelink
 
 reTag = re.compile(
@@ -186,6 +188,7 @@ class ItemFromWiki:
             self.do_groups(page.lang, params)
             self.do_status(page.lang, params)
             self.do_wikidata(page.lang, params)
+            self.do_tag_lists(page.lang, params)
 
     def do_label(self, lng, params):
         if 'nativekey' not in params:
@@ -238,24 +241,48 @@ class ItemFromWiki:
             self.has_unknown_group = True
 
     def do_images(self, lng, params):
-        if 'image' not in params or not params.image:
-            return
-        self.claim_per_lang[P_IMAGE][lng] = params.image
+        if 'image' in params and params.image:
+            self.claim_per_lang[P_IMAGE][lng] = params.image
+        if 'osmcarto-rendering' in params and params['osmcarto-rendering']:
+            self.claim_per_lang[P_RENDERING_IMAGE][lng] = params['osmcarto-rendering']
 
     def update_image_claims(self):
-        if P_IMAGE in self.claims:
-            for img in list(self.claims[P_IMAGE]):
-                if img.value.startswith('osm:'):
-                    self.claims[P_IMAGE].remove(img)
-                    self.claims[P_IMAGE_OSM].append(ClaimValue(img.value[len('osm:'):], img.qualifiers, img.rank))
-            if len(self.claims[P_IMAGE]) == 0:
-                del self.claims[P_IMAGE]
+        for p_img, p_img_osm in [(P_IMAGE, P_IMAGE_OSM),
+                                 (P_RENDERING_IMAGE, P_RENDERING_IMAGE_OSM)]:
+            if p_img in self.claims:
+                for img in list(self.claims[p_img]):
+                    if img.value.startswith('osm:'):
+                        self.claims[p_img].remove(img)
+                        self.claims[p_img_osm].append(ClaimValue(img.value[len('osm:'):], img.qualifiers, img.rank))
+                if len(self.claims[p_img]) == 0:
+                    del self.claims[p_img]
 
 
     def do_wikidata(self, lng, params):
         if 'wikidata' not in params or not params.wikidata:
             return
         self.claim_per_lang[P_WIKIDATA_CONCEPT][lng] = params.wikidata
+
+    def do_tag_lists(self, lng, params):
+        for param, prop in [('combination', P_COMBINATION),
+                            ('implies', P_IMPLIES),
+                            ('seealso', P_DIFF_FROM),
+                            ('requires', P_REQUIRES_KEY_OR_TAG)]:
+            if not prop or param not in params:
+                continue
+            values = []
+            for val in params[param]:
+                type_strid = tuple(val)
+                tag_id = self.caches.itemKeysByStrid.get_strid(type_strid)
+                if tag_id:
+                    values.append(tag_id)
+                else:
+                    print(f'Does not exist: {type_strid}')
+            if values:
+                if lng in self.claim_per_lang[prop]:
+                    raise ValueError(f'{prop} {lng} already exist, logic error')
+                self.claim_per_lang[prop][lng] = values
+
 
     def do_used_on(self, lng, params):
         for key, prop in on_elem_map.items():
@@ -268,6 +295,17 @@ class ItemFromWiki:
                     self.print(f'unknown {key} = {params[key]} for {self.strid}')
 
     def merge_claim(self, new_claims_all, prop):
+        if prop.merge_all:
+            # Create a union of all values in all languages
+            result = []
+            for lng in sorted(new_claims_all.keys(), key=lambda l: LANG_ORDER[l] if l in LANG_ORDER else 1000):
+                for val in new_claims_all[lng]:
+                    if val not in result:
+                        result.append(val)
+            if result:
+                self.claims[prop] = [ClaimValue(v) for v in result]
+            return
+
         set_to_lang = list_to_dict_of_lists(
             [(k, v) for k, v in new_claims_all.items()],
             lambda v: v[1], lambda v: v[0])

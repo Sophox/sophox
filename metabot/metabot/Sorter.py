@@ -19,8 +19,11 @@ prop_order = [
     P_REL_ID.id,
     P_REL_TAG.id,
     P_ROLE_ID.id,
+    P_REDIRECT_TO.id,
     P_IMAGE.id,
     P_IMAGE_OSM.id,
+    P_RENDERING_IMAGE.id,
+    P_RENDERING_IMAGE_OSM.id,
     P_STATUS.id,
     P_USE_ON_NODES.id,
     P_USE_ON_WAYS.id,
@@ -30,12 +33,15 @@ prop_order = [
     P_GROUP.id,
     P_WIKIDATA_CONCEPT.id,
     P_REQUIRES_KEY_OR_TAG.id,
+    P_INCOMPATIBLE_WITH.id,
+    P_IMPLIES.id,
+    P_COMBINATION.id,
+    P_DIFF_FROM.id,
     P_REF_URL.id,
     P_LIMIT_TO.id,
     P_WIKI_PAGES.id,
     P_WIKIDATA_EQUIVALENT.id,
     P_URL_FORMAT.id,
-    P_DIFF_FROM.id,
     P_REL_FOR_ROLE.id,
     P_REGEX.id,
 ]
@@ -97,7 +103,8 @@ def key_from_list(key, order, ignore=None):
     except ValueError:
         if not ignore or key not in ignore:
             print(f'Unknown value {key}')
-            return int(key[1:]) + 10000
+            # return int(key[1:]) + 10000
+            return key
         else:
             return 10000
 
@@ -166,8 +173,9 @@ class Sorter:
                 lambda v: key_from_list(v[0], prop_order, prop_delete),
                 lambda v: v[0] not in prop_delete)
 
-            for claim in content['claims'].values():
-                claim.sort(key=mainsnak_key)
+            for prop_id, claim in content['claims'].items():
+                if not Property.ALL[prop_id].merge_all:
+                    claim.sort(key=mainsnak_key)
                 for cl in claim:
                     if 'qualifiers' in cl and cl['qualifiers']:
                         for qualifier in cl['qualifiers'].values():

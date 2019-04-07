@@ -14,11 +14,12 @@ class ClaimValue:
 class Property:
     ALL: Dict[str, 'Property'] = {}
 
-    def __init__(self, id, name, type, allow_multiple=False, allow_qualifiers=False, is_qualifier=False, ignore=False):
+    def __init__(self, id, name, type, allow_multiple=False, allow_qualifiers=False, is_qualifier=False, ignore=False, merge_all=False):
         self.ignore = ignore
         self.id = id
         self.name = name
         self.type = type
+        self.merge_all = merge_all
         self.allow_multiple = allow_multiple
         self.allow_qualifiers = allow_qualifiers
         self.is_qualifier = is_qualifier
@@ -29,6 +30,8 @@ class Property:
             self.dv_type = 'monolingualtext'
         else:
             self.dv_type = 'string'
+        if self.id in Property.ALL:
+            raise ValueError(f'{self.id} already exists for {Property.ALL[self.id]}')
         Property.ALL[self.id] = self
 
     def __str__(self):
@@ -79,7 +82,7 @@ class Property:
                 claim['qualifiers'][p.id] = [p.create_snak(v) for v in vals]
 
         if self.id in claims:
-            if not self.allow_multiple and not self.allow_qualifiers:
+            if not self.merge_all and not self.allow_multiple and not self.allow_qualifiers:
                 raise ValueError(
                     f"Cannot set value of {self} to '{value}', "
                     f"already set to '{self.get_value(data['claims'][self])}'")
@@ -165,7 +168,8 @@ P_USE_ON_CHANGESETS = Property('P37', 'use-on-changesets', 'wikibase-item', allo
 P_WIKIDATA_EQUIVALENT = Property('P7', 'wikidata-equivalent', 'string', allow_qualifiers=True)
 P_WIKIDATA_CONCEPT = Property('P12', 'wikidata-concept', 'string', allow_qualifiers=True)
 P_URL_FORMAT = Property('P8', 'url-format', 'string')
-P_REQUIRES_KEY_OR_TAG = Property('P22', 'requires-key-or-tag', 'wikibase-item', allow_multiple=True)
+
+P_REQUIRES_KEY_OR_TAG = Property('P22', 'requires-key-or-tag', 'wikibase-item', allow_multiple=True, merge_all=True)
 
 P_RENDERING_IMAGE = Property('P38', 'rendering-image', 'commonsMedia', allow_qualifiers=True)
 P_RENDERING_IMAGE_OSM = Property('P39', 'rendering-image-osm', 'string', allow_qualifiers=True)
@@ -173,7 +177,8 @@ P_RENDERING_IMAGE_OSM = Property('P39', 'rendering-image-osm', 'string', allow_q
 P_KEY_TYPE = Property('P9', 'key-type', 'wikibase-item')
 P_TAG_KEY = Property('P10', 'tag-key', 'wikibase-item')
 P_REL_TAG = Property('P40', 'rel-tag', 'wikibase-item')
-P_DIFF_FROM = Property('P18', 'diff-from', 'wikibase-item')
+P_REDIRECT_TO = Property('P17', 'redirect-to', 'wikibase-item')
+P_DIFF_FROM = Property('P18', 'diff-from', 'wikibase-item', merge_all=True)
 P_REF_URL = Property('P11', 'ref-url', 'url')
 P_KEY_ID = Property('P16', 'key-id', 'string')
 P_TAG_ID = Property('P19', 'tag-id', 'string')
@@ -184,3 +189,7 @@ P_LIMIT_TO = Property('P26', 'limit-to', 'wikibase-item', allow_multiple=True, i
 P_REL_FOR_ROLE = Property('P43', 'role-rel', 'wikibase-item')
 P_REGEX = Property('P13', 'regex', 'string')
 P_WIKI_PAGES = Property('P31', 'wiki-pages', 'monolingualtext', allow_multiple=True)
+P_INCOMPATIBLE_WITH = Property('P44', 'incompatible-with', 'wikibase-item')
+
+P_IMPLIES = Property('P45', 'implies', 'wikibase-item', merge_all=True)
+P_COMBINATION = Property('P46', 'combination', 'wikibase-item', merge_all=True)

@@ -33,7 +33,7 @@ class DescriptionParser(CacheJsonl):
                 item.print_messages()
             if result:
                 return result
-        print(f'Skipping {page["title"]}')
+        # print(f'Skipping {page["title"]}')
         return None
 
     def parse_manual(self, pages):

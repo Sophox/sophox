@@ -6,6 +6,7 @@ import requests
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from collections import defaultdict
+from pywikibot import textlib
 
 from pywikiapi import Site, AttrDict
 
@@ -132,9 +133,9 @@ def lang_pick(vals, lang):
 def strid_from_item(item):
     instance_of = P_INSTANCE_OF.get_claim_value(item)
     if instance_of == Q_KEY:
-        return 'Key', P_KEY_ID.get_claim_value(item)
+        return 'Key', P_KEY_ID.get_claim_value(item) or item.labels.en.value
     elif instance_of == Q_TAG:
-        return 'Tag', P_TAG_ID.get_claim_value(item)
+        return 'Tag', P_TAG_ID.get_claim_value(item) or item.labels.en.value
     elif instance_of == Q_RELATION:
         return 'Relation', P_REL_ID.get_claim_value(item)
     elif instance_of == Q_REL_MEMBER_ROLE:
@@ -193,3 +194,46 @@ def batches(items: Iterable, batch_size: int):
 
 def to_item_sitelink(sitelink):
     return {'wiki': {'site': 'wiki', 'title': sitelink}}
+
+
+def parse_members(line, printer, info):
+    vals = {}
+    for vt in textlib.extract_templates_and_params(line, True, True):
+        name, params = vt
+        m = re_lang_template.match(name)
+        if m:
+            name = m[1]
+        name = name.lower()
+        if name == 'iconnode' or (name == 'icon' and '1' in params and params['1'] == 'node'):
+            vals['onnode'] = 'yes'
+        elif name == 'iconway' or (name == 'icon' and '1' in params and params['1'] == 'way'):
+            vals['onway'] = 'yes'
+        elif name == 'iconrelation' or (name == 'icon' and '1' in params and params['1'] == 'relation'):
+            vals['onrelation'] = 'yes'
+        elif name == 'iconarea' or (name == 'icon' and '1' in params and params['1'] == 'area'):
+            vals['onarea'] = 'yes'
+        elif name == 'iconclosedway' or (name == 'icon' and '1' in params and params['1'] == 'closedway'):
+            vals['onclosedway'] = 'yes'
+        elif name == 'value':
+            if list(params.keys()) == ['1']:
+                vals['value'] = params['1']
+                vals['value'] = params['1']
+            elif len(params.keys()) == 0:
+                vals['value'] = ''
+            else:
+                printer(f"Unknown value param pattern in '{line}'")
+        elif name == 'icon':
+            if list(params.keys()) == ['1']:
+                p = params['1'].lower()
+                if p == 'n' or p == 'node':
+                    vals['onnode'] = 'yes'
+                elif p == 'w' or p == 'way':
+                    vals['onway'] = 'yes'
+                elif p == 'r' or p == 'relation':
+                    vals['onrelation'] = 'yes'
+            else:
+                printer(f"Unknown value param pattern in '{line}'")
+        else:
+            info(f"Unknown template {name} in '{line}'")
+    return vals
+

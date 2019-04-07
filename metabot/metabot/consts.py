@@ -11,7 +11,7 @@ LANG_NS = {
     'ja': 212,
 }
 
-LANG_NS_REVERSE = {v: k for k,v in LANG_NS.items()}
+LANG_NS_REVERSE = {v: k for k, v in LANG_NS.items()}
 
 elements = {
     'node': 'Q3',
@@ -66,14 +66,26 @@ languages = {'ace', 'kbd', 'ady', 'af', 'ak', 'als', 'am', 'ang', 'ab', 'ar',
              'zea', 'bat-smg', 'zh', 'zh-tw', 'zh-cn',
              'yue', 'zh-hans', 'zh-hant', 'pt-br'}
 
+
+def create_ordered_langs():
+    res = {v[0]: ind for ind, v in enumerate(sorted(LANG_NS.items(), key=lambda kv: kv[1]))}
+    for l in sorted(languages):
+        if l not in res:
+            res[l] = len(res)
+    return res
+
+
+# dict of languages (key) => int order
+LANG_ORDER = create_ordered_langs()
+
 ignoreLangSuspects = {'translation'}
 
 reLanguagesClause = '(?:' + '|'.join([re.escape(l) for l in languages]) + ')'
 
-NS_USER=2
-NS_USER_TALK=3
-NS_TEMPLATE=10
-NS_TEMPLATE_TALK=11
+NS_USER = 2
+NS_USER_TALK = 3
+NS_TEMPLATE = 10
+NS_TEMPLATE_TALK = 11
 known_non_enums = {
     'name',  # Many POIs use Tag:name=*
     'brand',

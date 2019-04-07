@@ -1,6 +1,7 @@
 from typing import Union, List
 
 from metabot.TagInfoDb import TagInfoDb
+from metabot.WikiFeatures import WikiFeatures
 from .Properties import P_TAG_KEY, P_INSTANCE_OF
 from .utils import list_to_dict_of_lists
 from .DescriptionParser import DescriptionParser
@@ -27,11 +28,13 @@ class Caches:
 
         # self.wikiPageTitles = WikiPageTitles('_cache/wiki_page_titles.json', site)
 
+        self.mapfeatures = WikiFeatures('_cache/wiki_map_features.json', site, pwb_site)
+
         self.description = WikiPagesWithTemplate(
             '_cache/wiki_raw_descriptions.json', site,
             ['Template:Description'],
             ['KeyDescription', 'ValueDescription', 'RelationDescription', 'Deprecated', 'Pl:KeyDescription',
-             'Pl:ValueDescription'])
+             'Pl:ValueDescription', 'Tag', 'Key', 'TagKey', 'TagValue'])
 
         self.descriptionParsed = DescriptionParser(
             '_cache/wiki_parsed_descriptions.json', self.description, self.images, pwb_site)

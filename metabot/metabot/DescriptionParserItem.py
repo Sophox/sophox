@@ -5,7 +5,7 @@ import re
 from pywikibot import textlib
 
 from .utils import remove_wikimarkup, re_wikidata, re_tag_link, re_lang_template, goodValue, sitelink_normalizer, \
-    parse_wiki_page_title
+    parse_wiki_page_title, parse_members
 from .consts import languages
 from .ResolvedImageFiles import *
 
@@ -165,70 +165,27 @@ class ItemParser:
         return None
 
     def parse_combinations(self, tkey, tval):
-        tags = {}
-        for vt in textlib.extract_templates_and_params(tval, True, True):
-            for k, v in self.parse_tag(vt, allow_key_only=True):
-                tags[k] = v
+        items = []
+        for template in textlib.extract_templates_and_params(tval, True, True):
+            for k, v in self.parse_tag(template):
+                if v:
+                    items.append(('Tag', f'{k}={v}'))
+                else:
+                    items.append(('Key', k))
         # Parse free text links like [[ (Key) : (lanes) | (lanes) ]]
         for link in re_tag_link.findall(tval):
             dummy, typ, lnk, freetext = link
             typ = typ.lower()
-            ok = True
-            if typ == 'key' and lnk not in tags:
-                tags[lnk] = ''
-            elif typ == 'tag' and '=' in lnk:
-                k, v = lnk.split('=', 1)
-                if k in tags:
-                    ok = False
-                else:
-                    tags[k] = v
+            if typ == 'relation':
+                items.append(('Relation', lnk))
             else:
-                ok = False
-            if not ok:
                 self.info(f'Parsed link in {tkey} is unrecognized: {typ}:{lnk} | {freetext}')
-        return tags
+        return items
 
     def parse_members(self, tval):
         members = []
         for line in re.split('(^ *\*|\n *\*)', tval.strip()):
-            vals = {}
-            for vt in textlib.extract_templates_and_params(line, True, True):
-                name, params = vt
-                m = re_lang_template.match(name)
-                if m:
-                    name = m[1]
-                name = name.lower()
-                if name == 'iconnode' or (name == 'icon' and '1' in params and params['1'] == 'node'):
-                    vals['onnode'] = 'yes'
-                elif name == 'iconway' or (name == 'icon' and '1' in params and params['1'] == 'way'):
-                    vals['onway'] = 'yes'
-                elif name == 'iconrelation' or (name == 'icon' and '1' in params and params['1'] == 'relation'):
-                    vals['onrelation'] = 'yes'
-                elif name == 'iconarea' or (name == 'icon' and '1' in params and params['1'] == 'area'):
-                    vals['onarea'] = 'yes'
-                elif name == 'iconclosedway' or (name == 'icon' and '1' in params and params['1'] == 'closedway'):
-                    vals['onclosedway'] = 'yes'
-                elif name == 'value':
-                    if list(params.keys()) == ['1']:
-                        vals['value'] = params['1']
-                        vals['value'] = params['1']
-                    elif len(params.keys()) == 0:
-                        vals['value'] = ''
-                    else:
-                        self.print(f"Unknown value param pattern in '{line}'")
-                elif name == 'icon':
-                    if list(params.keys()) == ['1']:
-                        p = params['1'].lower()
-                        if p == 'n' or p == 'node':
-                            vals['onnode'] = 'yes'
-                        elif p == 'w' or p == 'way':
-                            vals['onway'] = 'yes'
-                        elif p == 'r' or p == 'relation':
-                            vals['onrelation'] = 'yes'
-                    else:
-                        self.print(f"Unknown value param pattern in '{line}'")
-                else:
-                    self.info(f"Unknown template {name} in '{line}'")
+            vals = parse_members(line, self.print, self.info)
             if vals:
                 if 'value' not in vals:
                     m = re.match(r'^\s*(?:{{[^{}]+\}\}(?:\s|-|—)*)*(\(?[a-z_: /]+(<[^ {}\[\]<>]*>)?\)?)\s*$',
@@ -259,20 +216,18 @@ class ItemParser:
     def parse_tag(self, template, allow_key_only=False):
         name, params = template
         name = name.lower()
-        if (name.startswith('template:') or name.startswith('Template:')):
-            name = name[len('template:'):]
         if ':' in name:
             prefix, name = name.split(':', 1)
             if prefix not in languages:
                 self.print(f'Bad Tag value "{prefix}:{name}" (unknown prefix)')
                 return
         if name not in ['tag', 'key', 'tagkey', 'tagvalue']:
-            if allow_key_only and name != 'english':
-                self.info(f'Bad Tag value "{name}"')
+            self.info(f'Bad tag value "{name}"')
             return
         key = ''
         if '1' in params:
             key = params['1'].strip()
+            if 'subkey' in params: key += ':' + params['subkey'].strip()
             if ':' in params: key += ':' + params[':'].strip()
             if '::' in params: key += ':' + params['::'].strip()
             if ':::' in params: key += ':' + params[':::'].strip()
@@ -280,17 +235,17 @@ class ItemParser:
         if '2' in params:
             value = params['2'].strip()
         if value == '' and '3' in params:
-            value = params['3'].strip()
-        value = remove_wikimarkup(value)
+            value2 = remove_wikimarkup(params['3'].strip())
+            if value2 == 'yes':
+                value = value2
 
-        for value in re.split(r'[/;]+', value):
-            value = value.strip()
-            if not goodValue.match(value):
-                if not allow_key_only: continue
-                if value not in ['', '*']:
-                    self.info(f'Bad Tag value {value}')
-            if not goodValue.match(key): continue
-            yield key, value
+        for val in re.split(r'[/;]+', value):
+            val = val.strip()
+            if not goodValue.match(val):
+                if val not in ['']:
+                    self.info(f'Bad Tag val {val}')
+            if goodValue.match(key):
+                yield key, val
 
     def id_extractor(self):
         item = self.result
