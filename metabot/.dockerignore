@@ -1,3 +1,4 @@
+run-docker.sh
 _cache/
 /pywikibot.lwp
 /password

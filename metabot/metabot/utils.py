@@ -275,6 +275,5 @@ def get_recently_changed_items(site, last_change, grace_period, caches):
     for batch in batches(todo_titles, 50):
         for wp in caches.descriptionParsed.parse_manual(caches.description.get_new_pages(batch)):
             todo_items.add((wp.type, wp.str_id))
-            caches.wiki_items_by_norm_id[sl]
 
     return last_change, todo_items

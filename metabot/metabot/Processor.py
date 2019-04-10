@@ -119,7 +119,7 @@ class Processor:
             try:
                 self.do_item(obj)
             except Exception as err:
-                print(f'Crashed while processing "{obj}"\n{err}')
+                print(f'\n\n\n\nCrashed while processing "{obj}"\n\n{err}\n\n\n\n')
                 if self.opts['throw']:
                     raise
                 else:

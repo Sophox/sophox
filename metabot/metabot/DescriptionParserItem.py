@@ -29,6 +29,8 @@ templ_param_map = {
     'siehe auch': 'seealso',
 }
 
+# Lower-cased images that we should never add
+bad_images = ['osm element key.svg', 'mf key.svg', 'fi none yet.jpg']
 
 class ItemParser:
 
@@ -141,7 +143,7 @@ class ItemParser:
                     self.print(f'Unparsable {tkey}={tval}')
         elif tkey in ['image', 'osmcarto-rendering']:
             tval2 = tval.lower()
-            if 'osm element key.svg' in tval2 or 'mf key.svg' in tval2:
+            if [v for v in bad_images if v in tval2]:
                 self.print(f'image="{tval}" is not a valid image')
             else:
                 try:

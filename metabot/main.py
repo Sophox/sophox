@@ -41,12 +41,11 @@ proc = Processor(opts, caches, site)
 # proc.run('items')
 # proc.run('relations')
 # proc.run('relroles')
-# proc.run([
-#     caches.itemByQid.get_item('Q16015'),
-#     caches.itemByQid.get_item('Q16120'),
-# ])
+proc.run([
+    caches.itemByQid.get_item('Q7676'),
+])
 # proc.del_params()
-proc.run(('Key', 'yh:WIDTH_RANK'))
+# proc.run(('Key', 'yh:WIDTH_RANK'))
 # proc.run(('Tag', 'highway=path'))
 
 print('done!')

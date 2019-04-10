@@ -193,7 +193,7 @@ class Sorter:
                             elif qp == P_IMG_CAPTION.id:
                                 qvals.sort(key=monoling_sorter)
                             else:
-                                raise ValueError(f'Unable to sort unknown qualifier {qp}')
+                                qvals.sort(key=lambda v: v.datavalue.value)
                     if 'qualifiers-order' in cl:
                         cl['qualifiers-order'].sort(key=lambda v: key_from_list(v, prop_order, prop_delete))
         return content

@@ -305,7 +305,7 @@ class UploadItem:
                         if len(vals2) > 1:
                             self.print(f"{item_as_str} property {prop} has multiple preferred values:")
                             self.print('  ' + '\n  '.join([str(v) for v in vals2]))
-                        with_lmt_qlf = [v for v in vals2 if v.qualifiers and P_LIMIT_TO.id in v.qualifiers]
+                        with_lmt_qlf = [v for v in vals2 if v.qualifiers and P_LIMIT_TO in v.qualifiers]
                         if len(with_lmt_qlf) > 0:
                             self.print(f"{item_as_str} property {prop} has preferred values with qualifier:")
                             self.print('  ' + '\n  '.join([str(v) for v in with_lmt_qlf]))

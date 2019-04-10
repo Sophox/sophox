@@ -33,8 +33,8 @@
 #     'throw': False,
 #     'props': {
 #         P_INSTANCE_OF.id,
+#         P_IMAGE_DEPRECATED.id,
 #         P_IMAGE.id,
-#         P_IMAGE_OSM.id,
 #         P_STATUS.id,
 #         P_KEY_TYPE.id,
 #         P_TAG_KEY.id,
