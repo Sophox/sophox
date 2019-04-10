@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-docker rm metabot || 0
+docker stop metabot ; docker rm metabot ; :
 
 docker run \
     --name metabot \
