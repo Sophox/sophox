@@ -1,3 +1,4 @@
+import os
 from typing import Union, List
 
 from metabot.TagInfoDb import TagInfoDb
@@ -10,7 +11,6 @@ from .CachedFilteredDescription import CachedFilteredDescription, RelationRolesD
 from .DataItems import DataItems, DataItemsByQid, DataItemDescByQid, DataItemsKeysByStrid, DataItemsByName, \
     RegionByLangCode, DataItemBySitelink
 from .WikiPagesWithTemplate import WikiPagesWithTemplate
-from .ResolvedImageFiles import ResolvedImageFiles
 from .DataItemContributors import DataItemContributors
 from .WikiTagTemplateUsage import WikiTagTemplateUsage
 from .TagInfo import TagInfoKeys
@@ -20,10 +20,12 @@ from pywikiapi import Site
 
 class Caches:
     def __init__(self, site: Site, pwb_site: PWB_Site, use_bot_limits):
+
+        os.makedirs("_cache", exist_ok=True)
+
         self.taginfo = TagInfoKeys('_cache/taginfo.txt')
         self.tagusage = WikiTagTemplateUsage('_cache/tagusage.txt', site)
 
-        self.images = ResolvedImageFiles('_cache/images.json', pwb_site)
         self.contributed = DataItemContributors('_cache/contributed.json', site)
 
         # self.wikiPageTitles = WikiPageTitles('_cache/wiki_page_titles.json', site)
@@ -36,8 +38,7 @@ class Caches:
             ['KeyDescription', 'ValueDescription', 'RelationDescription', 'Deprecated', 'Pl:KeyDescription',
              'Pl:ValueDescription', 'Tag', 'Key', 'TagKey', 'TagValue'])
 
-        self.descriptionParsed = DescriptionParser(
-            '_cache/wiki_parsed_descriptions.json', self.description, self.images, pwb_site)
+        self.descriptionParsed = DescriptionParser('_cache/wiki_parsed_descriptions.json', self.description, pwb_site)
 
         self.keydescription = CachedFilteredDescription(self.descriptionParsed, 'Key')
         self.tagdescription = CachedFilteredDescription(self.descriptionParsed, 'Tag')

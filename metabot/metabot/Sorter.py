@@ -5,7 +5,6 @@ from pywikiapi import Site, AttrDict
 from .Properties import *
 
 prop_delete = {'P5', 'P24'}
-
 root_order = ['pageid', 'ns', 'title', 'lastrevid', 'modified', 'type', 'id', 'labels', 'descriptions', 'aliases', 'sitelinks', 'claims']
 
 prop_order = [
@@ -20,10 +19,10 @@ prop_order = [
     P_REL_TAG.id,
     P_ROLE_ID.id,
     P_REDIRECT_TO.id,
+    P_IMAGE_DEPRICATED.id,
     P_IMAGE.id,
-    P_IMAGE_OSM.id,
+    P_RENDERING_IMAGE_DEPRECATED.id,
     P_RENDERING_IMAGE.id,
-    P_RENDERING_IMAGE_OSM.id,
     P_STATUS.id,
     P_USE_ON_NODES.id,
     P_USE_ON_WAYS.id,
@@ -39,6 +38,7 @@ prop_order = [
     P_DIFF_FROM.id,
     P_REF_URL.id,
     P_LIMIT_TO.id,
+    P_IMG_CAPTION.id,
     P_WIKI_PAGES.id,
     P_WIKIDATA_EQUIVALENT.id,
     P_URL_FORMAT.id,
@@ -128,6 +128,8 @@ def claim_order(pref, val):
         if 'id' in val:
             res += val['id']
         return res
+    if type(val) == tuple:
+        return '' if val[0] == 'en' else val[0]
     return (0 if pref else 1000) + val
 
 
@@ -136,6 +138,15 @@ def snak_key(snak):
     if type(val) != str and 'id' in val:
         return val['id']
     return val
+
+
+def lang_sorter(kv):
+    return '' if kv[0] == 'en' else kv[0]
+
+
+def monoling_sorter(kv):
+    lang = kv['datavalue']['value']['language']
+    return '' if lang == 'en' else lang
 
 
 class Sorter:
@@ -164,9 +175,7 @@ class Sorter:
         content = dict_sorter(content, lambda v: key_from_list(v[0], root_order))
         for k in ['labels', 'descriptions', 'aliases']:
             if k in content and content[k]:
-                content[k] = dict_sorter(
-                    content[k],
-                    lambda l: '' if l[0] == 'en' else l[0])
+                content[k] = dict_sorter(content[k], lang_sorter)
         if 'claims' in content and content['claims']:
             content['claims'] = dict_sorter(
                 content['claims'],
@@ -177,9 +186,16 @@ class Sorter:
                 if not Property.ALL[prop_id].merge_all:
                     claim.sort(key=mainsnak_key)
                 for cl in claim:
-                    if 'qualifiers' in cl and cl['qualifiers']:
-                        for qualifier in cl['qualifiers'].values():
-                            qualifier.sort(key=lambda v: key_from_list(snak_key(v), qualifier_order))
+                    if 'qualifiers' in cl:
+                        for qp, qvals in cl['qualifiers'].items():
+                            if qp == P_LIMIT_TO.id:
+                                qvals.sort(key=lambda v: key_from_list(snak_key(v), qualifier_order))
+                            elif qp == P_IMG_CAPTION.id:
+                                qvals.sort(key=monoling_sorter)
+                            else:
+                                raise ValueError(f'Unable to sort unknown qualifier {qp}')
+                    if 'qualifiers-order' in cl:
+                        cl['qualifiers-order'].sort(key=lambda v: key_from_list(v, prop_order, prop_delete))
         return content
 
     def run(self):

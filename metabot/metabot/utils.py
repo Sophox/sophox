@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime, timedelta, timezone
 from typing import Union, List, Dict, Iterator, Iterable
 
 import requests
@@ -237,3 +238,43 @@ def parse_members(line, printer, info):
             info(f"Unknown template {name} in '{line}'")
     return vals
 
+
+def get_recently_changed_items(site, last_change, grace_period, caches):
+    stop_at = (datetime.utcnow() - timedelta(minutes=grace_period)).replace(tzinfo=timezone.utc)
+    todo_titles = set()
+    found_unprocessed_changes = False
+    for res in site.query(
+            list='recentchanges',
+            rcstart=last_change,
+            rcdir='newer',
+            rcprop=['timestamp', 'title'],
+            rclimit='max'):
+        for change in res.recentchanges:
+            ts = datetime.fromisoformat(change.timestamp.replace("Z", "+00:00"))
+            if not found_unprocessed_changes:
+                last_change = ts
+            if ts > stop_at:
+                # Do not process anything within the last few minutes - often people do multiple corrections
+                found_unprocessed_changes = True
+            if change.ns % 2 == 1 or change.ns == 120:
+                continue
+            typ, _, strid, _ = parse_wiki_page_title(change.ns, change.title)
+            if typ and strid:
+                if found_unprocessed_changes:
+                    if change.title in todo_titles:
+                        # We will get to it in the next round
+                        todo_titles.remove(change.title)
+                else:
+                    todo_titles.add(change.title)
+    if not found_unprocessed_changes:
+        # There are no recent changes within the grace period,
+        # make sure not to get the same one we already did
+        last_change += timedelta(seconds=1)
+
+    todo_items = set()
+    for batch in batches(todo_titles, 50):
+        for wp in caches.descriptionParsed.parse_manual(caches.description.get_new_pages(batch)):
+            todo_items.add((wp.type, wp.str_id))
+            caches.wiki_items_by_norm_id[sl]
+
+    return last_change, todo_items

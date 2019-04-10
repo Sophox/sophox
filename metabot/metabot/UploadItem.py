@@ -113,36 +113,60 @@ class UploadItem:
     def update_claims(self):
         for prop in set(c for c in self.claims.keys())\
                 .union([Property.ALL[c] for c in self.item.claims.keys() if c in Property.ALL]):
-            self.update_claim(prop)
+            self.update_prop_claims(prop)
 
     @staticmethod
     def sort_claims(claims):
         claims.sort(key=lambda cv: claim_order(cv.rank == 'preferred', cv.value))
         return claims
 
-    def update_claim(self, prop):
-        item_value = self.sort_claims(prop.get_claim_value(self.item, True, True)) if prop.id in self.item.claims else None
-        new_value = self.sort_claims(self.claims[prop]) if prop in self.claims else None
-        if item_value and new_value and item_value == new_value:
+    def update_prop_claims(self, prop):
+        item_claims = self.sort_claims(prop.get_claim_value(self.item, True, True)) if prop.id in self.item.claims else None
+        desired_claims = self.sort_claims(self.claims[prop]) if prop in self.claims else None
+        if item_claims == desired_claims:
             return
         if not self.opts.overwrite_user_claims and self.prohibit('claims', prop.id):
-            if item_value and new_value:
-                self.print(f'{prop} was modified by a user to "{item_value}", cannot be set to "{new_value}"')
-            elif item_value:
-                self.print(f'{prop} was modified by a user to "{item_value}", cannot be deleted')
+            if item_claims and desired_claims:
+                self.print(f'{prop} was modified by a user to "{item_claims}", cannot be set to "{desired_claims}"')
+            elif item_claims:
+                # self.print(f'{prop} was modified by a user to "{item_claims}", cannot be deleted')
+                pass
             else:
-                self.print(f'{prop} was deleted by a user, cannot be set to "{new_value}"')
+                self.print(f'{prop} was deleted by a user, cannot be set to "{desired_claims}"')
             return
-        if new_value:
-            if item_value:
-                new_vals2 = list(new_value)
-                for val in new_vals2:
-                    if val in item_value:
-                        new_value.remove(val)
-                for val in list(item_value):
-                    if val not in new_vals2:
+        if desired_claims:
+            if item_claims:
+                for val in item_claims:
+                    for dv in list(desired_claims):
+                        if dv.value == val.value:
+                            item_claim_val, = (v for v in self.item.claims[prop.id] if prop.get_value(v) == dv.value)
+                            item_claim_val.rank = dv.rank # just in case it has changed
+                            desired_qs = [(p.id, q) for p, ql in dv.qualifiers.items() for q in ql]
+                            item_qs = [q for ql in item_claim_val.qualifiers.values() for q in ql] if 'qualifiers' in item_claim_val else []
+                            for itmq in item_qs:
+                                try:
+                                    desired_qs.remove((itmq.property, Property.ALL[itmq.property].get_value(itmq)))
+                                except ValueError:
+                                    item_claim_val.qualifiers[itmq.property].remove(itmq)
+                                    if not item_claim_val.qualifiers[itmq.property]:
+                                        del item_claim_val.qualifiers[itmq.property]
+                                        item_claim_val['qualifiers-order'].remove(itmq.property)
+                            for qpid, newq in desired_qs:
+                                if 'qualifiers' not in item_claim_val:
+                                    item_claim_val.qualifiers = {}
+                                if qpid not in item_claim_val.qualifiers:
+                                    item_claim_val.qualifiers[qpid] = []
+                                    if 'qualifiers-order' not in item_claim_val:
+                                        item_claim_val['qualifiers-order'] = [qpid]
+                                    else:
+                                        item_claim_val['qualifiers-order'].append(qpid)
+                                item_claim_val.qualifiers[qpid].append(Property.ALL[qpid].create_snak(newq))
+
+                            desired_claims.remove(dv)
+                            break
+                    else:
                         prop.remove_claim(self.item, val)
-            for val in new_value:
+            for val in desired_claims:
                 prop.set_claim_on_new(self.item, val)
         else:
             del self.item.claims[prop.id]
@@ -281,10 +305,10 @@ class UploadItem:
                         if len(vals2) > 1:
                             self.print(f"{item_as_str} property {prop} has multiple preferred values:")
                             self.print('  ' + '\n  '.join([str(v) for v in vals2]))
-                        with_qlf = [v for v in vals2 if v.qualifiers and len(v.qualifiers) > 0]
-                        if len(with_qlf) > 0:
+                        with_lmt_qlf = [v for v in vals2 if v.qualifiers and P_LIMIT_TO.id in v.qualifiers]
+                        if len(with_lmt_qlf) > 0:
                             self.print(f"{item_as_str} property {prop} has preferred values with qualifier:")
-                            self.print('  ' + '\n  '.join([str(v) for v in with_qlf]))
+                            self.print('  ' + '\n  '.join([str(v) for v in with_lmt_qlf]))
                     if 'normal' in vals:
                         vals2 = vals['normal']
                         if len(vals2) > 1:
@@ -351,7 +375,8 @@ class UploadItem:
         self.item = self.sorter.order(self.item)
 
         if self.old_item == self.item or \
-                dumps(self.old_item, sort_keys=True) == dumps(self.item, sort_keys=True):
+                dumps(self.old_item, sort_keys=True, ensure_ascii=False) == \
+                dumps(self.item, sort_keys=True, ensure_ascii=False):
             return None
 
         self.needs_changes = True

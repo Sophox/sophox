@@ -199,7 +199,8 @@ class Processor:
                 print(f'==== Updating {status_id} ====')
                 parsed_item.print_messages()
                 uploader.print_messages()
-                if ' relation ' not in status_id:
+                if strid[0] != 'Role':
+                    # FIXME: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     uploader.upload_item_updates()
                 uploader.print_messages()
                 print(f'==== Done updating {status_id} ====')

@@ -4,10 +4,10 @@ import re
 
 from pywikibot import textlib
 
-from .utils import remove_wikimarkup, re_wikidata, re_tag_link, re_lang_template, goodValue, sitelink_normalizer, \
+from .utils import remove_wikimarkup, re_wikidata, re_tag_link, goodValue, sitelink_normalizer, \
     parse_wiki_page_title, parse_members
 from .consts import languages
-from .ResolvedImageFiles import *
+import pywikibot as pb
 
 templ_param_map = {
     'descrizione': 'description',
@@ -32,10 +32,9 @@ templ_param_map = {
 
 class ItemParser:
 
-    def __init__(self, image_cache: ResolvedImageFiles, pwb_site: pb.Site, ns, title, template, template_params,
+    def __init__(self, pwb_site: pb.Site, ns, title, template, template_params,
                  print_info=False):
         self.print_info = print_info
-        self.image_cache = image_cache
         self.pwb_site = pwb_site
         self.ns = ns
         self.title = title
@@ -112,7 +111,7 @@ class ItemParser:
             tval = tval[1:].strip()
 
         if tkey in ['key', 'value', 'oldkey', 'oldvalue', 'newtext', 'type', 'label', 'nativekey', 'nativevalue',
-                    'group', 'groups', 'category', 'description', 'osmcarto-rendering-size', 'image caption',
+                    'group', 'groups', 'category', 'description', 'osmcarto-rendering-size', 'image_caption',
                     'website', 'displayname', 'proposal']:
             return tkey, tval
         elif tkey == 'lang':
@@ -141,11 +140,16 @@ class ItemParser:
                 except pb.exceptions.InvalidTitle:
                     self.print(f'Unparsable {tkey}={tval}')
         elif tkey in ['image', 'osmcarto-rendering']:
-            if 'osm element key.svg' in tval.lower():
+            tval2 = tval.lower()
+            if 'osm element key.svg' in tval2 or 'mf key.svg' in tval2:
                 self.print(f'image="{tval}" is not a valid image')
             else:
                 try:
-                    return tkey, self.image_cache.parse_image_title(tval)
+                    if tval.startswith('Image:') or tval.startswith('image:'):
+                        tval = 'File:' + tval[len('Image:'):]
+                    elif tval.startswith('file:'):
+                        tval = 'File:' + tval[len('file:'):]
+                    return tkey, pb.FilePage(self.pwb_site, tval).titleWithoutNamespace()
                 except:
                     self.print(f'image="{tval}" cannot be processed')
         elif tkey in ['combination', 'implies', 'seealso', 'requires']:
@@ -158,7 +162,7 @@ class ItemParser:
             if len(members) > 0:
                 return [('members', members), (tkey + '!text', tval)]
             self.info(f'No items found in {tkey} -- {tval}')
-        elif tkey in ['languagelinks', 'image:desc', 'image_caption', 'float', 'debug', 'dir', 'rtl']:
+        elif tkey in ['languagelinks', 'float', 'debug', 'dir', 'rtl']:
             pass  # We know them, but they are not very useful at this point
         else:
             self.info(f'Unknown "{tkey}={tval}"')
@@ -184,7 +188,7 @@ class ItemParser:
 
     def parse_members(self, tval):
         members = []
-        for line in re.split('(^ *\*|\n *\*)', tval.strip()):
+        for line in re.split(r'(^ *\*|\n *\*)', tval.strip()):
             vals = parse_members(line, self.print, self.info)
             if vals:
                 if 'value' not in vals:

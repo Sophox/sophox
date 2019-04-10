@@ -1,8 +1,9 @@
-from collections import namedtuple
 from typing import Dict, Set, Union
-import pywikibot as pb
 from dataclasses import dataclass, field
 
+
+def mono_value(lang, text):
+    return {'language': lang, 'text': text}
 
 @dataclass
 class ClaimValue:
@@ -24,9 +25,10 @@ class Property:
         self.allow_qualifiers = allow_qualifiers
         self.is_qualifier = is_qualifier
         self.is_item = type == 'wikibase-item'
-        if type == 'wikibase-item':
+        self.is_monotext = type == 'monolingualtext'
+        if self.is_item:
             self.dv_type = 'wikibase-entityid'
-        elif type == 'monolingualtext':
+        elif self.is_monotext:
             self.dv_type = 'monolingualtext'
         else:
             self.dv_type = 'string'
@@ -47,12 +49,21 @@ class Property:
         return self.id.__eq__(o.id)
 
     def create_snak(self, value):
+        if self.is_item:
+            value = {'entity-type': 'item', 'id': value}
+        elif self.is_monotext:
+            # if isinstance(value, tuple) and len(value) == 2:
+            #     value = mono_value(value[0], value[1])
+            # el
+            if not isinstance(value, dict) or len(value) != 2:
+                raise ValueError('Monolingual values expect a two value tuple or a lang/text dict')
+
         return {
             'snaktype': 'value',
             'property': self.id,
             'datatype': self.type,
             'datavalue': {
-                'value': {'entity-type': 'item', 'id': value} if self.is_item else value,
+                'value': value,
                 'type': self.dv_type,
             }
         }
@@ -108,8 +119,9 @@ class Property:
                 if value['entity-type'] != 'item':
                     raise ValueError(f'wd item type "{value["entity-type"]}" should be "item"')
                 return value['id']
-            else:
-                return value
+            # elif self.is_monotext:
+            #     return value['language'], value['text']
+            return value
         raise ValueError('Unexpected item')
 
     def get_claim_value(self, item, allow_multiple=None, allow_qualifiers=None):
@@ -137,9 +149,11 @@ class Property:
         if include_qualifiers:
             qualifiers = {}
             if 'qualifiers' in claim:
-                qlf = P_LIMIT_TO.get_claim_value(claim.qualifiers)
-                if qlf:
-                    qualifiers[P_LIMIT_TO] = set(qlf)
+                for qid, qval in claim.qualifiers.items():
+                    qprop = Property.ALL[qid]
+                    qlf = qprop.get_claim_value(claim.qualifiers)
+                    if qlf:
+                        qualifiers[qprop] = qlf if qprop.is_monotext else set(qlf)
             value = ClaimValue(value, qualifiers, claim.rank)
         elif 'qualifiers' in claim:
             raise ValueError(f'{self} does not support qualifiers')
@@ -156,8 +170,8 @@ class Property:
 P_INSTANCE_OF = Property('P2', 'instance-of', 'wikibase-item')
 P_SUBCLASS_OF = Property('P3', 'subclass-of', 'wikibase-item')
 
-P_IMAGE = Property('P4', 'image', 'commonsMedia', allow_qualifiers=True)
-P_IMAGE_OSM = Property('P28', 'image-osm', 'string', allow_qualifiers=True)
+P_IMAGE_DEPRICATED = Property('P4', 'image-depr', 'commonsMedia', allow_qualifiers=True)
+P_IMAGE = Property('P28', 'image', 'string', allow_qualifiers=True)
 P_STATUS = Property('P6', 'status', 'wikibase-item', allow_qualifiers=True)
 P_GROUP = Property('P25', 'group', 'wikibase-item', allow_qualifiers=True)
 P_USE_ON_NODES = Property('P33', 'use-on-nodes', 'wikibase-item', allow_qualifiers=True)
@@ -171,8 +185,8 @@ P_URL_FORMAT = Property('P8', 'url-format', 'string')
 
 P_REQUIRES_KEY_OR_TAG = Property('P22', 'requires-key-or-tag', 'wikibase-item', allow_multiple=True, merge_all=True)
 
-P_RENDERING_IMAGE = Property('P38', 'rendering-image', 'commonsMedia', allow_qualifiers=True)
-P_RENDERING_IMAGE_OSM = Property('P39', 'rendering-image-osm', 'string', allow_qualifiers=True)
+P_RENDERING_IMAGE_DEPRECATED = Property('P38', 'rendering-image-depr', 'commonsMedia', allow_qualifiers=True)
+P_RENDERING_IMAGE = Property('P39', 'rendering-image', 'string', allow_qualifiers=True)
 
 P_KEY_TYPE = Property('P9', 'key-type', 'wikibase-item')
 P_TAG_KEY = Property('P10', 'tag-key', 'wikibase-item')
@@ -193,3 +207,5 @@ P_INCOMPATIBLE_WITH = Property('P44', 'incompatible-with', 'wikibase-item')
 
 P_IMPLIES = Property('P45', 'implies', 'wikibase-item', merge_all=True)
 P_COMBINATION = Property('P46', 'combination', 'wikibase-item', merge_all=True)
+
+P_IMG_CAPTION = Property('P47', 'img-caption', 'monolingualtext', allow_multiple=True, is_qualifier=True)

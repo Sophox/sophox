@@ -4,16 +4,14 @@ from pywikiapi import AttrDict
 from .WikiPagesWithTemplate import WikiPagesWithTemplate
 from .Cache import CacheJsonl
 from .DescriptionParserItem import ItemParser
-from .ResolvedImageFiles import ResolvedImageFiles
 from .utils import to_json
 
 
 class DescriptionParser(CacheJsonl):
 
-    def __init__(self, filename: str, pages: WikiPagesWithTemplate, image_cache: ResolvedImageFiles, pwb_site: pb.Site):
+    def __init__(self, filename: str, pages: WikiPagesWithTemplate, pwb_site: pb.Site):
         super().__init__(filename)
         self.pages = pages
-        self.image_cache = image_cache
         self.pwb_site = pwb_site
 
     def generate(self):
@@ -25,8 +23,7 @@ class DescriptionParser(CacheJsonl):
 
     def parse_item(self, page):
         if page['ns'] % 2 != 1 and page['ns'] != 2: # and 'Proposed features/' not in page['title']:
-            item = ItemParser(
-                self.image_cache, self.pwb_site, page['ns'], page['title'], page['template'], page['params'])
+            item = ItemParser(self.pwb_site, page['ns'], page['title'], page['template'], page['params'])
             result = item.parse()
             if item.messages:
                 print(f'#### {page["title"]}')

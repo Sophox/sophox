@@ -1,15 +1,11 @@
-from typing import List, Dict
+from typing import List
 
 import re
 from collections import defaultdict
 
 from pywikiapi import AttrDict
 
-from .Properties import P_IMAGE_OSM, P_IMAGE, P_GROUP, P_STATUS, Property, P_INSTANCE_OF, \
-    P_KEY_ID, P_TAG_ID, P_TAG_KEY, P_LIMIT_TO, ClaimValue, P_USE_ON_NODES, P_USE_ON_WAYS, P_USE_ON_AREAS, \
-    P_USE_ON_RELATIONS, P_USE_ON_CHANGESETS, P_WIKIDATA_CONCEPT, P_REL_TAG, P_REL_ID, P_ROLE_ID, P_REL_FOR_ROLE, \
-    P_REGEX, P_WIKI_PAGES, P_RENDERING_IMAGE, P_RENDERING_IMAGE_OSM, P_REQUIRES_KEY_OR_TAG, P_DIFF_FROM, P_IMPLIES, \
-    P_COMBINATION
+from .Properties import *
 from .consts import reLanguagesClause, Q_TAG, Q_KEY, Q_IS_ALLOWED, Q_IS_PROHIBITED, Q_RELATION, Q_REL_MEMBER_ROLE, \
     LANG_ORDER
 from .utils import list_to_dict_of_lists, reTag_repl, remove_wikimarkup, lang_pick, to_item_sitelink, id_to_sitelink
@@ -57,6 +53,7 @@ class ItemFromWiki:
         self.wiki_pages = wiki_pages
         self.messages = []
         self.claim_per_lang = defaultdict(dict)
+        self.image_captions = {}
         self.has_unknown_group = False
         self.typ = strid[0]
         self.strid = strid[1]
@@ -85,7 +82,7 @@ class ItemFromWiki:
             self.claims[P_INSTANCE_OF].append(ClaimValue(Q_REL_MEMBER_ROLE))
             self.claims[P_ROLE_ID].append(ClaimValue(self.strid))
             rel_name = self.strid[:self.strid.find('=')]
-            role_name = self.strid[self.strid.find('=')+1:] or '<blank>'
+            role_name = self.strid[self.strid.find('=') + 1:] or '<blank>'
             rel_sl = id_to_sitelink('Relation', rel_name)
             if rel_sl not in self.caches.itemQidBySitelink.get():
                 raise ValueError(f"{rel_sl} does not exist")
@@ -97,7 +94,7 @@ class ItemFromWiki:
         elif self.typ == 'Tag':
             # TAG
             if '=' not in self.strid:
-                 raise ValueError(f'{self.strid} does not contain "="')
+                raise ValueError(f'{self.strid} does not contain "="')
             self.claims[P_INSTANCE_OF].append(ClaimValue(Q_TAG))
             self.claims[P_TAG_ID].append(ClaimValue(self.strid))
             key = ('Key', self.strid.split('=')[0])
@@ -128,7 +125,8 @@ class ItemFromWiki:
             new_wiki_pages = []
             for lng, vv in list_to_dict_of_lists(self.wiki_pages, lambda v: v.lang).items():
                 if len(vv) > 1 and len(set([v.ns for v in vv])) == 1:
-                    vv = [v for v in vv if 'Key:' in v.full_title or 'Tag:' in v.full_title or 'Relation:' in v.full_title]
+                    vv = [v for v in vv if
+                          'Key:' in v.full_title or 'Tag:' in v.full_title or 'Relation:' in v.full_title]
                 if len(vv) > 1:
                     vv = [v for v in vv if 'Proposed features/' not in v.full_title]
                 if len(vv) > 1:
@@ -146,16 +144,10 @@ class ItemFromWiki:
 
             if self.ok:
                 self.merge_wiki_languages()
-                # if P_IMAGE in self.claim_per_lang and P_IMAGE_OSM in self.claim_per_lang:
-                #     del self.claim_per_lang[P_IMAGE_OSM]
-                for wp in self.wiki_pages:
-                    self.claims[P_WIKI_PAGES].append(ClaimValue({'language': wp.lang, 'text': wp.full_title}))
 
         if self.claim_per_lang:
             for prop, claim in self.claim_per_lang.items():
                 self.merge_claim(claim, prop)
-
-        self.update_image_claims()
 
         self.ok = self.ok and (self.header or self.claim_per_lang)
 
@@ -189,6 +181,9 @@ class ItemFromWiki:
             self.do_status(page.lang, params)
             self.do_wikidata(page.lang, params)
             self.do_tag_lists(page.lang, params)
+
+        for wp in self.wiki_pages:
+            self.claims[P_WIKI_PAGES].append(ClaimValue(mono_value(wp.lang, wp.full_title)))
 
     def do_label(self, lng, params):
         if 'nativekey' not in params:
@@ -243,20 +238,10 @@ class ItemFromWiki:
     def do_images(self, lng, params):
         if 'image' in params and params.image:
             self.claim_per_lang[P_IMAGE][lng] = params.image
+        if 'image_caption' in params and params.image_caption:
+            self.image_captions[lng] = params.image_caption
         if 'osmcarto-rendering' in params and params['osmcarto-rendering']:
             self.claim_per_lang[P_RENDERING_IMAGE][lng] = params['osmcarto-rendering']
-
-    def update_image_claims(self):
-        for p_img, p_img_osm in [(P_IMAGE, P_IMAGE_OSM),
-                                 (P_RENDERING_IMAGE, P_RENDERING_IMAGE_OSM)]:
-            if p_img in self.claims:
-                for img in list(self.claims[p_img]):
-                    if img.value.startswith('osm:'):
-                        self.claims[p_img].remove(img)
-                        self.claims[p_img_osm].append(ClaimValue(img.value[len('osm:'):], img.qualifiers, img.rank))
-                if len(self.claims[p_img]) == 0:
-                    del self.claims[p_img]
-
 
     def do_wikidata(self, lng, params):
         if 'wikidata' not in params or not params.wikidata:
@@ -282,7 +267,6 @@ class ItemFromWiki:
                 if lng in self.claim_per_lang[prop]:
                     raise ValueError(f'{prop} {lng} already exist, logic error')
                 self.claim_per_lang[prop][lng] = values
-
 
     def do_used_on(self, lng, params):
         for key, prop in on_elem_map.items():
@@ -310,9 +294,11 @@ class ItemFromWiki:
             [(k, v) for k, v in new_claims_all.items()],
             lambda v: v[1], lambda v: v[0])
 
+        preferred = None
         if len(set_to_lang) == 1:
             (new_claim,) = set_to_lang.keys()
-            new_claims = [ClaimValue(new_claim, rank='preferred')]
+            preferred = ClaimValue(new_claim, rank='preferred')
+            new_claims = [preferred]
         else:
             # status = f"  Claim mismatch: {prop}:"
             # for q, lngs in set_to_lang.items():
@@ -322,7 +308,8 @@ class ItemFromWiki:
             default_value = None
             if 'en' in new_claims_all:
                 default_value = new_claims_all['en']
-                new_claims[default_value] = ClaimValue(default_value, rank='preferred')
+                preferred = ClaimValue(default_value, rank='preferred')
+                new_claims[default_value] = preferred
             regions = self.caches.regionByLangCode.get()
 
             for lng in new_claims_all:
@@ -333,9 +320,20 @@ class ItemFromWiki:
                 value = new_claims_all[lng]
                 if value != default_value:
                     if value not in new_claims:
-                        new_claims[value] = ClaimValue(value, {P_LIMIT_TO: set()})
-                    new_claims[value].qualifiers[P_LIMIT_TO].add(regions[lng].id)
+                        claim = ClaimValue(value, {P_LIMIT_TO: set()})
+                        new_claims[value] = claim
+                    else:
+                        claim = new_claims[value]
+                    claim.qualifiers[P_LIMIT_TO].add(regions[lng].id)
+                    if prop == P_IMAGE and lng in self.image_captions:
+                        if P_IMG_CAPTION not in claim.qualifiers:
+                            claim.qualifiers[P_IMG_CAPTION] = []
+                        claim.qualifiers[P_IMG_CAPTION].append(mono_value(lng, self.image_captions[lng]))
+                        del self.image_captions[lng]
 
             new_claims = list(new_claims.values())
+
+        if preferred and prop == P_IMAGE and self.image_captions:
+            preferred.qualifiers[P_IMG_CAPTION] = [mono_value(v[0], v[1]) for v in self.image_captions.items()]
 
         self.claims[prop] = new_claims
