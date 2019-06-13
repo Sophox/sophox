@@ -4,7 +4,7 @@ from typing import Union, List
 from metabot.TagInfoDb import TagInfoDb
 from metabot.WikiFeatures import WikiFeatures
 from .Properties import P_TAG_KEY, P_INSTANCE_OF
-from .utils import list_to_dict_of_lists
+from .utils import list_to_dict_of_lists, get_instance_of
 from .DescriptionParser import DescriptionParser
 from .consts import Q_GROUP, Q_STATUS, Q_TAG
 from .CachedFilteredDescription import CachedFilteredDescription, RelationRolesDescription
@@ -55,11 +55,10 @@ class Caches:
         self.groupsByName = DataItemsByName(self.data_items, Q_GROUP)
         self.statusesByName = DataItemsByName(self.data_items, Q_STATUS)
 
-        self.tags_per_key = list_to_dict_of_lists(
-            self.data_items.get(),
-            lambda v: P_TAG_KEY.get_claim_value(v) if P_INSTANCE_OF.get_claim_value(v) == Q_TAG else None)
+        self.tags_per_key = list_to_dict_of_lists(self.data_items.get(), get_instance_of)
 
         self.tagInfoDb = TagInfoDb('_cache/tag_info_db.json', '_cache/taginfo-db.db', self.data_items)
+
 
     def qitem(self, qid: Union[str, List[str]]):
         if not qid: return '[New Item]'

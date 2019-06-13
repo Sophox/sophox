@@ -30,7 +30,8 @@ templ_param_map = {
 }
 
 # Lower-cased images that we should never add
-bad_images = ['osm element key.svg', 'mf key.svg', 'fi none yet.jpg']
+bad_images = ['osm element key.svg', 'mf key.svg', 'none yet.jpg', 'fi none yet.jpg']
+
 
 class ItemParser:
 

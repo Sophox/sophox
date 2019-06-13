@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from pywikiapi import Site
 
-from .utils import strid_from_item, batches
+from .utils import strid_from_item, batches, get_instance_of
 from .consts import elements, Q_KEY, Q_LOCALE_INSTANCE
 from .Cache import CacheInMemory
 from .Properties import P_INSTANCE_OF, P_LANG_CODE
@@ -114,8 +114,7 @@ class RegionByLangCode(DataItemCache):
     def generate(self):
         result = {}
         for item in self.items.get():
-            instance_of = P_INSTANCE_OF.get_claim_value(item)
-            if instance_of == Q_LOCALE_INSTANCE:
+            if get_instance_of(item) == Q_LOCALE_INSTANCE:
                 result[P_LANG_CODE.get_claim_value(item)] = item
         return result
 
@@ -128,7 +127,7 @@ class DataItemsByName(DataItemCache):
     def generate(self):
         result = {}
         for item in self.items.get():
-            if P_INSTANCE_OF.get_claim_value(item) != self.instanceof:
+            if get_instance_of(item) != self.instanceof:
                 continue
             qid = item['id']
             labels = item['labels']

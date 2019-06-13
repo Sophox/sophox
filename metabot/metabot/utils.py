@@ -131,8 +131,15 @@ def lang_pick(vals, lang):
     return vals[lang] if lang in vals else vals['en']
 
 
+def get_instance_of(item):
+    value = P_INSTANCE_OF.get_claim_value(item, allow_multiple=True)
+    if value and len(value) == 1 and value[0] == Q_TAG:
+        return value[0]
+    return None
+
+
 def strid_from_item(item):
-    instance_of = P_INSTANCE_OF.get_claim_value(item)
+    instance_of = get_instance_of(item)
     if instance_of == Q_KEY:
         return 'Key', P_KEY_ID.get_claim_value(item) or item.labels.en.value
     elif instance_of == Q_TAG:
