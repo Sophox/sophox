@@ -145,6 +145,9 @@ class ItemFromWiki:
             if self.ok:
                 self.merge_wiki_languages()
 
+        if self.ok:
+            self.merge_wiki_page_links()
+
         if self.claim_per_lang:
             for prop, claim in self.claim_per_lang.items():
                 self.merge_claim(claim, prop)
@@ -185,9 +188,10 @@ class ItemFromWiki:
         for wp in self.wiki_pages:
             self.claims[P_WIKI_PAGES].append(ClaimValue(mono_value(wp.lang, wp.full_title)))
 
+    def merge_wiki_page_links(self):
         all_wiki_pages = self.caches.wikiPageTitles.get()[0]
         if self.sitelink in all_wiki_pages:
-            complete_langs = {wp.lang for wp in self.wiki_pages}
+            complete_langs = {wp.lang for wp in self.wiki_pages} if self.wiki_pages else set()
             for lng, itm in all_wiki_pages[self.sitelink].items():
                 if lng not in complete_langs:
                     if type(itm) == str:
@@ -197,9 +201,8 @@ class ItemFromWiki:
                         target = itm[0]
                         qlf = {P_WIKI_PAGE_REDIR: [itm[1] if itm[1] else "?"]}
                     self.claims[P_WIKI_PAGES].append(ClaimValue(mono_value(lng, target), qualifiers=qlf))
-        else:
+        elif self.wiki_pages:
             self.print(f'Unable to find {self.sitelink} in the wiki page titles list, bug?')
-
 
     def do_label(self, lng, params):
         if 'nativekey' not in params:

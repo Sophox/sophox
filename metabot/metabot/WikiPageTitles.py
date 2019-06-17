@@ -61,7 +61,7 @@ class WikiPageTitles(CacheJsonl):
                     res[lng] = item[1]
                     if item[2]:
                         redirect_titles[item[1]] = []
-            if len(res) > 1:
+            if len(res) > 0:
                 result[k] = res
 
         for batch in batches(redirect_titles.keys(), 100):
