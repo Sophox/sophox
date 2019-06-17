@@ -37,6 +37,7 @@ prop_order = [
     P_COMBINATION.id,
     P_DIFF_FROM.id,
     P_REF_URL.id,
+    P_LIMIT_TO_RGN.id,
     P_LIMIT_TO.id,
     P_IMG_CAPTION.id,
     P_WIKI_PAGES.id,

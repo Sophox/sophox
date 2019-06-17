@@ -111,7 +111,8 @@ class UploadItem:
             if lang in new_values:
                 item_values[lang] = {'language': lang, 'value': new_values[lang]}
             else:
-                self.print(f'Keeping {lang} {type}: "{item_values[lang]["value"]}"')
+                if self.opts.print_user_edits:
+                    self.print(f'Keeping {lang} {type}: "{item_values[lang]["value"]}"')
                 # del item_values[lang]
 
     def update_claims(self):
@@ -129,7 +130,7 @@ class UploadItem:
         desired_claims = self.sort_claims(self.claims[prop]) if prop in self.claims else None
         if item_claims == desired_claims:
             return
-        if not self.opts.overwrite_user_claims and self.prohibit('claims', prop.id):
+        if (not self.opts.overwrite_user_claims or prop not in self.opts.overwrite_user_claims) and self.prohibit('claims', prop.id):
             if item_claims and desired_claims:
                 self.print(f'{prop} was modified by a user to "{item_claims}", cannot be set to "{desired_claims}"')
             elif item_claims:
@@ -173,7 +174,8 @@ class UploadItem:
             for val in desired_claims:
                 prop.set_claim_on_new(self.item, val)
         elif prop in no_del_claims:
-            self.print(f'Keeping {prop} because we never delete them')
+            if self.opts.print_user_edits:
+                self.print(f'Keeping {prop} because we never delete them')
         else:
             del self.item.claims[prop.id]
 

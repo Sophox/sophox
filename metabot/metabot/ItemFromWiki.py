@@ -205,8 +205,6 @@ class ItemFromWiki:
                     wiki_page_claims[found[0][0]] = ClaimValue(found[0][1].value, qualifiers=qlf)
                 else:
                     wiki_page_claims.append(ClaimValue(mono_value(lng, target), qualifiers=qlf))
-        elif self.wiki_pages:
-            self.print(f'Unable to find {self.sitelink} in the wiki page titles list, bug?')
 
     def do_label(self, lng, params):
         if 'nativekey' not in params:

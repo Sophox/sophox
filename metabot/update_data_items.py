@@ -9,6 +9,7 @@ from pathlib import Path
 from pywikibot import Site as PWB_Site
 from metabot.OsmFamily import OsmFamily
 from metabot import Caches
+from metabot.Properties import P_WIKI_PAGES
 from metabot.Processor import Processor
 from metabot.utils import get_osm_site, get_recently_changed_items
 from datetime import datetime, timedelta
@@ -29,13 +30,18 @@ try:
     caches.descriptionParsed.regenerate()
     caches.wikiPageTitles.regenerate()
 
-    proc = Processor(dict(throw=False), caches, site)
+    proc = Processor(dict(
+        throw=False,
+        overwrite_user_claims={P_WIKI_PAGES}
+    ), caches, site)
+
     proc.run('new')
     proc.run('items')
 
     grace_period = 3 # minutes
     run_every = 1 # minutes
 
+    print(f'\n********** Initial start complete, monitoring user changes...\n')
     proc = Processor(dict(throw=False), caches, site)
     while True:
         last_change, todo_items = get_recently_changed_items(site, last_change, grace_period, caches)
