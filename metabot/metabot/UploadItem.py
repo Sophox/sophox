@@ -12,6 +12,9 @@ from .consts import Q_KEY, Q_TAG, Q_ENUM_KEY_TYPE, Q_LOCALE_INSTANCE, Q_REL_MEMB
 from .utils import get_sitelink, list_to_dict_of_lists, to_json
 
 
+no_del_claims = {P_KEY_TYPE, P_IMAGE, P_USE_ON_NODES, P_USE_ON_WAYS, P_USE_ON_AREAS, P_USE_ON_RELATIONS}
+
+
 class UploadItem:
     claims: Dict[Property, List[ClaimValue]]
 
@@ -108,7 +111,8 @@ class UploadItem:
             if lang in new_values:
                 item_values[lang] = {'language': lang, 'value': new_values[lang]}
             else:
-                del item_values[lang]
+                self.print(f'Keeping {lang} {type}: "{item_values[lang]["value"]}"')
+                # del item_values[lang]
 
     def update_claims(self):
         for prop in set(c for c in self.claims.keys())\
@@ -168,6 +172,8 @@ class UploadItem:
                         prop.remove_claim(self.item, val)
             for val in desired_claims:
                 prop.set_claim_on_new(self.item, val)
+        elif prop in no_del_claims:
+            self.print(f'Keeping {prop} because we never delete them')
         else:
             del self.item.claims[prop.id]
 

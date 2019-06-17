@@ -1,3 +1,4 @@
+import traceback
 from time import sleep
 import pywikibot as pb
 import re
@@ -119,7 +120,9 @@ class Processor:
             try:
                 self.do_item(obj)
             except Exception as err:
-                print(f'\n\n\n\nCrashed while processing "{obj}"\n\n{err}\n\n\n\n')
+                print(f'\n\n\n\nCrashed while processing "{obj}"\n')
+                traceback.print_tb(err.__traceback__)
+                print('\n\n\n\n')
                 if self.opts['throw']:
                     raise
                 else:

@@ -9,10 +9,11 @@ from .utils import to_json
 
 class DescriptionParser(CacheJsonl):
 
-    def __init__(self, filename: str, pages: WikiPagesWithTemplate, pwb_site: pb.Site):
+    def __init__(self, filename: str, pages: WikiPagesWithTemplate, pwb_site: pb.Site, data_item_cache):
         super().__init__(filename)
         self.pages = pages
         self.pwb_site = pwb_site
+        self.data_item_cache = data_item_cache
 
     def generate(self):
         with open(self.filename, "w+") as file:
@@ -23,7 +24,7 @@ class DescriptionParser(CacheJsonl):
 
     def parse_item(self, page):
         if page['ns'] % 2 != 1 and page['ns'] != 2: # and 'Proposed features/' not in page['title']:
-            item = ItemParser(self.pwb_site, page['ns'], page['title'], page['template'], page['params'])
+            item = ItemParser(self.pwb_site, page['ns'], page['title'], page['template'], page['params'], self.data_item_cache)
             result = item.parse()
             if item.messages:
                 print(f'#### {page["title"]}')

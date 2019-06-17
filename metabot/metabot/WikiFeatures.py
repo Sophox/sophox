@@ -5,7 +5,7 @@ from pywikiapi import Site
 
 from .consts import NS_USER, NS_TEMPLATE, LANG_NS, LANG_NS_REVERSE
 from .Cache import CacheJsonl
-from .utils import to_json, parse_wiki_page_title, batches, parse_members
+from .utils import to_json, batches, parse_members
 
 map_feature_pages = [
     'Ar:Map Features',

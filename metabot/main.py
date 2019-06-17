@@ -9,7 +9,7 @@ from metabot.OsmFamily import OsmFamily
 from metabot import Caches, P_INSTANCE_OF, Q_KEY, P_KEY_TYPE, Q_ENUM_KEY_TYPE, P_KEY_ID
 from metabot.Processor import Processor
 from metabot.TagInfoDb import TagInfoDb
-from metabot.utils import get_osm_site, parse_wiki_page_title, batches
+from metabot.utils import get_osm_site, batches
 
 site = get_osm_site()
 use_bot_limits = False
@@ -26,6 +26,7 @@ site.login(user='Yurikbot', password=password, on_demand=True)
 # caches.data_items.regenerate()
 # caches.description.regenerate()
 # caches.descriptionParsed.regenerate()
+# caches.wikiPageTitles.regenerate()
 # caches.taginfo.regenerate()
 # caches.tagInfoDb.regenerate()
 
@@ -36,13 +37,14 @@ opts = {
 proc = Processor(opts, caches, site)
 
 # proc.run(('Tag', 'leisure=bleachers'))
+# proc.run(('Tag', 'type=site'))
 # proc.run('taginfo-tags')
 # proc.run('new')
 # proc.run('items')
 # proc.run('relations')
 # proc.run('relroles')
 proc.run([
-    caches.itemByQid.get_item('Q7676'),
+    caches.itemByQid.get_item('Q682'),
 ])
 # proc.del_params()
 # proc.run(('Key', 'yh:WIDTH_RANK'))

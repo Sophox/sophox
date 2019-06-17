@@ -1,3 +1,4 @@
+import traceback
 from time import sleep
 
 if __name__ != "__main__":
@@ -26,6 +27,7 @@ try:
     caches.data_items.regenerate()
     caches.description.regenerate()
     caches.descriptionParsed.regenerate()
+    caches.wikiPageTitles.regenerate()
 
     proc = Processor(dict(throw=False), caches, site)
     proc.run('new')
@@ -34,7 +36,7 @@ try:
     grace_period = 3 # minutes
     run_every = 1 # minutes
 
-    proc = Processor(dict(throw=False, force_all=True), caches, site)
+    proc = Processor(dict(throw=False), caches, site)
     while True:
         last_change, todo_items = get_recently_changed_items(site, last_change, grace_period, caches)
         if todo_items:
@@ -47,4 +49,5 @@ try:
         sleep(run_every*60)
 except Exception as err:
     print(f'\n\n!!!!!  CRASH !!!!!\n\n{err}')
+    traceback.print_tb(err.__traceback__)
     exit(0)

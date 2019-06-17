@@ -36,7 +36,7 @@ bad_images = ['osm element key.svg', 'mf key.svg', 'none yet.jpg', 'fi none yet.
 class ItemParser:
 
     def __init__(self, pwb_site: pb.Site, ns, title, template, template_params,
-                 print_info=False):
+                 data_item_cache, print_info=False):
         self.print_info = print_info
         self.pwb_site = pwb_site
         self.ns = ns
@@ -45,6 +45,7 @@ class ItemParser:
         self.template_params = template_params
         self.result = {}
         self.messages = []
+        self.data_item_cache = data_item_cache
 
         self.type_from_title, self.lang, self.id_from_title, has_suspect_lang = parse_wiki_page_title(ns, title)
         if has_suspect_lang:
@@ -260,7 +261,11 @@ class ItemParser:
         item_id: Union[bool, str] = False
 
         if self.type_from_title == 'Relation':
-            return item['type']
+            if 'type' in item:
+                return item['type']
+            if 'oldkey' in item and item['oldkey'] == 'type' and 'oldvalue' in item:
+                return item['oldvalue']
+            return False
 
         if item_key:
             item_id = item_key
@@ -273,6 +278,15 @@ class ItemParser:
                 self.print(f"Item keys don't match:   {item_id:30} {self.id_from_title :30} in {self.title}")
                 return False
             return item_id
+
+        if not item_id and self.id_from_title:
+            data_items = self.data_item_cache.get()
+            if (self.type_from_title, self.id_from_title) in data_items:
+                item_id = self.id_from_title
+            elif (self.type_from_title, self.id_from_title.replace(' ', '_')) in data_items:
+                item_id = self.id_from_title.replace(' ', '_')
+            else:
+                self.print(f'Unable to convert {self.type_from_title} {self.id_from_title} to a strid')
 
         return item_id if item_id else self.id_from_title if self.id_from_title else False
 

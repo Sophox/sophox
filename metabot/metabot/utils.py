@@ -133,23 +133,47 @@ def lang_pick(vals, lang):
 
 def get_instance_of(item):
     value = P_INSTANCE_OF.get_claim_value(item, allow_multiple=True)
-    if value and len(value) == 1 and value[0] == Q_TAG:
+    if value and len(value) == 1:
         return value[0]
     return None
 
 
+solved_ambiguous = {
+    'amenity=drinking water': 'amenity=drinking_water',
+    'amenity=fast food': 'amenity=fast_food',
+    'amenity=food court': 'amenity=food_court',
+    'amenity=ice cream': 'amenity=ice_cream',
+    'emergency=fire hydrant': 'emergency=fire_hydrant',
+    'flat steps': 'flat_steps',
+    'nuclear explosion:country': 'nuclear_explosion:country',
+}
+
+
 def strid_from_item(item):
     instance_of = get_instance_of(item)
+    type = None
+    value = None
     if instance_of == Q_KEY:
-        return 'Key', P_KEY_ID.get_claim_value(item) or item.labels.en.value
+        type = 'Key'
+        value = P_KEY_ID.get_claim_value(item) or item.labels.en.value
     elif instance_of == Q_TAG:
-        return 'Tag', P_TAG_ID.get_claim_value(item) or item.labels.en.value
+        type = 'Tag'
+        value = P_TAG_ID.get_claim_value(item) or item.labels.en.value
     elif instance_of == Q_RELATION:
-        return 'Relation', P_REL_ID.get_claim_value(item)
+        type = 'Relation'
+        value = P_REL_ID.get_claim_value(item)
     elif instance_of == Q_REL_MEMBER_ROLE:
-        return 'Role', P_ROLE_ID.get_claim_value(item)
+        type = 'Role'
+        value = P_ROLE_ID.get_claim_value(item)
     elif instance_of == Q_LOCALE_INSTANCE:
-        return 'Locale', P_LANG_CODE.get_claim_value(item)
+        type = 'Locale'
+        value = P_LANG_CODE.get_claim_value(item)
+
+    if type:
+        if value in solved_ambiguous:
+            print(f'AMBIGUOUS RESOLVED: {value}: {item}')
+            value = solved_ambiguous[value]
+        return type, value
     return None
 
 
@@ -179,7 +203,7 @@ def parse_wiki_page_title(ns, title):
         m = knownLangsRe.match(title)
         if m:
             lang = m.group(1).lower()
-            type_from_title = m.group(2)
+            type_from_title = m.group(2).capitalize()
             id_from_title = m.group(3)
         else:
             m = suspectedLangsRe.match(title)

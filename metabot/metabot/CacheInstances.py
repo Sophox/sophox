@@ -13,6 +13,7 @@ from .DataItems import DataItems, DataItemsByQid, DataItemDescByQid, DataItemsKe
 from .WikiPagesWithTemplate import WikiPagesWithTemplate
 from .DataItemContributors import DataItemContributors
 from .WikiTagTemplateUsage import WikiTagTemplateUsage
+from .WikiPageTitles import WikiPageTitles
 from .TagInfo import TagInfoKeys
 from pywikibot import Site as PWB_Site
 from pywikiapi import Site
@@ -28,22 +29,7 @@ class Caches:
 
         self.contributed = DataItemContributors('_cache/contributed.json', site)
 
-        # self.wikiPageTitles = WikiPageTitles('_cache/wiki_page_titles.json', site)
-
         self.mapfeatures = WikiFeatures('_cache/wiki_map_features.json', site, pwb_site)
-
-        self.description = WikiPagesWithTemplate(
-            '_cache/wiki_raw_descriptions.json', site,
-            ['Template:Description'],
-            ['KeyDescription', 'ValueDescription', 'RelationDescription', 'Deprecated', 'Pl:KeyDescription',
-             'Pl:ValueDescription', 'Tag', 'Key', 'TagKey', 'TagValue'])
-
-        self.descriptionParsed = DescriptionParser('_cache/wiki_parsed_descriptions.json', self.description, pwb_site)
-
-        self.keydescription = CachedFilteredDescription(self.descriptionParsed, 'Key')
-        self.tagdescription = CachedFilteredDescription(self.descriptionParsed, 'Tag')
-        self.reldescription = CachedFilteredDescription(self.descriptionParsed, 'Relation')
-        self.relroledescriptions = RelationRolesDescription(self.descriptionParsed)
 
         self.data_items = DataItems('_cache/data_items.json', site, use_bot_limits)
 
@@ -56,6 +42,22 @@ class Caches:
         self.statusesByName = DataItemsByName(self.data_items, Q_STATUS)
 
         self.tags_per_key = list_to_dict_of_lists(self.data_items.get(), get_instance_of)
+
+        self.description = WikiPagesWithTemplate(
+            '_cache/wiki_raw_descriptions.json', site,
+            ['Template:Description'],
+            ['KeyDescription', 'ValueDescription', 'RelationDescription', 'Deprecated', 'Pl:KeyDescription',
+             'Pl:ValueDescription', 'Tag', 'Key', 'TagKey', 'TagValue'])
+
+        self.descriptionParsed = DescriptionParser('_cache/wiki_parsed_descriptions.json', self.description, pwb_site,
+                                                   self.itemKeysByStrid)
+
+        self.keydescription = CachedFilteredDescription(self.descriptionParsed, 'Key')
+        self.tagdescription = CachedFilteredDescription(self.descriptionParsed, 'Tag')
+        self.reldescription = CachedFilteredDescription(self.descriptionParsed, 'Relation')
+        self.relroledescriptions = RelationRolesDescription(self.descriptionParsed)
+
+        self.wikiPageTitles = WikiPageTitles('_cache/wiki_page_titles.json', site)
 
         self.tagInfoDb = TagInfoDb('_cache/tag_info_db.json', '_cache/taginfo-db.db', self.data_items)
 

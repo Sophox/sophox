@@ -185,6 +185,22 @@ class ItemFromWiki:
         for wp in self.wiki_pages:
             self.claims[P_WIKI_PAGES].append(ClaimValue(mono_value(wp.lang, wp.full_title)))
 
+        all_wiki_pages = self.caches.wikiPageTitles.get()[0]
+        if self.sitelink in all_wiki_pages:
+            complete_langs = {wp.lang for wp in self.wiki_pages}
+            for lng, itm in all_wiki_pages[self.sitelink].items():
+                if lng not in complete_langs:
+                    if type(itm) == str:
+                        target = itm
+                        qlf = {}
+                    else:
+                        target = itm[0]
+                        qlf = {P_WIKI_PAGE_REDIR: [itm[1] if itm[1] else "?"]}
+                    self.claims[P_WIKI_PAGES].append(ClaimValue(mono_value(lng, target), qualifiers=qlf))
+        else:
+            self.print(f'Unable to find {self.sitelink} in the wiki page titles list, bug?')
+
+
     def do_label(self, lng, params):
         if 'nativekey' not in params:
             return

@@ -203,6 +203,7 @@ P_LIMIT_TO = Property('P26', 'limit-to', 'wikibase-item', allow_multiple=True, i
 P_REL_FOR_ROLE = Property('P43', 'role-rel', 'wikibase-item')
 P_REGEX = Property('P13', 'regex', 'string')
 P_WIKI_PAGES = Property('P31', 'wiki-pages', 'monolingualtext', allow_multiple=True)
+P_WIKI_PAGE_REDIR = Property('P50', 'wiki-pages-redir', 'string', is_qualifier=True)
 P_INCOMPATIBLE_WITH = Property('P44', 'incompatible-with', 'wikibase-item')
 
 P_IMPLIES = Property('P45', 'implies', 'wikibase-item', merge_all=True)

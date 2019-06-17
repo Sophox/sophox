@@ -40,6 +40,7 @@ prop_order = [
     P_LIMIT_TO.id,
     P_IMG_CAPTION.id,
     P_WIKI_PAGES.id,
+    P_WIKI_PAGE_REDIR.id,
     P_WIKIDATA_EQUIVALENT.id,
     P_URL_FORMAT.id,
     P_REL_FOR_ROLE.id,
@@ -193,7 +194,7 @@ class Sorter:
                             elif qp == P_IMG_CAPTION.id:
                                 qvals.sort(key=monoling_sorter)
                             else:
-                                qvals.sort(key=lambda v: v.datavalue.value)
+                                qvals.sort(key=lambda v: v['datavalue']['value'])
                     if 'qualifiers-order' in cl:
                         cl['qualifiers-order'].sort(key=lambda v: key_from_list(v, prop_order, prop_delete))
         return content
