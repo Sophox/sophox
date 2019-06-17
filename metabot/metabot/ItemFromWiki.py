@@ -191,16 +191,20 @@ class ItemFromWiki:
     def merge_wiki_page_links(self):
         all_wiki_pages = self.caches.wikiPageTitles.get()[0]
         if self.sitelink in all_wiki_pages:
-            complete_langs = {wp.lang for wp in self.wiki_pages} if self.wiki_pages else set()
             for lng, itm in all_wiki_pages[self.sitelink].items():
-                if lng not in complete_langs:
-                    if type(itm) == str:
-                        target = itm
-                        qlf = {}
-                    else:
-                        target = itm[0]
-                        qlf = {P_WIKI_PAGE_REDIR: [itm[1] if itm[1] else "?"]}
-                    self.claims[P_WIKI_PAGES].append(ClaimValue(mono_value(lng, target), qualifiers=qlf))
+                if type(itm) == str:
+                    target = itm
+                    qlf = {}
+                else:
+                    target = itm[0]
+                    qlf = {P_WIKI_PAGE_REDIR: [itm[1] if itm[1] else "?"]}
+
+                wiki_page_claims = self.claims[P_WIKI_PAGES]
+                found = [(ind,v) for ind, v in enumerate(wiki_page_claims) if v.value['language'] == lng]
+                if found:
+                    wiki_page_claims[found[0][0]] = ClaimValue(found[0][1].value, qualifiers=qlf)
+                else:
+                    wiki_page_claims.append(ClaimValue(mono_value(lng, target), qualifiers=qlf))
         elif self.wiki_pages:
             self.print(f'Unable to find {self.sitelink} in the wiki page titles list, bug?')
 
