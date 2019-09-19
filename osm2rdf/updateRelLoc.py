@@ -1,6 +1,5 @@
 # Copyright Yuri Astrakhan <YuriAstrakhan@gmail.com>
 
-
 import argparse
 import logging
 
@@ -15,6 +14,7 @@ import osmium
 
 if shapely.speedups.available:
     shapely.speedups.enable()
+
 
 class UpdateRelLoc(object):
     def __init__(self):
@@ -58,22 +58,21 @@ class UpdateRelLoc(object):
         else:
             self.nodeCache = None
 
-
     def run(self):
         query = '''# Get relations without osmm:loc
 SELECT ?rel WHERE {
   ?rel osmm:type 'r' .
   FILTER NOT EXISTS { ?rel osmm:loc ?relLoc . }
-}'''   # LIMIT 100000
+}'''  # LIMIT 100000
         result = self.rdf_server.run('query', query)
         self.skipped = ['osmrel:' + i['rel']['value'][len('https://www.openstreetmap.org/relation/'):] for i in result]
 
         while True:
-            relIds = self.skipped
+            rel_ids = self.skipped
             self.skipped = []
-            count = len(relIds)
+            count = len(rel_ids)
             self.log.info(f'** Processing {count} relations')
-            self.run_list(relIds)
+            self.run_list(rel_ids)
             if len(self.skipped) >= count:
                 self.log.info(f'** Unable to process {len(self.skipped)} relations, exiting')
                 break
@@ -82,30 +81,29 @@ SELECT ?rel WHERE {
 
         self.log.info('done')
 
+    def run_list(self, rel_ids):
+        for chunk in chunks(rel_ids, 2000):
+            self.fix_relations(chunk)
 
-    def run_list(self, relIds):
-        for chunk in chunks(relIds, 2000):
-            self.fixRelations(chunk)
+    def fix_relations(self, rel_ids):
+        pairs = self.get_relation_members(rel_ids)
 
-    def fixRelations(self, relIds):
-        pairs = self.get_relation_members(relIds)
+        insert_statements = []
+        for group in self.group_by_values(pairs):
+            insert_statements.append(self.process_single_rel(*group))
 
-        insertStatements = []
-        for group in self.groupByValues(pairs):
-            insertStatements.append(self.processSingleRel(*group))
-
-        if len(insertStatements) > 0:
+        if len(insert_statements) > 0:
             sparql = '\n'.join(osmutils.prefixes) + '\n\n'
-            sparql += f'INSERT {{ {0} }} WHERE {{}};\n'.format('\n'.join(insertStatements))
+            sparql += f'INSERT {{ {0} }} WHERE {{}};\n'.format('\n'.join(insert_statements))
             self.rdf_server.run('update', sparql)
-            self.log.info(f'Updated {len(insertStatements)} relations')
+            self.log.info(f'Updated {len(insert_statements)} relations')
 
-    def get_relation_members(self, relIds):
+    def get_relation_members(self, rel_ids):
         query = f'''# Get relation member's locations
 SELECT
   ?rel ?member ?loc
 WHERE {{
-  VALUES ?rel {{ {' '.join(relIds)} }}
+  VALUES ?rel {{ {' '.join(rel_ids)} }}
   ?rel osmm:has ?member .
   OPTIONAL {{ ?member osmm:loc ?loc . }}
 }}'''
@@ -117,52 +115,53 @@ WHERE {{
             i['loc']['value'] if 'loc' in i else ''
         ) for i in result]
 
-    def processSingleRel(self, relId, memberPoints):
-        points = MultiPoint([loads(p) for p in memberPoints])
-        return relId + ' ' + osmutils.formatPoint('osmm:loc', points.centroid) + '.'
+    @staticmethod
+    def process_single_rel(rel_id, member_points):
+        points = MultiPoint([loads(p) for p in member_points])
+        return rel_id + ' ' + osmutils.formatPoint('osmm:loc', points.centroid) + '.'
 
-
-    def groupByValues(self, tupples):
-        """Yield a tuple (id, [list of ids])"""
+    def group_by_values(self, tupples):
+        """Yield a tuple (rid, [list of ids])"""
         points = None
-        lastId = None
+        last_id = None
         skip = False
-        for id,  ref, value in sorted(tupples):
-            if lastId != id:
-                if lastId is not None and not skip:
+        for rid, ref, value in sorted(tupples):
+            if last_id != rid:
+                if last_id is not None and not skip:
                     if not points:
-                        self.skipped.append(lastId)
+                        self.skipped.append(last_id)
                     else:
-                        yield (lastId, points)
+                        yield (last_id, points)
                 skip = False
                 points = []
-                lastId = id
+                last_id = rid
             if not skip:
                 if value == '':
                     if ref.startswith('https://www.openstreetmap.org/node/'):
                         if self.nodeCache:
-                            nodeId = ref[len('https://www.openstreetmap.org/node/'):]
+                            node_id = ref[len('https://www.openstreetmap.org/node/'):]
                             try:
-                                point = self.nodeCache.get(int(nodeId))
+                                point = self.nodeCache.get(int(node_id))
                                 points.append(f'Point({point.lon} {point.lat})')
                             except osmium._osmium.NotFoundError:
                                 pass
                     elif ref.startswith('https://www.openstreetmap.org/way/'):
-                        pass # not much we can do about missing way's location
+                        pass  # not much we can do about missing way's location
                     elif ref.startswith('https://www.openstreetmap.org/relation/'):
                         skip = True
-                        self.skipped.append(id)
+                        self.skipped.append(rid)
                     else:
                         raise ValueError('Unknown ref ' + ref)
                 else:
                     points.append(value)
-        if lastId is not None and not skip:
+        if last_id is not None and not skip:
             if not points:
-                self.skipped.append(lastId)
+                self.skipped.append(last_id)
             else:
-                yield (lastId, points)
+                yield (last_id, points)
+
 
 if __name__ == '__main__':
     UpdateRelLoc().run()
-    # UpdateRelLoc().fixRelations(['osmrel:13', 'osmrel:3344', 'osmrel:2938' ])
-    # UpdateRelLoc().processSingleRel(*('osmrel:13', ['Point(-1.1729935 52.7200423)', 'Point(-1.1755875 52.7180761)']))
+    # UpdateRelLoc().fix_relations(['osmrel:13', 'osmrel:3344', 'osmrel:2938' ])
+    # UpdateRelLoc().process_single_rel('osmrel:13', ['Point(-1.1729935 52.7200423)', 'Point(-1.1755875 52.7180761)'])
