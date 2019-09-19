@@ -10,7 +10,7 @@ services:
     command: "./osm2rdf-relloc.sh"
     restart: on-failure
     volumes:
-      - "${OSM_RDF_DATA_DIR}:/osm-rdf:ro"
+      - "${OSM_RDF_DATA_DIR}:/osm-rdf:rw"
       - "${REPO_DIR}/osm2rdf:/app-osm2rdf:ro"
       - "${STATUS_DIR}:/app-status:ro"
     environment:

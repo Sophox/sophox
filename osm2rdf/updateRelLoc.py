@@ -1,5 +1,6 @@
 # Copyright Yuri Astrakhan <YuriAstrakhan@gmail.com>
 
+import time
 import argparse
 import logging
 
@@ -59,6 +60,11 @@ class UpdateRelLoc(object):
             self.nodeCache = None
 
     def run(self):
+        while True:
+            self.run_once()
+            time.sleep(600)  # every 10 minutes
+
+    def run_once(self):
         query = '''# Get relations without osmm:loc
 SELECT ?rel WHERE {
   ?rel osmm:type 'r' .
@@ -94,7 +100,10 @@ SELECT ?rel WHERE {
 
         if len(insert_statements) > 0:
             sparql = '\n'.join(osmutils.prefixes) + '\n\n'
-            sparql += f'INSERT {{ {0} }} WHERE {{}};\n'.format('\n'.join(insert_statements))
+            sparql += 'INSERT {\n'
+            sparql += '\n'.join(insert_statements)
+            sparql += '\n} WHERE {};'
+
             self.rdf_server.run('update', sparql)
             self.log.info(f'Updated {len(insert_statements)} relations')
 
