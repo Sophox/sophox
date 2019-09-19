@@ -71,11 +71,11 @@ fi
 : "${ENABLE_SVC_MISC=true}"
 : "${ENABLE_UPDATE_METADATA=true}"
 : "${ENABLE_UPDATE_OSM2PGSQL=true}"
-: "${ENABLE_UPDATE_RELLOC=true}"
+: "${ENABLE_UPDATE_OSM2RDF=true}"
 : "${ENABLE_UPDATE_PAGEVIEWS=true}"
 : "${ENABLE_UPDATE_USAGESTATS=true}"
 : "${ENABLE_UPDATE_MAINTAIN=true}"
-: "${ENABLE_UPDATE_OSM2RDF=true}"
+: "${ENABLE_UPDATE_RELLOC=true}"
 
 # If DEBUG env is not set, run docker compose in the detached (service) mode
 DETACH_DOCKER_COMPOSE=$( [[ "${DEBUG}" == "" ]] && echo "true" || echo "" )
@@ -466,11 +466,11 @@ if [[ -n ${ENABLE_SVC_PROXY} || -n ${ENABLE_SVC_GUI} || -n ${ENABLE_SVC_MISC} ||
         ${ENABLE_SVC_MISC:+ --file /git_repo/docker/dc-services.yml}                     \
         ${ENABLE_UPDATE_METADATA:+ --file /git_repo/docker/dc-updaters-metadata.yml}     \
         ${ENABLE_UPDATE_OSM2PGSQL:+ --file /git_repo/docker/dc-updaters-osm2pgsql.yml}   \
-        ${ENABLE_UPDATE_RELLOC:+ --file /git_repo/docker/dc-updaters-relloc.yml}         \
+        ${ENABLE_UPDATE_OSM2RDF:+ --file /git_repo/docker/dc-updaters-osm2rdf.yml}       \
         ${ENABLE_UPDATE_PAGEVIEWS:+ --file /git_repo/docker/dc-updaters-pageviews.yml}   \
         ${ENABLE_UPDATE_USAGESTATS:+ --file /git_repo/docker/dc-updaters-usagestats.yml} \
         ${ENABLE_UPDATE_MAINTAIN:+ --file /git_repo/docker/dc-updaters-maintain.yml}     \
-        ${ENABLE_UPDATE_OSM2RDF:+ --file /git_repo/docker/dc-updaters-osm2rdf.yml}       \
+        ${ENABLE_UPDATE_RELLOC:+ --file /git_repo/docker/dc-updaters-relloc.yml}         \
         --project-name sophox                                          \
         up                                                             \
         ${DETACH_DOCKER_COMPOSE:+ --detach}
