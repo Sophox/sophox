@@ -2,7 +2,7 @@ version: '2.3'
 
 services:
 
-  osm2rdf-update:
+  osm2rdf-relloc:
     # This container continuously updates relation's center points
     # by averaging all member's center points (not very accurate)
     image: sophox/osm2rdf
