@@ -4,7 +4,7 @@ services:
 
   traefik:
     # Web proxy
-    image: traefik
+    image: traefik:1.7
     restart: always
     ports:
       - "${TRAEFIK_HOST}:80:80"
