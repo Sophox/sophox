@@ -12,7 +12,7 @@ When cloning, make sure you get submodules (e.g. `git submodule update --init --
 * Create a `custom-6-39936` VM (6 vCPUs, 36GB RAM) or better with a 15GB boot disk, and attach a 1TB Persisted SSD disk.
 * Set VM startup script to the following line, and the service should be ready in two to three days.  Insert any env var overrides right before, e.g. `export SOPHOX_HOST=example.org; curl ... | bash`
 ```
-curl --silent --show-error --location --compressed https://raw.githubusercontent.com/Sophox/sophox/master/docker/startup.gcp.sh | bash
+curl --silent --show-error --location --compressed https://raw.githubusercontent.com/Sophox/sophox/main/docker/startup.gcp.sh | bash
 ```
 
 * You can view Traefik's dashboard with statistics and configuration at http://localhost:8080 by creating a tunnel to the VM instance (adjust VM name and zone):
@@ -55,7 +55,7 @@ echo UUID=`blkid -s UUID -o value /dev/sdc` /mnt/data xfs discard,defaults,nofai
 * Install Sophox:
 ```
 export DATA_DIR=/mnt/data
-export REPO_BRANCH=master
+export REPO_BRANCH=main
 nohup curl --fail --silent --show-error --location --compressed \
    https://raw.githubusercontent.com/Sophox/sophox/${REPO_BRANCH}/docker/startup.planet.sh \
    | bash >> /mnt/data/startup.log 2>&1 &
