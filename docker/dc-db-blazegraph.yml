@@ -20,6 +20,7 @@ services:
         -Dorg.eclipse.jetty.annotations.AnnotationParser.LEVEL=OFF
         -DwikibaseConceptUri=${WB_CONCEPT_URI}
         -DwikibaseServiceEnableWhitelist=false
+        -Dcom.bigdata.rdf.sparql.ast.QueryHints.analyticMaxMemoryPerQuery=5073741824
 # For remote debugging, uncomment next line and the port below
 #       -agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y
     ports:
