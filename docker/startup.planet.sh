@@ -3,9 +3,9 @@
 #
 # Use this script to run Sophox on a dedicated box.
 #   * Setup the machine's data dir, e.g. /mnt/data
-#   * Run this command (adjust params as needed). Default branch is "master"
+#   * Run this command (adjust params as needed). Default branch is "main"
 #
-#   export REPO_BRANCH=master && \
+#   export REPO_BRANCH=main && \
 #   export DATA_DIR=/mnt/data && \
 #   nohup curl --fail --silent --show-error --location --compressed \
 #     https://raw.githubusercontent.com/Sophox/sophox/${REPO_BRANCH}/docker/startup.planet.sh | \
@@ -20,7 +20,7 @@
 : "${SHAPES_BACKFILL_DAYS:=14}"
 : "${TOTAL_MEMORY_PRCNT:=100}"
 
-: "${REPO_BRANCH:=master}"
+: "${REPO_BRANCH:=main}"
 : "${STARTUP_SCRIPT:=https://raw.githubusercontent.com/Sophox/sophox/${REPO_BRANCH}/docker/startup.sh}"
 
 

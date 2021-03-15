@@ -31,7 +31,7 @@ fi
 # Set REPO_URL to "-" to prevent automatic git clone
 : "${REPO_DIR:=${DATA_DIR}/git-repo}"
 : "${REPO_URL:=https://github.com/Sophox/sophox.git}"
-: "${REPO_BRANCH:=master}"
+: "${REPO_BRANCH:=main}"
 
 # Which OSM dump file to download, what to save it as, and the optional URL of the md5 hash (use '-' to skip)
 : "${IS_FULL_PLANET:=false}"

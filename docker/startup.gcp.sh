@@ -26,7 +26,7 @@
 # Reduce the size of the initial pageviews data (so it would fit on 375GB)
 : "${PAGEVIEW_HR_FILES:=0}"
 
-: "${REPO_BRANCH:=master}"
+: "${REPO_BRANCH:=main}"
 : "${STARTUP_SCRIPT:=https://raw.githubusercontent.com/Sophox/sophox/${REPO_BRANCH}/docker/startup.sh}"
 
 
