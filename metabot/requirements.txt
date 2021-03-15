@@ -1,3 +1,4 @@
+urllib3
 -i https://pypi.org/simple
 
 pywikiapi>=1.1.1

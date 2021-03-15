@@ -166,10 +166,11 @@ class Processor:
             else:
                 item = get_entities(self.site, titles=sitelink)
             if item:
+                return
                 item = AttrDict(item)
             self.do_item_run(strid, item, wiki_pages, False)
 
-    def do_item_run(self, strid, item, wiki_pages, dry_run):
+    def do_item_run(self, strid, item: AttrDict, wiki_pages, dry_run):
         status_id = self.caches.qitem(item.id) if item else ''
         if item and P_SUBCLASS_OF.get_claim_value(item):
             return None, None
@@ -227,7 +228,7 @@ class Processor:
             if key in known_keys:
                 continue
             if count_all > 5000 or (count_all > 50 and re_key.match(key)):
-                yield key
+                yield 'Key', key
 
     # def del_params(self):
     #     pwb_site = self.caches.descriptionParsed.pwb_site

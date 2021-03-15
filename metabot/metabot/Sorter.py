@@ -214,6 +214,7 @@ class Sorter:
         for page in self.site.query_pages(
                 prop='revisions',
                 rvprop='content',
+                rvslots='main',
                 redirects='no',
                 titles=title):
             self.do_page(title, page)

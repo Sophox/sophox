@@ -28,6 +28,7 @@ class WikiTagTemplateUsage(Cache):
             for resp in self.site.query(
                     prop='revisions',
                     rvprop='content',
+                    rvslots='main',
                     redirects='no',
                     generator='transcludedin',
                     gtishow='!redirect',

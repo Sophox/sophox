@@ -29,6 +29,7 @@ class WikiPagesWithTemplate(CacheJsonl):
                 for page in self.site.query_pages(
                         prop=['revisions', 'info'],
                         rvprop='content',
+                        rvslots='main',
                         titles=batch,
                 ):
                     if page.title in titles:
@@ -44,6 +45,7 @@ class WikiPagesWithTemplate(CacheJsonl):
         for page in self.site.query_pages(
                 prop='revisions',
                 rvprop='content',
+                rvslots='main',
                 titles=titles,
         ):
             for item in self.parse_page(page):

@@ -43,9 +43,10 @@ proc = Processor(opts, caches, site)
 # proc.run('items')
 # proc.run('relations')
 # proc.run('relroles')
-proc.run([
-    caches.itemByQid.get_item('Q682'),
-])
+proc.run('taginfo_keys')
+# proc.run([
+#     caches.itemByQid.get_item('Q6394'),
+# ])
 # proc.del_params()
 # proc.run(('Key', 'yh:WIDTH_RANK'))
 # proc.run(('Tag', 'highway=path'))

@@ -66,6 +66,7 @@ class WikiFeatures(CacheJsonl):
                 for page in self.site.query_pages(
                         prop=['revisions', 'info'],
                         rvprop='content',
+                        rvslots='main',
                         titles=batch,
                 ):
                     if page.title in titles:
@@ -81,6 +82,7 @@ class WikiFeatures(CacheJsonl):
         for page in self.site.query_pages(
                 prop='revisions',
                 rvprop='content',
+                rvslots='main',
                 titles=titles,
         ):
             for item in self.parse_page(page):
@@ -100,7 +102,7 @@ class WikiFeatures(CacheJsonl):
             templates.update([v.title for v in res.allpages if '/' not in v.title])
 
         for batch in batches(templates, 50):
-            for page in self.site.query_pages(prop=['revisions'], rvprop='content', titles=batch):
+            for page in self.site.query_pages(prop=['revisions'], rvprop='content', rvslots='main', titles=batch):
                 content = page.revisions[0].content
                 tbl_start = [m.end() for m in re.finditer(r'^ *{\|', content, re.MULTILINE)]
                 tbl_end = [m.end() for m in re.finditer(r'^ *\|} *$', content, re.MULTILINE)]

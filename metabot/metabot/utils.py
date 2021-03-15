@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Union, List, Dict, Iterator, Iterable
 
 import requests
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from collections import defaultdict
 from pywikibot import textlib
@@ -93,7 +93,7 @@ def list_to_dict_of_lists(items, key, item_extractor=None):
     result = defaultdict(list)
     for item in items:
         k = key(item)
-        if k:
+        if k is not None and k != False:
             if item_extractor: item = item_extractor(item)
             result[k].append(item)
     return result
