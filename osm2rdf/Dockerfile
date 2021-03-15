@@ -15,6 +15,7 @@ RUN apt-get update \
             zlib1g-dev \
             libbz2-dev \
             curl \
+            bzip2 \
             bash \
     && pip3 install --no-cache-dir -r /requirements.txt \
     && rm -rf /var/lib/apt/lists/*

@@ -133,12 +133,12 @@ DELETE {{ ?s ?p ?o }} WHERE {{
             self.rdf_server.run('update', sparql)
             done += len(keys)
             if (datetime.utcnow() - last_print).total_seconds() > 60:
-                self.log.info(f'Imported {done} pageview stats, pausing for a few seconds...')
+                self.log.info(f'Imported {done} key usage stats, pausing for a few seconds...')
                 time.sleep(60)
                 last_print = datetime.utcnow()
 
         self.rdf_server.run('update', set_status_query(self.date_subject, timestamp))
-        self.log.info(f'Finished importing {done} pageview stats')
+        self.log.info(f'Finished importing {done} key usage stats')
 
     def get_current_ts(self):
         ts_str = requests.get(self.url_stats).json()['data_until']
