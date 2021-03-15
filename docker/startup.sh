@@ -97,6 +97,18 @@ echo "TOTAL_MEMORY_PRCNT='${TOTAL_MEMORY_PRCNT}'"
 echo "IS_FULL_PLANET='${IS_FULL_PLANET}'"
 echo "DEBUG='${DEBUG}'"
 
+##############  Ensure required utilities are installed
+
+function is_installed {
+  if ! command -v "$1" &> /dev/null; then
+      echo "$1 could not be found, aborting"
+      exit 1
+  fi
+}
+
+is_installed docker
+is_installed curl
+
 ##############  Setup internal vars
 
 # RUN_PROD_MODE will become "true" once all the imports are done
