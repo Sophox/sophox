@@ -19,9 +19,9 @@ fi
 if [[ ! -f "${FLAG_TTL_PARSED}" ]]; then
 
     mkdir -p "${OSM_RDF_TTLS}"
-    if [[ ! -z "$(ls -A ${OSM_RDF_TTLS})" ]]; then
+    if [[ -n "$(ls -A "${OSM_RDF_TTLS}")" ]]; then
         echo "WARNING: Removing partially parsed TTLs in ${OSM_RDF_TTLS}"
-        rm -rf ${OSM_RDF_TTLS:?}/*
+        rm -rf "${OSM_RDF_TTLS:?}"/*
     fi
     if [[ -f "${NODES_CACHE}" ]]; then
         echo "Removing nodes cache ${NODES_CACHE}"
@@ -64,7 +64,7 @@ if [[ ! -f "${FLAG_TTL_IMPORTED}" ]]; then
 
     # Create curl data blob without using temporary files
     # This blob assumes that RWStore.properties is located in the same dir as Blazegraph itself
-    read -d '' LOAD_PROPS << EOT || true
+    read -r -d '' LOAD_PROPS << EOT || true
 quiet=false
 verbose=0
 closure=false
@@ -86,13 +86,13 @@ EOT
         echo
         echo "ERROR: loadRestAPI.sh failed"
         exit 1
-    elif ! ls ${OSM_RDF_TTLS}/*.good >/dev/null 2>&1 ; then
+    elif ! ls "${OSM_RDF_TTLS}"/*.good >/dev/null 2>&1 ; then
         echo "ERROR: there are no files matching ${OSM_RDF_TTLS}/*.good"
         exit 1
-    elif ls ${OSM_RDF_TTLS}/*.fail >/dev/null 2>&1 ; then
+    elif ls "${OSM_RDF_TTLS}"/*.fail >/dev/null 2>&1 ; then
         echo "ERROR: there are failed files - ${OSM_RDF_TTLS}/*.fail"
         exit 1
-    elif ls ${OSM_RDF_TTLS}/*.gz >/dev/null 2>&1 ; then
+    elif ls "${OSM_RDF_TTLS}"/*.gz >/dev/null 2>&1 ; then
         echo "ERROR: there are files that were not imported - ${OSM_RDF_TTLS}/*.gz"
         exit 1
     else

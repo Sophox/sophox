@@ -129,18 +129,18 @@ WHERE {{
         points = MultiPoint([loads(p) for p in member_points])
         return rel_id + ' ' + osmutils.formatPoint('osmm:loc', points.centroid) + '.'
 
-    def group_by_values(self, tupples):
+    def group_by_values(self, tuples):
         """Yield a tuple (rid, [list of ids])"""
         points = None
         last_id = None
         skip = False
-        for rid, ref, value in sorted(tupples):
+        for rid, ref, value in sorted(tuples):
             if last_id != rid:
                 if last_id is not None and not skip:
                     if not points:
                         self.skipped.append(last_id)
                     else:
-                        yield (last_id, points)
+                        yield last_id, points
                 skip = False
                 points = []
                 last_id = rid
@@ -152,7 +152,7 @@ WHERE {{
                             try:
                                 point = self.nodeCache.get(int(node_id))
                                 points.append(f'Point({point.lon} {point.lat})')
-                            except osmium._osmium.NotFoundError:
+                            except KeyError:
                                 pass
                     elif ref.startswith('https://www.openstreetmap.org/way/'):
                         pass  # not much we can do about missing way's location
@@ -167,7 +167,7 @@ WHERE {{
             if not points:
                 self.skipped.append(last_id)
             else:
-                yield (last_id, points)
+                yield last_id, points
 
 
 if __name__ == '__main__':

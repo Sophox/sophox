@@ -80,7 +80,7 @@ fi
 # If DEBUG env is not set, run docker compose in the detached (service) mode
 DETACH_DOCKER_COMPOSE=$( [[ "${DEBUG}" == "" ]] && echo "true" || echo "" )
 
-##############  NO USER-SERVICABLE VARIABLES BEYOND THIS POINT :)
+##############  NO USER-SERVICEABLE VARIABLES BEYOND THIS POINT :)
 
 # Print parameters:
 echo "DATA_DIR='${DATA_DIR}'"
@@ -140,15 +140,15 @@ TRAEFIK_HOST=$( [[ "${DEBUG}" == "" ]] && echo "0.0.0.0" || echo "127.0.0.1" )
 if [[ -z "${MAX_MEMORY_MB}" ]]; then
   # TODO: support Mac
   TOTAL_MEMORY_KB=$(free | awk '/^Mem:/{print $2}')
-  MAX_MEMORY_MB=$(( ${TOTAL_MEMORY_KB} * ${TOTAL_MEMORY_PRCNT} / 100 / 1024 ))
+  MAX_MEMORY_MB=$(( TOTAL_MEMORY_KB * TOTAL_MEMORY_PRCNT / 100 / 1024 ))
 fi
 echo "MAX_MEMORY_MB='${MAX_MEMORY_MB}'"
 
 # WORKERS = 1..4, per each ~25GB of the total
-OSM_RDF_WORKERS=$(( ${MAX_MEMORY_MB} / 25000 + 1 ))
-OSM_RDF_WORKERS=$(( ${OSM_RDF_WORKERS} < 1 ? 1 : ( ${OSM_RDF_WORKERS} > 4 ? 4 : ${OSM_RDF_WORKERS} ) ))
+OSM_RDF_WORKERS=$(( MAX_MEMORY_MB / 25000 + 1 ))
+OSM_RDF_WORKERS=$(( OSM_RDF_WORKERS < 1 ? 1 : ( OSM_RDF_WORKERS > 4 ? 4 : OSM_RDF_WORKERS ) ))
 # MEM = 40000 MB ~~ max statements = 10000 / workers count
-OSM_RDF_MAX_STMTS=$(( ${MAX_MEMORY_MB} / 4 / ${OSM_RDF_WORKERS} ))
+OSM_RDF_MAX_STMTS=$(( MAX_MEMORY_MB / 4 / OSM_RDF_WORKERS ))
 
 
 # Blazegraph - full should be maxed at 16g, partial can be maxed at 2g
@@ -159,7 +159,7 @@ else
   echo "### Optimizing for a small OSM file import"
   MEM_BLAZEGRAPH_MB=$(( 1024 * 3 / 2 ))
 fi
-MEM_BLAZEGRAPH_MB=$(( ${MAX_MEMORY_MB} / 2 > ${MEM_BLAZEGRAPH_MB} ? ${MEM_BLAZEGRAPH_MB} : ${MAX_MEMORY_MB} / 2 ))
+MEM_BLAZEGRAPH_MB=$(( MAX_MEMORY_MB / 2 > MEM_BLAZEGRAPH_MB ? MEM_BLAZEGRAPH_MB : MAX_MEMORY_MB / 2 ))
 
 # In case there is a local SSD, use it as the temp storage, otherwise use data dir.
 OSM_PGSQL_TEMP_DIR=$( [[ "${TEMP_DIR}" == "" ]] && echo "${OSM_PGSQL_DATA_DIR}" || echo "${TEMP_DIR}/osm-pgsql-tmp" )
@@ -222,7 +222,8 @@ if [[ ! -f "${POSTGRES_PASSWORD_FILE}" ]]; then
     openssl rand -base64 15 | head -c 12 > "${POSTGRES_PASSWORD_FILE}"
     chmod 400 "${POSTGRES_PASSWORD_FILE}"
 fi
-export POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
+POSTGRES_PASSWORD=$(<"${POSTGRES_PASSWORD_FILE}")
+export POSTGRES_PASSWORD
 
 
 #
@@ -277,7 +278,7 @@ if [[ ! -f "${OSM_PGSQL_DATA_DIR}/state.txt" ]]; then
     cp "${REPO_DIR}/docker/osmosis_configuration.txt" "${OSM_PGSQL_DATA_DIR}/configuration.txt"
     touch "${OSM_PGSQL_DATA_DIR}/download.lock"
     # Current date minus N days
-    start_date=$(( `date +%s` - ${SHAPES_BACKFILL_DAYS}*24*60*60 ))
+    start_date=$(( $(date +%s) - SHAPES_BACKFILL_DAYS*24*60*60 ))
     if [[ "$(uname -s)" = "Darwin" ]]; then
       start_date_fmt=$(date -u -r "${start_date}" +"%Y-%m-%dT00:00:00Z")
     else
@@ -295,8 +296,9 @@ fi
 #
 
 function wait_for {
+    # first param is the container name
+    # the rest of params is a single command plus parameters to test if the service is ready
     local name=$1
-    local command=$2
     local id
 
     echo "Waiting for ${name} to start"
@@ -306,7 +308,7 @@ function wait_for {
         echo "Unable to find docker service '${name}'"
         exit 1
       fi
-      if docker exec ${id} ${command} > /dev/null ; then
+      if docker exec "${id}" "${@:2}" > /dev/null ; then
         break
       fi
       echo "${name} ${id} is still busy..."
@@ -324,8 +326,8 @@ function stop_service {
       echo "Unable to find docker service '${name}'"
       exit 1
     fi
-    docker stop ${id} > /dev/null
-    docker rm ${id} > /dev/null
+    docker stop "${id}" > /dev/null
+    docker rm "${id}" > /dev/null
 }
 
 function start_dbs {
@@ -334,10 +336,10 @@ function start_dbs {
         -e "BLAZEGRAPH_DATA_DIR=${BLAZEGRAPH_TEMP_DIR}"                  \
         -e "BLAZEGRAPH_IMAGE=${BLAZEGRAPH_IMAGE}"                        \
         -e "MEM_BLAZE_HEAP_MB=${MEM_BLAZEGRAPH_MB}"                      \
-        -e "MEM_BLAZE_LIMIT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))"       \
-        -e "MEM_PG_MAINTENANCE_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))"    \
-        -e "MEM_PG_SHARED_BUFFERS_MB=$(( ${MAX_MEMORY_MB} * 15 / 100 ))" \
-        -e "MEM_PG_WORK_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))"            \
+        -e "MEM_BLAZE_LIMIT_MB=$(( MAX_MEMORY_MB * 70 / 100 ))"          \
+        -e "MEM_PG_MAINTENANCE_MB=$(( MAX_MEMORY_MB * 20 / 100 ))"       \
+        -e "MEM_PG_SHARED_BUFFERS_MB=$(( MAX_MEMORY_MB * 15 / 100 ))"    \
+        -e "MEM_PG_WORK_MB=$(( MAX_MEMORY_MB * 5 / 100 ))"               \
         -e "OSM_TTLS_DIR=${OSM_TTLS_DIR}"                                \
         -e "POSTGRES_DATA_DIR=${POSTGRES_DATA_DIR}"                      \
         -e "SOPHOX_HOST=${SOPHOX_HOST}"                                  \
@@ -356,9 +358,9 @@ function start_dbs {
         up --detach
     { set +x; } 2>/dev/null
 
-    wait_for "blazegraph" "curl --fail --silent http://127.0.0.1:9999/bigdata/status"
-    wait_for "postgres" "pg_isready --dbname=gis --quiet"
-    sleep 5 # just in case :)
+    wait_for blazegraph curl --fail --silent http://127.0.0.1:9999/bigdata/status
+    wait_for postgres pg_isready --dbname=gis --quiet
+    sleep 2 # just in case :)
 }
 
 #
@@ -376,15 +378,15 @@ start_dbs
 
 echo "########### Starting Importers"
 
-if [[ -n ${ENABLE_IMPORT_OSM2PGSQL} || -n ${ENABLE_IMPORT_OSM2RDF} || -n ${ENABLE_IMPORT_PAGEVIEWS} ]]; then
+if [[ -n "${ENABLE_IMPORT_OSM2PGSQL}" || -n "${ENABLE_IMPORT_OSM2RDF}" || -n "${ENABLE_IMPORT_PAGEVIEWS}" ]]; then
     set -x
     docker run --rm                                                     \
         -e "BLAZEGRAPH_URL=${BLAZEGRAPH_URL}"                           \
         -e "BUILD_DIR=/git_repo"                                        \
         -e "DOWNLOAD_DIR=${DOWNLOAD_DIR}"                               \
         -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                           \
-        -e "MEM_OSM_PGSQL_IMPORT_MB=$(( ${MAX_MEMORY_MB} * 20 / 100 ))" \
-        -e "MEM_OSM_RDF_LIMIT_MB=$(( ${MAX_MEMORY_MB} * 70 / 100 ))"    \
+        -e "MEM_OSM_PGSQL_IMPORT_MB=$(( MAX_MEMORY_MB * 20 / 100 ))"    \
+        -e "MEM_OSM_RDF_LIMIT_MB=$(( MAX_MEMORY_MB * 70 / 100 ))"       \
         -e "OSM_FILE=${OSM_FILE}"                                       \
         -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"                   \
         -e "OSM_PGSQL_TEMP_DIR=${OSM_PGSQL_TEMP_DIR}"                   \
@@ -447,9 +449,9 @@ start_dbs
 
 echo "########### Starting Updaters"
 
-if [[ -n ${ENABLE_SVC_PROXY} || -n ${ENABLE_SVC_GUI} || -n ${ENABLE_SVC_MISC} || -n ${ENABLE_UPDATE_METADATA} || \
-      -n ${ENABLE_UPDATE_OSM2PGSQL} || -n ${ENABLE_UPDATE_OSM2RDF} || -n ${ENABLE_UPDATE_PAGEVIEWS} || \
-      -n ${ENABLE_UPDATE_USAGESTATS} || -n ${ENABLE_UPDATE_MAINTAIN} || -n ${ENABLE_UPDATE_RELLOC} ]]; then
+if [[ -n "${ENABLE_SVC_PROXY}" || -n "${ENABLE_SVC_GUI}" || -n "${ENABLE_SVC_MISC}" || -n "${ENABLE_UPDATE_METADATA}" || \
+      -n "${ENABLE_UPDATE_OSM2PGSQL}" || -n "${ENABLE_UPDATE_OSM2RDF}" || -n "${ENABLE_UPDATE_PAGEVIEWS}" || \
+      -n "${ENABLE_UPDATE_USAGESTATS}" || -n "${ENABLE_UPDATE_MAINTAIN}" || -n "${ENABLE_UPDATE_RELLOC}" ]]; then
 
     set -x
     docker run --rm                                                    \
@@ -458,7 +460,7 @@ if [[ -n ${ENABLE_SVC_PROXY} || -n ${ENABLE_SVC_GUI} || -n ${ENABLE_SVC_MISC} ||
         -e "BLAZEGRAPH_URL=${BLAZEGRAPH_URL}"                          \
         -e "BUILD_DIR=/git_repo"                                       \
         -e "IS_FULL_PLANET=${IS_FULL_PLANET}"                          \
-        -e "MEM_OSM_PGSQL_UPDATE_MB=$(( ${MAX_MEMORY_MB} * 5 / 100 ))" \
+        -e "MEM_OSM_PGSQL_UPDATE_MB=$(( MAX_MEMORY_MB * 5 / 100 ))"    \
         -e "OSM_PGSQL_DATA_DIR=${OSM_PGSQL_DATA_DIR}"                  \
         -e "OSM_RDF_DATA_DIR=${OSM_RDF_DATA_DIR}"                      \
         -e "REPO_DIR=${REPO_DIR}"                                      \

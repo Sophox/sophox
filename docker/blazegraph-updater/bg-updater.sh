@@ -6,7 +6,7 @@ echo '########### Updating from OSM Wiki ###########'
 #  <http://wiki.openstreetmap.org>  schema:dateModified  ?????
 
 if [[ ! -f "${FLAG_WB_INITIALIZED}" ]]; then
-    INIT_TIME="--start 2018-01-01T00:00:00Z"
+    INIT_TIME="2018-01-01T00:00:00Z"
     touch "${FLAG_WB_INITIALIZED}"
 else
     INIT_TIME=""
@@ -20,7 +20,7 @@ set -x
 ./runUpdate.sh \
     -h "${BLAZEGRAPH_HOST}" \
     -- \
-    ${INIT_TIME} \
+    ${INIT_TIME:+ --start ${INIT_TIME}} \
     --wikibaseUrl "https://wiki.openstreetmap.org" \
     --conceptUri "${WB_CONCEPT_URI}" \
     --entityNamespaces 120,122 \

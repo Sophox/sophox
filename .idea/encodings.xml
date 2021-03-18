@@ -3,11 +3,17 @@
   <component name="Encoding">
     <file url="file://$PROJECT_DIR$/wikidata-query-rdf" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/wikidata-query-rdf/blazegraph" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/wikidata-query-rdf/blazegraph/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/wikidata-query-rdf/common" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/wikidata-query-rdf/common/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/wikidata-query-rdf/dist" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/wikidata-query-rdf/testTools" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/wikidata-query-rdf/testTools/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/wikidata-query-rdf/tools" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/wikidata-query-rdf/tools/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/wikidata-query-rdf/tools/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/wikidata-query-rdf/war" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/wikidata-query-rdf/war/src/main/resources" charset="UTF-8" />
     <file url="PROJECT" charset="UTF-8" />
   </component>
 </project>

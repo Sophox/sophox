@@ -11,9 +11,7 @@
 : "${DATA_DIR:=/mnt/disks/data}"
 : "${TEMP_DIR:=/mnt/disks/temp}"
 
-# FIXME!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# Should be sophox.org by default
-: "${SOPHOX_HOST:=staging.sophox.org}"
+: "${SOPHOX_HOST:=sophox.org}"
 
 : "${IS_FULL_PLANET:=true}"
 : "${OSM_FILE:=planet-latest.osm.pbf}"
