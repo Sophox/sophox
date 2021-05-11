@@ -113,7 +113,7 @@ fi
 if ! which docker; then
   echo "Installing docker"
   # See https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
-  apt-get install \
+  apt-get install -y \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -124,7 +124,8 @@ if ! which docker; then
     "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
     $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   apt-get update
-  apt-get install docker-ce  # docker-ce-cli # containerd.io
+  apt-get install -y \
+    docker-ce  # docker-ce-cli # containerd.io
 fi
 
 echo "Starting up ${STARTUP_SCRIPT} with curl"
