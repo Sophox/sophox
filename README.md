@@ -2,14 +2,14 @@
 
 ## Installation
 
-Full planet Sophox should be installed on a sufficiently large (40+ GB RAM, 1TB Disk) server, preferably SSD NVMe disk.  In case of Google Cloud, a local SSD scratch disk is also recommended.  Use environment variables to override what data gets loaded.  See also the [Development section](#development) below.
+Full planet Sophox should be installed on a sufficiently large (40+ GB RAM, 1 TB Disk) server, preferably SSD NVMe disk.  In case of Google Cloud, a local SSD scratch disk is also recommended.  Use environment variables to override what data gets loaded.  See also the [Development section](#development) below.
 
 The server must have `bash`, `docker`, `curl`, and `git`.  Everything else is loaded inside docker containers.
 
 When cloning, make sure you get submodules (e.g. `git submodule update --init --recursive`)
 
 ### Google Cloud
-* Create a `custom-6-39936` VM (6 vCPUs, 36GB RAM) or better with a 15GB boot disk, and attach a 1TB Persisted SSD disk.
+* Create a `custom-6-39936` VM (6 vCPUs, 36 GB RAM) or better with a 15 GB boot disk, and attach a 1 TB Persisted SSD disk.
 * Set VM startup script to the following line, and the service should be ready in two to three days.  Insert any env var overrides right before, e.g. `export SOPHOX_HOST=example.org; curl ... | bash`
 ```
 curl --silent --show-error --location --compressed https://raw.githubusercontent.com/Sophox/sophox/main/docker/startup.gcp.sh | bash
@@ -27,14 +27,14 @@ sudo journalctl -u google-startup-scripts.service
 
 ### Hetzner or similar server
 
-We have a machine with 12, 128GB RAM, and 3 SSDs: 2 small ones and a 1.8TB one.
+We used to have a machine with 12 CPUs, 128 GB RAM, and 1.8 TB SSD.
 
 * Using [robot UI](https://robot.your-server.de/), rescue reboot with a public key, and apply firewall template "Webserver". Reboot.
 * `ssh root@<IP>`
 * run `installimage`
 * Choose -ubuntu 18.04
 * In the config file, comment out the 3rd (large) disk, set `SWRAIDLEVEL 1`, and hit `F10`.  After done formatting, use `shutdown -r now` to reboot.
-* `ssh root@88.99.164.208` and run:
+* `ssh root@88.99.164.208`
 ```bash
 # Install utils and docker
 apt update && apt upgrade
@@ -75,9 +75,9 @@ These steps are done automatically by the startup scripts. Many of the steps cre
 * Clone/pull Sophox git repo _(Use `REPO_URL` and `REPO_BRANCH` to override. Set `REPO_URL` to "-" to disable)_* Generate random Postgres password
 * Download OSM dump file and validate md5 sum. (creates _status/file.downloaded_)
 * Initialize Osmosis state configuration / timestamp (needed for osm2pgsql updates)
-* Start PostgreSQL and Blazegraph with [dc-databases.yml](docker/dc-databases.yml) and wait for them to activate
-* Run all [dc-importers-*.yml](docker/) to parse downloaded file into RDF TTL files and into Postgres tables. The TTL files are then imported into Blazegraph.  This step runs without the `--detach`, and should take a few days to complete.  Running it a second time should not take any time. Note that if it crashes, you may have to do some manual cleanup steps (e.g. wipe it all clean)
-* Run [dc-updaters-*.yml](docker/) and [dc-services-*.yml](docker/). Updaters will update OSM data -> PostgreSQL tables (geoshapes), OSM data->Blazegraph, and OSM Wiki->Blazegraph. 
+* Start PostgreSQL and Blazegraph with [dc-db-*.yml](docker) and wait for them to activate
+* Run all [dc-importers-*.yml](docker) to parse downloaded file into RDF TTL files and into Postgres tables. The TTL files are then imported into Blazegraph.  This step runs without the `--detach`, and should take a few days to complete.  Running it a second time should not take any time. Note that if it crashes, you may have to do some manual cleanup steps (e.g. wipe it all clean)
+* Run [dc-updaters-*.yml](docker) and [dc-services-*.yml](docker). Updaters will update OSM data -> PostgreSQL tables (geoshapes), OSM data->Blazegraph, and OSM Wiki->Blazegraph. 
 
 ##### [startup.gcp.sh](docker/startup.gcp.sh)
 GCP has additional disk init step done before `startup.sh`:
@@ -122,3 +122,10 @@ source "$(dirname "$0")/startup.local.sh"
 
 #### Notes for Mac users
 * Make sure to set MAX_MEMORY_MB, because `free` util is not available.
+
+## Troubleshooting
+Use `docker stats` and `docker logs` to monitor the services. Blazegraph Java service is potentially the most problematic as it requires vast amount of RAM/CPU, and does most of the indexing work. Try stopping the containers that use it (various updaters). You may temporarily suspend `traefik` to prevent new user queries. 
+
+#### Known issues
+* `sophox_osm2rdf-update_...` service could fall behind updating data from OSM. Try stopping it, waiting for some time for the Blazegraph usage to fall to 0% CPU, and start it again.
+
