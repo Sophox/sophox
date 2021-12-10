@@ -43,7 +43,7 @@ class RdfUpdateHandler(RdfHandler):
         sparql = ''
 
         if self.pending:
-            # Remove all staetments with these subjects
+            # Remove all statements with these subjects
             sparql += f'''
 DELETE {{ ?s ?p ?o . }}
 WHERE {{
@@ -52,9 +52,9 @@ WHERE {{
   FILTER (osmm:task != ?p)
 }};'''
             # flatten list of lists, and if sublist is truthy, use it
-            insertSparql = '\n'.join([v for sublist in self.pending.values() if sublist for v in sublist])
-            if insertSparql:
-                sparql += f'INSERT {{ {insertSparql} }} WHERE {{}};\n'
+            insert_sparql = '\n'.join([v for sublist in self.pending.values() if sublist for v in sublist])
+            if insert_sparql:
+                sparql += f'INSERT {{ {insert_sparql} }} WHERE {{}};\n'
 
         if seqid > 0:
             if self.last_timestamp.year < 2000:  # Something majorly wrong
