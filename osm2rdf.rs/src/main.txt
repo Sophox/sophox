@@ -1,0 +1,314 @@
+// Copyright (c) 2014-2015 Guillaume Pinot <texitoi(a)texitoi.eu>
+//
+// This work is free. You can redistribute it and/or modify it under
+// the terms of the Do What The Fuck You Want To Public License,
+// Version 2, as published by Sam Hocevar. See the COPYING file for
+// more details.
+
+#[macro_use]
+extern crate log;
+extern crate env_logger;
+extern crate osmpbfreader;
+
+fn count<F: Fn(&osmpbfreader::Tags) -> bool>(filter: F, filename: &std::ffi::OsStr) {
+    let r = std::fs::File::open(&std::path::Path::new(filename)).unwrap();
+    let mut pbf = osmpbfreader::OsmPbfReader::new(r);
+    let mut nb_nodes = 0;
+    let mut sum_lon = 0.;
+    let mut sum_lat = 0.;
+    let mut nb_ways = 0;
+    let mut nb_way_nodes = 0;
+    let mut nb_rels = 0;
+    let mut nb_rel_refs = 0;
+    for obj in pbf.par_iter().map(Result::unwrap) {
+        if !filter(obj.tags()) {
+            continue;
+        }
+        info!("{:?}", obj);
+        match obj {
+            osmpbfreader::OsmObj::Node(node) => {
+                nb_nodes += 1;
+                sum_lon += node.lon();
+                sum_lat += node.lat();
+            }
+            osmpbfreader::OsmObj::Way(way) => {
+                nb_ways += 1;
+                nb_way_nodes += way.nodes.len();
+            }
+            osmpbfreader::OsmObj::Relation(rel) => {
+                nb_rels += 1;
+                nb_rel_refs += rel.refs.len();
+            }
+        }
+    }
+    println!(
+        "{} nodes, mean coord: {}, {}.",
+        nb_nodes,
+        sum_lat / nb_nodes as f64,
+        sum_lon / nb_nodes as f64
+    );
+    println!(
+        "{} ways, mean |nodes|: {}",
+        nb_ways,
+        nb_way_nodes as f64 / nb_ways as f64
+    );
+    println!(
+        "{} relations, mean |references|: {}",
+        nb_rels,
+        nb_rel_refs as f64 / nb_rels as f64
+    );
+}
+
+fn main() {
+    env_logger::init();
+    let args: Vec<_> = std::env::args_os().collect();
+    match args.len() {
+        2 => {
+            println!("counting objects...");
+            count(|_| true, &args[1]);
+        }
+        3 => {
+            let key = args[2].to_str().unwrap();
+            println!("counting objects with \"{}\" in tags...", key);
+            count(|tags| tags.contains_key(key), &args[1]);
+        }
+        4 => {
+            let key = args[2].to_str().unwrap();
+            let val = args[3].to_str().unwrap();
+            println!("counting objects with tags[\"{}\"] = \"{}\"...", key, val);
+            count(|tags| tags.contains(key, val), &args[1]);
+        }
+        _ => println!("usage: count filename [key [value]]",),
+    };
+}
+
+
+
+
+
+
+
+
+
+
+
+// // Count the number of nodes, ways and relations in a PBF file given as the
+// // first command line argument.
+//
+// extern crate osmpbf;
+//
+// use osmpbf::*;
+//
+// fn handler(element: Element) -> (u64, u64, u64) {
+//     match element {
+//         Element::Node(_) | Element::DenseNode(_) => (1, 0, 0),
+//         Element::Way(_) => (0, 1, 0),
+//         Element::Relation(_) => (0, 0, 1),
+//     }
+// }
+//
+// fn init() -> (u64, u64, u64) {
+//     (0u64, 0u64, 0u64)
+// }
+//
+// fn combine(a: (u64, u64, u64), b: (u64, u64, u64)) -> (u64, u64, u64) {
+//     (a.0 + b.0, a.1 + b.1, a.2 + b.2)
+// }
+//
+// fn main() {
+//     let arg = std::env::args_os()
+//         .nth(1)
+//         .expect("need a *.osm.pbf file as argument");
+//     let path = std::path::Path::new(&arg);
+//     let reader = ElementReader::from_path(path).unwrap();
+//
+//     println!("Counting...");
+//
+//     match reader.par_map_reduce(
+//         &handler, &init, &combine,
+//     ) {
+//         Ok((nodes, ways, relations)) => {
+//             println!("Nodes: {}", nodes);
+//             println!("Ways: {}", ways);
+//             println!("Relations: {}", relations);
+//         }
+//         Err(e) => {
+//             println!("{}", e);
+//         }
+//     }
+//     //
+//     // reader.blob_iter
+//     //     .par_bridge()
+//     //     .map(|blob| match blob?.decode() {
+//     //         Ok(BlobDecode::OsmHeader(_)) | Ok(BlobDecode::Unknown(_)) => Ok(init()),
+//     //         Ok(BlobDecode::OsmData(block)) => Ok(block
+//     //             .elements()
+//     //             .map(|e| map_op(e))
+//     //             .fold(init(), |a, b| reduce_op(a, b))),
+//     //         Err(e) => Err(e),
+//     //     })
+//     //     .reduce(
+//     //         || Ok(init()),
+//     //         |a, b| match (a, b) {
+//     //             (Ok(x), Ok(y)) => Ok(reduce_op(x, y)),
+//     //             (x, y) => x.and(y),
+//     //         },
+//     //     )
+//
+//
+// }
+// extern crate memmap2;
+//
+// use std::env;
+// use std::fs::{OpenOptions, File};
+// // use std::io::Write;
+// use byteorder::{LittleEndian, WriteBytesExt, ReadBytesExt};
+//
+// use memmap2::{MmapMut, Mmap};
+//
+// #[derive(Debug)]
+// struct Location {
+//     x: i32,
+//     y: i32,
+// }
+//
+// enum MmapState {
+//     None,
+//     Readonly(Mmap),
+//     Mutable(MmapMut),
+// }
+//
+// struct DiskCache {
+//     file: File,
+//     mmapState: MmapState,
+// }
+//
+// impl DiskCache {
+//     pub fn new(path: &str) -> Self {
+//         let file = OpenOptions::new()
+//             .read(true)
+//             .write(true)
+//             .create(true)
+//             .open(path)
+//             .unwrap_or_else(|_| panic!("failed to open file {}", path));
+//     }
+//
+//     pub fn set_len(elementCount: u64) {
+//
+//     }
+// }
+//
+//
+// fn main() {
+//     let path = env::args()
+//         .nth(1)
+//         .expect("supply a single path as the program argument");
+//
+//     let file = OpenOptions::new()
+//         .read(true)
+//         .write(true)
+//         .create(true)
+//         .open(path.as_str())
+//         .unwrap_or_else(|_| panic!("failed to open file {}", path));
+//
+// }
+use std::convert::TryInto;
+use std::fmt::Debug;
+use std::fs;
+use std::fs::{File, OpenOptions};
+use std::ops::Deref;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc::channel;
+
+use bytesize::ByteSize;
+use memmap2::MmapMut;
+use osmpbf::{Blob, BlobDecode, BlobReader, DenseNode, Element, ElementReader, HeaderBlock};
+use rayon::iter::ParallelBridge;
+use rayon::prelude::ParallelIterator;
+use osmnodecache::{DenseFileCache, Cache};
+
+fn main() -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() < 2 {
+        println!("Need a .osm.pbf file as first argument.");
+        return Ok(());
+    }
+    let reader = BlobReader::from_path(&args[1])?;
+    let index_filename = "flat_index";
+    let file_cache = DenseFileCache::new(index_filename.to_string(), None)?;
+    println!("Initial cache size: {}", ByteSize(fs::metadata(index_filename).unwrap().len()));
+
+    let num_nodes: AtomicU64 = AtomicU64::new(0);
+
+    reader.par_bridge()
+        .for_each_with(
+            file_cache,
+            |dfc, blob| {
+                let mut cache = dfc.get_accessor();
+                if let BlobDecode::OsmData(block) = blob.unwrap().decode().unwrap() {
+                    for node in block.groups().flat_map(|g| g.dense_nodes()) {
+                        cache.set_value_i32(node.id as usize, node.decimicro_lat(), node.decimicro_lon());
+                    }
+                };
+            });
+
+    //
+    // reader.par_bridge()
+    //     .for_each_with(
+    //         file_cache,
+    //         |dfc: &mut DenseFileCache, blob: Result<Blob, osmpbf::Error>| {
+    //             let mut cache = dfc.get_accessor();
+    //             match blob.unwrap().decode().unwrap() {
+    //                 // Ok(BlobDecode::OsmHeader(_)) | Ok(BlobDecode::Unknown(_)) => Ok(identity()),
+    //                 // Ok(BlobDecode::OsmData(block)) => Ok(block
+    //                 //     .elements()
+    //                 //     .map(|e| map_op(e))
+    //                 //     .fold(identity(), |a, b| reduce_op(a, b))),
+    //                 BlobDecode::OsmHeader(header) => {
+    //                     // let hdr: &HeaderBlock = header.borrow();
+    //                     println!("Required features: {}", header.required_features().join(", "));
+    //                     println!("Optional features: {}", header.optional_features().join(", "));
+    //                 }
+    //                 BlobDecode::OsmData(block) => {
+    //                     for node in block.groups().flat_map(|g| g.dense_nodes()) {
+    //                         cache.set_value_i32(node.id as usize, node.decimicro_lat(), node.decimicro_lon());
+    //                         num_nodes.fetch_add(1, Ordering::Relaxed);
+    //                     }
+    //                 }
+    //                 BlobDecode::Unknown(unk) => {
+    //                     println!("unknown {}", unk);
+    //                 }
+    //             };
+    //         });
+
+
+    // for blob in reader {
+    //     match blob?.decode()? {
+    //         BlobDecode::OsmHeader(header) => {
+    //             // let hdr: &HeaderBlock = header.borrow();
+    //             println!("Required features: {}", header.required_features().join(", "));
+    //             println!("Optional features: {}", header.optional_features().join(", "));
+    //         }
+    //         BlobDecode::OsmData(block) => {
+    //             for node in block.groups().flat_map(|g| g.dense_nodes()) {
+    //                 cache.set_value_i32(node.id as u64, node.decimicro_lat(), node.decimicro_lon())?;
+    //                 num_nodes += 1;
+    //             }
+    //         }
+    //         BlobDecode::Unknown(unk) => {
+    //             println!("unknown");
+    //         }
+    //     }
+    //     // if let BlobDecode::OsmData(block) = blob?.decode()? {
+    //     //     for node in block.groups().flat_map(|g| g.dense_nodes()) {
+    //     //         fi.add_node(node.id as u64, pack(node.decimicro_lat(), node.decimicro_lon()))?;
+    //     //         num_nodes += 1;
+    //     //     }
+    //     // }
+    // }
+
+    println!("Stored {} nodes", num_nodes.load(Ordering::Relaxed));
+    println!("Final cache size: {}", ByteSize(fs::metadata(index_filename).unwrap().len()));
+
+    Ok(())
+}

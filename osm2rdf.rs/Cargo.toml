@@ -1,0 +1,24 @@
+[package]
+name = "osm2rdf-rust"
+version = "0.1.0"
+authors = ["Yuri Astrakhan <YuriAstrakhan@gmail.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.44"
+byteorder = "1.4.3"
+bytesize = "1.1.0"
+chrono = "0.4.19"
+flate2 = "1.0.22"
+geos = "8.0.3"
+json = "0.12.4"
+memmap2 = "0.5.0"
+osmnodecache = { path = "../osm-node-cache" }
+osmpbf = "0.2.6"
+path-absolutize = "3.0.11"
+percent-encoding = "2.1.0"
+rayon = "1.5.1"
+regex = "1.5.4"
+structopt = "0.3.25"
