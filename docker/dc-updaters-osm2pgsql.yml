@@ -3,7 +3,7 @@ version: '2.3'
 services:
 
   osm2pgsql-updater:
-    # continuously update from live OSM data to PostgresSQL (geoshapes)
+    # continuously update from live OSM data to PostgreSQL (geoshapes)
     image: sophox/osm2pgsql_osmium
     command: /osm-to-pgsql/osm2pgsql-update.sh
     restart: on-failure
