@@ -54,11 +54,12 @@ echo UUID=`blkid -s UUID -o value /dev/sdc` /mnt/data xfs discard,defaults,nofai
 
 * Install Sophox:
 ```
-export DATA_DIR=/mnt/data
+cd /mnt/data
+export DATA_DIR=$PWD
 export REPO_BRANCH=main
 nohup curl --fail --silent --show-error --location --compressed \
    https://raw.githubusercontent.com/Sophox/sophox/${REPO_BRANCH}/docker/startup.planet.sh \
-   | bash >> /mnt/data/startup.log 2>&1 &
+   | bash >> $DATA_DIR/startup.log 2>&1 &
 ```
 
 ### Monitoring
