@@ -1,6 +1,7 @@
 'use strict';
 const fs = require('fs');
 const request = require('request');
+const fetch = require('node-fetch');
 const app = require('express')();
 
 const port = 9979;
@@ -17,11 +18,30 @@ app.options("/*", function (req, res) {
 	res.sendStatus(200);
 });
 
-app.use(require('express-accesstoken-validation')({
-	validationUri: 'https://www.openstreetmap.org/oauth/authorize',
-	// validationUri: 'https://master.apis.dev.openstreetmap.org/oauth/authorize',
-	tokenParam: 'oauth_token'
-}));
+app.use(async (req, res, next) => {
+	const authHeader = req.headers.authorization;
+	if (!authHeader) {
+		return res.status(401).send();
+	}
+
+	try {
+		const userDetailsUrl = 'https://api.openstreetmap.org/api/0.6/user/details';
+		// const userDetailsUrl = 'https://master.apis.dev.openstreetmap.org/api/0.6/user/details';
+		const response = await fetch(userDetailsUrl, {
+			method: 'GET',
+			headers: {
+				'Authorization': authHeader,
+			}
+		});
+		if (!response.ok) {
+			return res.status(401).send();
+		}
+	} catch {
+		return res.status(500).send();
+	}
+
+	return next();
+});
 
 app.use(require('body-parser').urlencoded({extended: true}));
 app.put('/store/v1/:taskId/:osmType/:osmId/:selection', handleRequest);

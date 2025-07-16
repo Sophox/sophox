@@ -8,8 +8,8 @@
   },
   "dependencies": {
     "express": "^4.16.4",
-    "express-accesstoken-validation": "^0.5.0",
     "request": "^2.88.0",
-    "body-parser": "^1.18.3"
+    "body-parser": "^1.18.3",
+    "node-fetch": "^2.7.0"
   }
 }
